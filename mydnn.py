@@ -6,6 +6,7 @@ import pickle, gzip, urllib.request, json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pdb
 
 def download_data():
     # downloading data if necessary
@@ -152,11 +153,11 @@ class mydnn:
         """
         :param architecture: A list of dictionaries, each dictionary represents a layer, for each layer the dictionary
          will consist
-            – “input” - int, the dimension of the input
-            – “output” int, the dimension of the output
-            – “nonlinear” string, whose possible values are: “relu”, “sigmoid”, “sotmax” or “none”
-            – “regularization” string, whose possible values are: “l1” (L1 norm), or “l2” (L2 norm)
-        :param loss: string, could be one of “MSE” or “cross-entropy”
+            - "input" - int, the dimension of the input
+            - "output" int, the dimension of the output
+            - "nonlinear" string, whose possible values are: "relu", "sigmoid", "sotmax" or "none"
+            - "regularization" string, whose possible values are: "l1" (L1 norm), or "l2" (L2 norm)
+        :param loss: string, could be one of "MSE" or "cross-entropy"
         :param weight_decay: float, the lambda parameter for the regularization.
         """
 
@@ -203,7 +204,7 @@ class mydnn:
         """
         The function will run SGD for a user-defined number of epochs, with the
         defined batch size. On every epoch, the data will be reshuffled (make sure you
-        shuffle the x’s and y’s together).
+        shuffle the x's and y's together).
         For every batch the data should be passed forward and gradients pass backward.
         After gradients are computed, weights update will be performed using
         the current learning rate.
@@ -264,7 +265,7 @@ class mydnn:
 
 
 if __name__ == '__main__':
-    train_set, valid_set, test_set = download_data()
+    #train_set, valid_set, test_set = download_data()
 
     # TODO: A
     '''
@@ -276,10 +277,10 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    model = mydnn(architecture=None, loss=None)
-    print(layer(1,2,3).forward())
-    model._plot_figures({'Steps':[1,2,3], 'Accuracy': [98,100,89]}, 'Test')
-    model.fit(...)
+    #model = mydnn(architecture=None, loss=None)
+    #print(layer(1,2,3).forward())
+    #model._plot_figures({'Steps':[1,2,3], 'Accuracy': [98,100,89]}, 'Test')
+    #model.fit(...)
 
     # TODO: A
     '''
@@ -287,13 +288,13 @@ if __name__ == '__main__':
     -------------
     Consider the last (one hidden layer) architecture and run it first without regularization,
     and compare to applications with L1 and L2 norms regularization
-    (optimize the weight decay parameter λ on the validation set; an initial recommended
-    value is λ = 5e − 4). Discuss how the use of regularization affects
+    (optimize the weight decay parameter \lambda on the validation set; an initial recommended
+    value is \lambda = 5e - 4). Discuss how the use of regularization affects
     generalization.
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
+    #model = mydnn(architecture=None, loss=None)
+    #model.fit(...)
+    #model._plot_figures(...)
 
     # TODO: B
     '''
@@ -308,24 +309,24 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
+    #model = mydnn(architecture=None, loss=None)
+    #model.fit(...)
+    #model._plot_figures(...)
 
     # TODO: B
     '''
     Regression:
     -------------
     For this section we will create a synthetic dataset using the function
-    f(x) = x_1 exp(−x_1^2-x_2^2)
-    Sample uniformly at random m training points in the range x1 ∈ [−2, 2], x2 ∈
-    [−2, 2]. For the test set, take the linear grid using np.linspace (-2,2, 1000).
+    f(x) = x_1 exp(-x_1^2-x_2^2)
+    Sample uniformly at random m training points in the range x1 in [-2, 2], x2 in
+    [-2, 2]. For the test set, take the linear grid using np.linspace (-2,2, 1000).
     Find the best architecture for the case where m = 100 and for the case
     m = 1000. In your results show the final MSE on the test set and also plot
-    a 3d graph showing yˆtest (predicted values for the test points) as function of
+    a 3d graph showing y'test (predicted values for the test points) as function of
     x = (x1, x2).
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
-    model._plot_3d_figure(...)
+    #model = mydnn(architecture=None, loss=None)
+    #model.fit(...)
+    #model._plot_figures(...)
+    #model._plot_3d_figure(...)
