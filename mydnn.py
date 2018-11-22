@@ -125,6 +125,44 @@ class layer:
             self.other.reset()
 
 
+class linear:
+    """ Fully connected layer """
+    def __init__(self, in_features, out_features):
+        self._in_dim = in_features
+        self._out_dim = out_features
+
+        # Weights and bias initialization
+        self._w = np.random.uniform(-1/np.sqrt(in_features), \
+                                     1/np.sqrt(in_features), \
+                                     (out_features, in_features))
+        self._b = 0
+        self._x = 0
+        self._grad = 0
+        self._grad_sum = 0
+
+    def forward(self, x):
+        self._x = x
+        return np.matmul(self._w, x) + self._b
+
+    def backward(self, grad=None):
+        if grad is None:
+            self._grad = np.transpose(self._x)
+        else:
+            self._grad_sum += grad
+            self._grad += grad
+
+    def reset(self):
+        self._grad = 0
+
+    def update_grad(self, eta):
+        self._w = self._w - eta*self._grad_sum
+        self._grad_sum = 0
+
+    def get_grad(self):
+        return self._grad
+
+
+
 class activations:
     # TODO A
     """
