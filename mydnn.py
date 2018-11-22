@@ -21,6 +21,11 @@ def download_data():
 
     return train_set, valid_set, test_set
 
+def relu(x, dx=False):
+    if dx==False:
+        return np.maximum(0, x)
+    else:
+        return (x>0)*1
 
 class layer:
     # TODO: A   (this is a rough draft based on tutorial 4, currently only forward pass for scalars is working)
@@ -28,125 +33,37 @@ class layer:
     creates a fully-connected layer
     """
 
-    def __init__(self, W, x, b):
-        self.W = self.variable(W)
-        self.x = self.variable(x)
-        self.b = self.variable(b)
-        self.value = self.forward()
-        self.gradient = 0
-        self.gradient_sum = 0
+    def __init__(self, params):
+        # TODO: add assertions
+        self._in_dim = params["input"]
+        self._out_dim = params["output"]
+        self._act_fn = params["nonlinear"]
+        self._regularization = params["regularization"]
 
-    def forward(self):
-        return self.add(self.mult(self.W, self.x), self.b).forward()
+        # replace string with function pointer
+        # TODO: add all other activations
+        if self._act_fn == "relu":
+            self._act_fn = relu
 
-    def backward(self):
-        return 0
-
-    def reset(self):
-        return 0
-
-    class variable:
-        def __init__(self, value):
-            self.value = value
-            self.gradient = 0
-            self.gradient_sum = 0
-
-        def forward(self):
-            return self.value
-
-        def set_value(self, value):
-            self.value = value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient_sum += grad
-                self.gradient += grad
-
-        def reset(self):
-            self.gradient = 0
-
-        def update_grad(self, eta):
-            self.value = self.value - 1 * eta * self.gradient_sum
-            self.gradient_sum = 0
-
-        def get_gradient(self):
-            return self.gradient
-
-    class add:
-        def __init__(self, child, other):
-            self.child = child
-            self.other = other
-            self.value = 0
-            self.gradient = 0
-
-        def forward(self):
-            self.value = self.child.forward() + self.other.forward()
-            return self.value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient += grad
-
-            self.child.backward(self.gradient * 1)
-            self.other.backward(self.gradient * 1)
-
-        def reset(self):
-            self.gradient = 0
-            self.child.reset()
-            self.other.reset()
-
-    class mult:
-        def __init__(self, child, other):
-            self.child = child
-            self.other = other
-            self.value = 0
-            self.gradient = 0
-
-        def forward(self):
-            self.value = self.child.forward() * self.other.forward()
-            return self.value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient += grad
-
-            self.child.backward(self.gradient * self.other.value)
-            self.other.backward(self.gradient * self.child.value)
-
-        def reset(self):
-            self.gradient = 0
-            self.child.reset()
-            self.other.reset()
-
-
-class linear:
-    """ Fully connected layer """
-    def __init__(self, in_features, out_features):
-        self._in_dim = in_features
-        self._out_dim = out_features
-
-        # Weights and bias initialization
-        self._w = np.random.uniform(-1/np.sqrt(in_features), \
-                                     1/np.sqrt(in_features), \
-                                     (out_features, in_features))
+        self._w = np.random.uniform(-1/np.sqrt(self._in_dim), \
+                                     1/np.sqrt(self._in_dim), \
+                                     (self._out_dim, self._in_dim))
         self._b = 0
         self._x = 0
+        self._y = 0
         self._grad = 0
         self._grad_sum = 0
 
+
     def forward(self, x):
         self._x = x
-        return np.matmul(self._w, x) + self._b
+        self._y = relu(np.matmul(self._w, x) + self._b)
+        return self._y
 
+    # TODO: fix backward
     def backward(self, grad=None):
         if grad is None:
-            self._grad = np.transpose(self._x)
+            self._grad = np.matmul(grad, self._act_fn(self._y, True))
         else:
             self._grad_sum += grad
             self._grad += grad
@@ -160,6 +77,16 @@ class linear:
 
     def get_grad(self):
         return self._grad
+
+# Debug
+params = {"input": 2,
+          "output": 4,
+          "nonlinear": "relu",
+          "regularization": "l1"}
+lll = layer(params)
+x = np.random.uniform(-5, 5, (2, 1))
+pdb.set_trace()
+
 
 
 
