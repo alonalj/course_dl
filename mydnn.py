@@ -26,36 +26,37 @@ def download_data():
 # Regularization
 # --------------
 class l1_norm:
-    def forward(self, x):
-        return np.linalg.norm(x, ord=1)
+    def forward(self, w):
+        return np.linalg.norm(w, ord=1)
 
-    def backward(self, x):
-        mask1 = (x>=0) * 1.0
-        mask2 = (x<0) * -1.0
+    def backward(self, w):
+        mask1 = (w>=0) * 1.0
+        mask2 = (w<0) * -1.0
         return mask1 + mask2
 
 class l2_norm:
-    def forward(self, x):
-        return np.linalg.norm(x, ord=2)
+    def forward(self, w):
+        return np.linalg.norm(w, ord=2)
 
-    def backward(self, x):
-        return 2*x
+    def backward(self, w):
+        return 2*w
 
 # --------------
 # Loss functions
 # --------------
 class mse:
-    def forward(self, x):
-        return 0
+    def forward(self, y, y_tag):
+        return np.mean(np.square(y - y_tag))
 
-    def backward(self, x):
-        return 0
+    def backward(self, y, y_tag):
+        return 2 * np.mean(y - y_tag)
 
+# TODO: fix this
 class cross_entropy:
-    def forward(self, x):
-        return 0
+    def forward(self, y, y_tag):
+        return -1 * np.sum(np.multiply(y, np.log(y_tag)))
 
-    def backward(self, x):
+    def backward(self, y, y_tag):
         return 0
 
 # --------------------
