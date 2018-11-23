@@ -22,6 +22,9 @@ def download_data():
 
     return train_set, valid_set, test_set
 
+# --------------------
+# Activation functions
+# --------------------
 def relu(x, dx=False):
     if dx==False:
         return np.maximum(0, x)
@@ -66,7 +69,6 @@ class layer:
         self._regularization = params["regularization"]
 
         # replace string with function pointer
-        # TODO: add all other activations
         if self._act_fn == "relu":
             self._act_fn = relu
         elif self._act_fn == "sigmoid":
@@ -133,27 +135,6 @@ lll.backward(gradd)
 pdb.set_trace()
 
 
-
-
-class activations:
-    # TODO A
-    """
-    Need all activations (including softmax, RELU etc. - see in HW)
-    """
-
-
-class loss:
-    # TODO A
-    """
-    loss, accuracy and whatever they asked to measure
-    """
-
-
-class regularization:
-    # TODO A
-    """
-    any regularization functions required
-    """
 
 
 class mydnn:
