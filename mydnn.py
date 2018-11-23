@@ -27,17 +27,19 @@ def download_data():
 # --------------
 class l1_norm:
     def forward(self, x):
-        return 0
+        return np.linalg.norm(x, ord=1)
 
     def backward(self, x):
-        return 0
+        mask1 = (x>=0) * 1.0
+        mask2 = (x<0) * -1.0
+        return mask1 + mask2
 
 class l2_norm:
     def forward(self, x):
-        return 0
+        return np.linalg.norm(x, ord=2)
 
     def backward(self, x):
-        return 0
+        return 2*x
 
 # --------------
 # Loss functions
