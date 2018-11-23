@@ -25,10 +25,36 @@ def download_data():
 # --------------
 # Regularization
 # --------------
+class l1_norm:
+    def forward(self, x):
+        return 0
+
+    def backward(self, x):
+        return 0
+
+class l2_norm:
+    def forward(self, x):
+        return 0
+
+    def backward(self, x):
+        return 0
 
 # --------------
 # Loss functions
 # --------------
+class mse:
+    def forward(self, x):
+        return 0
+
+    def backward(self, x):
+        return 0
+
+class cross_entropy:
+    def forward(self, x):
+        return 0
+
+    def backward(self, x):
+        return 0
 
 # --------------------
 # Activation functions
@@ -66,10 +92,10 @@ class softmax:
 
         return jacobian_m
 
-
-
+# -----------
+# Layer class
+# -----------
 class layer:
-    # TODO: A
     """
     creates a fully-connected layer
     """
@@ -134,18 +160,30 @@ class layer:
         return self._grad
 
 # Debug
-params = {"input": 2,
-          "output": 4,
-          "nonlinear": "relu",
-          "regularization": "l1"}
-lll = layer(params)
-x = np.random.uniform(-5, 5, (2, 1))
-x = np.array([[2],[-4]])
-lll._w = np.array([[1, 2], [3, 4], [-5, -6], [7, -8]])
-gradd = np.array([[1],[1],[1],[1]])
-lll.forward(x)
-lll.backward(gradd)
+params1 = {"input": 2,
+           "output": 4,
+           "nonlinear": "relu",
+           "regularization": "l1"}
+
+params2 = {"input": 4,
+           "output": 1,
+           "nonlinear": "relu",
+           "regularization": "l1"}
+
+l1 = layer(params1)
+l2 = layer(params2)
+
+# Feedforward
+x = np.array([[20],[16]])
+y = l2.forward(l1.forward(x))
+
+# Backprop
+l2.backward(1)
+l1.backward(l2.get_grad())
+
 pdb.set_trace()
+
+
 
 
 
