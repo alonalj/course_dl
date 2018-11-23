@@ -48,32 +48,41 @@ class layer:
         self._w = np.random.uniform(-1/np.sqrt(self._in_dim), \
                                      1/np.sqrt(self._in_dim), \
                                      (self._out_dim, self._in_dim))
-        self._b = 0
+        # parameters
+        self._b = np.zeros((self._out_dim, 1))
         self._x = 0
         self._y = 0
-        self._grad = 0
-        self._grad_sum = 0
+        self._z = 0
 
+        # parameter gradients
+        self._delta = 0
+        self._dw = np.zeros((self._out_dim, self._in_dim))
+        self._db = np.zeros((self._out_dim, 1))
+
+        self._grad = 0
 
     def forward(self, x):
         self._x = x
-        self._y = relu(np.matmul(self._w, x) + self._b)
+        self._z = np.matmul(self._w, x) + self._b
+        self._y = self._act_fn(self._z)
         return self._y
 
-    # TODO: fix backward
-    def backward(self, grad=None):
-        if grad is None:
-            self._grad = np.matmul(grad, self._act_fn(self._y, True))
-        else:
-            self._grad_sum += grad
-            self._grad += grad
+    def backward(self, grad):
+        self._delta = np.multiply(grad, self._act_fn(self._z, True))
+        # Instead of Hadamard product, can also use matrix multiplication:
+        #    np.matmul(np.diag(self._act_fn(self._z, True)[:,0]), grad)
+
+        self._dw += np.matmul(self._delta, self._x.T)
+        self._db += self._delta
+        self._grad += np.matmul(self._w.T, self._delta)
 
     def reset(self):
+        self._dw = 0
+        seld._db = 0
         self._grad = 0
 
     def update_grad(self, eta):
-        self._w = self._w - eta*self._grad_sum
-        self._grad_sum = 0
+        self._w = self._w - eta*self._dw
 
     def get_grad(self):
         return self._grad
@@ -85,6 +94,11 @@ params = {"input": 2,
           "regularization": "l1"}
 lll = layer(params)
 x = np.random.uniform(-5, 5, (2, 1))
+x = np.array([[2],[-4]])
+lll._w = np.array([[1, 2], [3, 4], [-5, -6], [7, -8]])
+gradd = np.array([[1],[1],[1],[1]])
+lll.forward(x)
+lll.backward(gradd)
 pdb.set_trace()
 
 
