@@ -6,6 +6,7 @@ import pickle, gzip, urllib.request, json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import sys
 import pdb
 
 def download_data():
@@ -27,8 +28,32 @@ def relu(x, dx=False):
     else:
         return (x>0)*1
 
+def sigmoid(x, dx=False):
+    if dx==False:
+        return np.exp(x) / (np.exp(x) + 1)
+    else:
+        return np.multiply(sigmoid(x), 1 - sigmoid(x))
+
+def softmax(x, dx=False):
+    if dx==False:
+        exps = np.exp(x)
+        return exps / np.sum(exps)
+    else: 
+        # https://medium.com/@aerinykim/
+        # how-to-implement-the-softmax-derivative-independently-from-any-loss-function-ae6d44363a9d
+        jacobian_m = np.diag(x)
+
+        for i in range(len(jacobian_m)):
+            for j in range(len(jacobian_m)):
+                if i == j:
+                    jacobian_m[i][j] = x[i] * (1-x[i])
+                else:
+                    jacobian_m[i][j] = -x[i]*x[j]
+
+        return jacobian_m
+
 class layer:
-    # TODO: A   (this is a rough draft based on tutorial 4, currently only forward pass for scalars is working)
+    # TODO: A
     """
     creates a fully-connected layer
     """
@@ -44,6 +69,12 @@ class layer:
         # TODO: add all other activations
         if self._act_fn == "relu":
             self._act_fn = relu
+        elif self._act_fn == "sigmoid":
+            self._act_fn = sigmoid
+        elif self._act_fn == "softmax":
+            self._act_fn = softmax
+        else:
+            sys.exit("Error: undefined activation function {relu, sigmoid, softmax}.")
 
         self._w = np.random.uniform(-1/np.sqrt(self._in_dim), \
                                      1/np.sqrt(self._in_dim), \
@@ -90,7 +121,7 @@ class layer:
 # Debug
 params = {"input": 2,
           "output": 4,
-          "nonlinear": "relu",
+          "nonlinear": "reluu",
           "regularization": "l1"}
 lll = layer(params)
 x = np.random.uniform(-5, 5, (2, 1))
