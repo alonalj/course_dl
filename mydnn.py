@@ -22,26 +22,37 @@ def download_data():
 
     return train_set, valid_set, test_set
 
+# --------------
+# Regularization
+# --------------
+
+# --------------
+# Loss functions
+# --------------
+
 # --------------------
 # Activation functions
 # --------------------
-def relu(x, dx=False):
-    if dx==False:
+class relu:
+    def forward(self, x):
         return np.maximum(0, x)
-    else:
+
+    def backward(self, x):
         return (x>0)*1
 
-def sigmoid(x, dx=False):
-    if dx==False:
+class sigmoid:
+    def forward(self, x):
         return np.exp(x) / (np.exp(x) + 1)
-    else:
-        return np.multiply(sigmoid(x), 1 - sigmoid(x))
 
-def softmax(x, dx=False):
-    if dx==False:
+    def backward(self, x):
+        return np.multiply(self.forward(x), 1 - self.forward(x))
+        
+class softmax:
+    def forward(self, x):
         exps = np.exp(x)
         return exps / np.sum(exps)
-    else: 
+    
+    def backward(self, x):
         # https://medium.com/@aerinykim/
         # how-to-implement-the-softmax-derivative-independently-from-any-loss-function-ae6d44363a9d
         jacobian_m = np.diag(x)
@@ -54,6 +65,8 @@ def softmax(x, dx=False):
                     jacobian_m[i][j] = -x[i]*x[j]
 
         return jacobian_m
+
+
 
 class layer:
     # TODO: A
@@ -70,11 +83,11 @@ class layer:
 
         # replace string with function pointer
         if self._act_fn == "relu":
-            self._act_fn = relu
+            self._act_fn = relu()
         elif self._act_fn == "sigmoid":
-            self._act_fn = sigmoid
+            self._act_fn = sigmoid()
         elif self._act_fn == "softmax":
-            self._act_fn = softmax
+            self._act_fn = softmax()
         else:
             sys.exit("Error: undefined activation function {relu, sigmoid, softmax}.")
 
@@ -97,13 +110,13 @@ class layer:
     def forward(self, x):
         self._x = x
         self._z = np.matmul(self._w, x) + self._b
-        self._y = self._act_fn(self._z)
+        self._y = self._act_fn.forward(self._z)
         return self._y
 
     def backward(self, grad):
-        self._delta = np.multiply(grad, self._act_fn(self._z, True))
+        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
         # Instead of Hadamard product, can also use matrix multiplication:
-        #    np.matmul(np.diag(self._act_fn(self._z, True)[:,0]), grad)
+        #    np.matmul(np.diag(self._act_fn.backward(self._z)[:,0]), grad)
 
         self._dw += np.matmul(self._delta, self._x.T)
         self._db += self._delta
@@ -123,7 +136,7 @@ class layer:
 # Debug
 params = {"input": 2,
           "output": 4,
-          "nonlinear": "reluu",
+          "nonlinear": "relu",
           "regularization": "l1"}
 lll = layer(params)
 x = np.random.uniform(-5, 5, (2, 1))
