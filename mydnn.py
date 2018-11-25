@@ -6,7 +6,9 @@ import pickle, gzip, urllib.request, json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import sys
+import pdb
+import math
 
 def download_data():
     # downloading data if necessary
@@ -22,128 +24,178 @@ def download_data():
     return train_set, valid_set, test_set
 
 
+# --------------
+# Regularization
+# --------------
+class l1_norm:
+    def forward(self, w):
+        return np.linalg.norm(w, ord=1)
+
+    def backward(self, w):
+        mask1 = (w >= 0) * 1.0
+        mask2 = (w < 0) * -1.0
+        return mask1 + mask2
+
+
+class l2_norm:
+    def forward(self, w):
+        return np.linalg.norm(w, ord=2)
+
+    def backward(self, w):
+        return 2 * w
+
+
+# --------------
+# Loss functions
+# --------------
+class mse:
+    def forward(self, y, y_tag):
+        return np.mean(np.square(y - y_tag))
+
+    def backward(self, y, y_tag):
+        return 2 * np.mean(y - y_tag)
+
+
+# TODO: fix this
+class cross_entropy:
+    def forward(self, y, y_tag):
+        return -1 * np.sum(np.multiply(y, np.log(y_tag)))
+
+    def backward(self, y, y_tag):
+        return 0
+
+
+# --------------------
+# Activation functions
+# --------------------
+class relu:
+    def forward(self, x):
+        return np.maximum(0, x)
+
+    def backward(self, x):
+        return (x > 0) * 1
+
+
+class sigmoid:
+    def forward(self, x):
+        return np.exp(x) / (np.exp(x) + 1)
+
+    def backward(self, x):
+        return np.multiply(self.forward(x), 1 - self.forward(x))
+
+
+class softmax:
+    def forward(self, x):
+        exps = np.exp(x)
+        return exps / np.sum(exps)
+
+    def backward(self, x):
+        # https://medium.com/@aerinykim/
+        # how-to-implement-the-softmax-derivative-independently-from-any-loss-function-ae6d44363a9d
+        jacobian_m = np.diag(x)
+
+        for i in range(len(jacobian_m)):
+            for j in range(len(jacobian_m)):
+                if i == j:
+                    jacobian_m[i][j] = x[i] * (1 - x[i])
+                else:
+                    jacobian_m[i][j] = -x[i] * x[j]
+
+        return jacobian_m
+
+
+# -----------
+# Layer class
+# -----------
 class layer:
-    # TODO: A   (this is a rough draft based on tutorial 4, currently only forward pass for scalars is working)
     """
     creates a fully-connected layer
     """
 
-    def __init__(self, W, x, b):
-        self.W = self.variable(W)
-        self.x = self.variable(x)
-        self.b = self.variable(b)
-        self.value = self.forward()
-        self.gradient = 0
-        self.gradient_sum = 0
+    def __init__(self, params):
+        # TODO: add assertions
+        self._in_dim = params["input"]
+        self._out_dim = params["output"]
+        self._act_fn = params["nonlinear"]
+        self._regularization = params["regularization"]
 
-    def forward(self):
-        return self.add(self.mult(self.W, self.x), self.b).forward()
+        # replace string with function pointer
+        if self._act_fn == "relu":
+            self._act_fn = relu()
+        elif self._act_fn == "sigmoid":
+            self._act_fn = sigmoid()
+        elif self._act_fn == "softmax":
+            self._act_fn = softmax()
+        else:
+            sys.exit("Error: undefined activation function {relu, sigmoid, softmax}.")
 
-    def backward(self):
-        return 0
+        self._w = np.random.uniform(-1 / np.sqrt(self._in_dim), \
+                                    1 / np.sqrt(self._in_dim), \
+                                    (self._out_dim, self._in_dim))
+        # parameters
+        self._b = np.zeros((self._out_dim, 1))
+        self._x = 0
+        self._y = 0
+        self._z = 0
+
+        # parameter gradients
+        self._delta = 0
+        self._dw = np.zeros((self._out_dim, self._in_dim))
+        self._db = np.zeros((self._out_dim, 1))
+
+        self._grad = 0
+
+    def forward(self, x):
+        self._x = x
+        self._z = np.matmul(self._w, x) + self._b
+        self._y = self._act_fn.forward(self._z)
+        return self._y
+
+    def backward(self, grad):
+        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
+        # Instead of Hadamard product, can also use matrix multiplication:
+        #    np.matmul(np.diag(self._act_fn.backward(self._z)[:,0]), grad)
+
+        self._dw += np.matmul(self._delta, self._x.T)
+        self._db += self._delta
+        self._grad += np.matmul(self._w.T, self._delta)
 
     def reset(self):
-        return 0
+        self._dw = 0
+        self._db = 0
+        self._grad = 0
 
-    class variable:
-        def __init__(self, value):
-            self.value = value
-            self.gradient = 0
-            self.gradient_sum = 0
+    def update_grad(self, eta):
+        self._w = self._w - eta * self._dw
 
-        def forward(self):
-            return self.value
-
-        def set_value(self, value):
-            self.value = value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient_sum += grad
-                self.gradient += grad
-
-        def reset(self):
-            self.gradient = 0
-
-        def update_grad(self, eta):
-            self.value = self.value - 1 * eta * self.gradient_sum
-            self.gradient_sum = 0
-
-        def get_gradient(self):
-            return self.gradient
-
-    class add:
-        def __init__(self, child, other):
-            self.child = child
-            self.other = other
-            self.value = 0
-            self.gradient = 0
-
-        def forward(self):
-            self.value = self.child.forward() + self.other.forward()
-            return self.value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient += grad
-
-            self.child.backward(self.gradient * 1)
-            self.other.backward(self.gradient * 1)
-
-        def reset(self):
-            self.gradient = 0
-            self.child.reset()
-            self.other.reset()
-
-    class mult:
-        def __init__(self, child, other):
-            self.child = child
-            self.other = other
-            self.value = 0
-            self.gradient = 0
-
-        def forward(self):
-            self.value = self.child.forward() * self.other.forward()
-            return self.value
-
-        def backward(self, grad=None):
-            if grad is None:
-                self.gradient = 1
-            else:
-                self.gradient += grad
-
-            self.child.backward(self.gradient * self.other.value)
-            self.other.backward(self.gradient * self.child.value)
-
-        def reset(self):
-            self.gradient = 0
-            self.child.reset()
-            self.other.reset()
+    def get_grad(self):
+        return self._grad
 
 
-class activations:
-    # TODO A
-    """
-    Need all activations (including softmax, RELU etc. - see in HW)
-    """
 
+# Debug
+params1 = {"input": 2,
+           "output": 4,
+           "nonlinear": "relu",
+           "regularization": "l1"}
 
-class loss:
-    # TODO A
-    """
-    loss, accuracy and whatever they asked to measure
-    """
+params2 = {"input": 4,
+           "output": 1,
+           "nonlinear": "relu",
+           "regularization": "l1"}
 
+l1 = layer(params1)
+l2 = layer(params2)
 
-class regularization:
-    # TODO A
-    """
-    any regularization functions required
-    """
+# Feedforward
+x = np.array([[20], [16]])
+y = l2.forward(l1.forward(x))
+
+# Backprop
+l2.backward(1)
+l1.backward(l2.get_grad())
+
+pdb.set_trace()
 
 
 class mydnn:
@@ -153,13 +205,26 @@ class mydnn:
         """
         :param architecture: A list of dictionaries, each dictionary represents a layer, for each layer the dictionary
          will consist
-            – “input” - int, the dimension of the input
-            – “output” int, the dimension of the output
-            – “nonlinear” string, whose possible values are: “relu”, “sigmoid”, “sotmax” or “none”
-            – “regularization” string, whose possible values are: “l1” (L1 norm), or “l2” (L2 norm)
-        :param loss: string, could be one of “MSE” or “cross-entropy”
+            - "input" - int, the dimension of the input
+            - "output" int, the dimension of the output
+            - "nonlinear" string, whose possible values are: "relu", "sigmoid", "sotmax" or "none"
+            - "regularization" string, whose possible values are: "l1" (L1 norm), or "l2" (L2 norm)
+        :param loss: string, could be one of "MSE" or "cross-entropy"
         :param weight_decay: float, the lambda parameter for the regularization.
         """
+        self.architecture = architecture
+        self.loss = loss
+        self.weight_decay = weight_decay
+        # self.debug = debug  # TODO: remove from signature as well as from here
+        self.graph = self.build_graph()
+
+    def build_graph(self):
+        layers = []
+        for i in range(len(self.architecture)):
+            layers.append(layer(self.architecture[i]))
+        layers_reversed = layers.copy()
+        layers_reversed.reverse()
+        return layers, layers_reversed
 
     def _normalize(self, x_train, x_val, x_test):
         # subtract training set's mean sample from all samples
@@ -204,7 +269,7 @@ class mydnn:
         """
         The function will run SGD for a user-defined number of epochs, with the
         defined batch size. On every epoch, the data will be reshuffled (make sure you
-        shuffle the x’s and y’s together).
+        shuffle the x's and y's together).
         For every batch the data should be passed forward and gradients pass backward.
         After gradients are computed, weights update will be performed using
         the current learning rate.
@@ -228,13 +293,64 @@ class mydnn:
         :param x_val: the validation x data (same structure as train data) default is None. When validation data is
         given, evaluation over this data will be made at the end of every epoch.
         :param y_val: the corresponding validation y data (labels) whose structure is identical to y_train.
-
         :return: history - intermediate optimization results, which is a list of dictionaries, such that each epoch has
          a corresponding dictionary containing all relevant results. These dictionaries do not contain formatting
          information (you will later use the history to print various things including plots of learning and convergence
           curves for your networks). The exact structure of each dictionary is up to you.
         """
-        history = None
+        layers, layers_reversed = self.graph
+
+        # loss function
+        if self.loss == 'MSE':
+            loss_func = mse()
+            metric_name = 'Loss'
+        elif self.loss == 'cross-entropy':
+            metric_name = 'Accuracy'
+
+        history = {'Steps': [], metric_name: []}
+        learning_rate = max(min_lr, learning_rate)
+        step_counter_tot = 0
+
+        # training
+        for e in range(epochs):
+            print("Epoch %d" % e)
+            for step in range(
+                    max(1, math.ceil(len(y_train) / batch_size) - 1)):  # TODO verify this doesn't skip any batches
+
+                batch_x = x_train[step * batch_size: (step + 1) * batch_size]
+                batch_y = y_train[step * batch_size: (step + 1) * batch_size]
+                x = batch_x
+
+                # forward pass
+                out = layers[0].forward(x.T)
+                for l in layers[1:]:
+                    out = l.forward(out)
+                loss = loss_func.forward(batch_y, out)
+
+                # backward pass
+                grad = loss_func.backward(batch_y, out)
+                for l in layers_reversed:
+                    l.backward(grad)
+                    grad = l.get_grad()
+
+                # update gradients
+                for l in layers_reversed:
+                    l.update_grad(learning_rate / batch_size)
+
+                # save and print results
+                loss = loss / batch_size
+                history['Steps'].append(step_counter_tot)
+                history[metric_name].append(loss)
+                if step % 1000 == 0:
+                    # TODO: add loss on validation set - see guidelines
+                    print("iteration {} - loss {}".format(step, loss))
+                step_counter_tot += 1
+
+                # reset gradients and update learning rate for next round
+                for l in layers_reversed:
+                    l.reset()
+                learning_rate *= learning_rate_decay
+
         return history
 
     def predict(self, X, batch_size=None):
@@ -246,13 +362,23 @@ class mydnn:
         None, all the samples will be processed in a single batch
         :return:  pred - a 2d array where each row is a prediction of the corespondent sample
         """
-        pred = None
-        return pred
+        pred = []
+        layers_forward, _ = self.graph
+        if batch_size is None:
+            batch_size = len(X)
+        for step in range(max(1, math.ceil(len(X) / batch_size) - 1)):
+            batch_x = X[step * batch_size: (step + 1) * batch_size]
+            # first layer
+            out = layers_forward[0].forward(batch_x.T)
+            # rest of layers
+            for l in layers_forward[1:]:
+                out = l.forward(out)
+            pred.extend(out)
+        return np.array(pred)
 
     def evaluate(self, X, y, batch_size=None):
         # TODO A
         """
-
         :param X: a 2d array, valid as an input to the network
         :param y: a 2d array, the labels of X in one-hot representation for classification or a value for each sample
         for regression.
@@ -265,7 +391,7 @@ class mydnn:
 
 
 if __name__ == '__main__':
-    train_set, valid_set, test_set = download_data()
+    # train_set, valid_set, test_set = download_data()
 
     # TODO: A
     '''
@@ -277,10 +403,10 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    model = mydnn(architecture=None, loss=None)
-    print(layer(1,2,3).forward())
-    model._plot_figures({'Steps':[1,2,3], 'Accuracy': [98,100,89]}, 'Test')
-    model.fit(...)
+    # model = mydnn(architecture=None, loss=None)
+    # print(layer(1,2,3).forward())
+    # model._plot_figures({'Steps':[1,2,3], 'Accuracy': [98,100,89]}, 'Test')
+    # model.fit(...)
 
     # TODO: A
     '''
@@ -288,13 +414,13 @@ if __name__ == '__main__':
     -------------
     Consider the last (one hidden layer) architecture and run it first without regularization,
     and compare to applications with L1 and L2 norms regularization
-    (optimize the weight decay parameter λ on the validation set; an initial recommended
-    value is λ = 5e − 4). Discuss how the use of regularization affects
+    (optimize the weight decay parameter \lambda on the validation set; an initial recommended
+    value is \lambda = 5e - 4). Discuss how the use of regularization affects
     generalization.
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
+    # model = mydnn(architecture=None, loss=None)
+    # model.fit(...)
+    # model._plot_figures(...)
 
     # TODO: B
     '''
@@ -309,24 +435,45 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
+    # model = mydnn(architecture=None, loss=None)
+    # model.fit(...)
+    # model._plot_figures(...)
 
     # TODO: B
     '''
     Regression:
     -------------
     For this section we will create a synthetic dataset using the function
-    f(x) = x_1 exp(−x_1^2-x_2^2)
-    Sample uniformly at random m training points in the range x1 ∈ [−2, 2], x2 ∈
-    [−2, 2]. For the test set, take the linear grid using np.linspace (-2,2, 1000).
+    f(x) = x_1 exp(-x_1^2-x_2^2)
+    Sample uniformly at random m training points in the range x1 in [-2, 2], x2 in
+    [-2, 2]. For the test set, take the linear grid using np.linspace (-2,2, 1000).
     Find the best architecture for the case where m = 100 and for the case
     m = 1000. In your results show the final MSE on the test set and also plot
-    a 3d graph showing yˆtest (predicted values for the test points) as function of
+    a 3d graph showing y'test (predicted values for the test points) as function of
     x = (x1, x2).
     '''
-    model = mydnn(architecture=None, loss=None)
-    model.fit(...)
-    model._plot_figures(...)
-    model._plot_3d_figure(...)
+    # model = mydnn(architecture=None, loss=None)
+    # model.fit(...)
+    # model._plot_figures(...)
+    # model._plot_3d_figure(...)
+
+    # ------------
+    # TESTING
+    # -----------
+
+    # ONE LAYER
+    print("Testing one-layer")
+    for batch_size in [1, 2]:
+        print("Batch size", batch_size)
+        model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
+                      )  # TODO: remove debug entirely
+        model.fit(np.array([[1, 0], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.001)  # classification
+
+    # TWO LAYER
+    print("Testing two-layer")
+    for batch_size in [1, 2]:
+        print("Batch size", batch_size)
+        model = mydnn(architecture=[{"input": 2, "output": 2, "nonlinear": "relu", "regularization": None},
+                                    {"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
+                      )  # TODO: remove debug entirely
+        model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
