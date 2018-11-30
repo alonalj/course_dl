@@ -53,7 +53,7 @@ class mse:
         return np.mean(np.square(y - y_tag))
 
     def backward(self, y, y_tag):
-        return 2 * np.mean(y - y_tag)
+        return -2 * np.mean(y - y_tag)
 
 
 # TODO: fix this
@@ -130,7 +130,7 @@ class layer:
             sys.exit("Error: undefined activation function {relu, sigmoid, softmax}.")
 
         self._w = np.random.uniform(-1 / np.sqrt(self._in_dim), \
-                                    1 / np.sqrt(self._in_dim), \
+                                     1 / np.sqrt(self._in_dim), \
                                     (self._out_dim, self._in_dim))
         # parameters
         self._b = np.zeros((self._out_dim, 1))
@@ -149,6 +149,7 @@ class layer:
         self._x = x
         self._z = np.matmul(self._w, x) + self._b
         self._y = self._act_fn.forward(self._z)
+
         return self._y
 
     def backward(self, grad):
@@ -167,6 +168,7 @@ class layer:
 
     def update_grad(self, eta):
         self._w = self._w - eta * self._dw
+        self._b = self._b - eta * self._db
 
     def get_grad(self):
         return self._grad
@@ -184,22 +186,8 @@ params2 = {"input": 4,
            "nonlinear": "relu",
            "regularization": "l1"}
 
-l1 = layer(params1)
-l2 = layer(params2)
-
-# Feedforward
-x = np.array([[20], [16]])
-y = l2.forward(l1.forward(x))
-
-# Backprop
-l2.backward(1)
-l1.backward(l2.get_grad())
-
-pdb.set_trace()
-
 
 class mydnn:
-
     # TODO B
     def __init__(self, architecture, loss, weight_decay=0):
         """
@@ -314,19 +302,20 @@ class mydnn:
         # training
         for e in range(epochs):
             print("Epoch %d" % e)
-            for step in range(
-                    max(1, math.ceil(len(y_train) / batch_size) - 1)):  # TODO verify this doesn't skip any batches
+
+            step_max = max(1, math.ceil(len(y_train) / batch_size))
+            for step in range(step_max):  # TODO verify this doesn't skip any batches
 
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
                 x = batch_x
-
+       
                 # forward pass
                 out = layers[0].forward(x.T)
                 for l in layers[1:]:
                     out = l.forward(out)
                 loss = loss_func.forward(batch_y, out)
-
+                
                 # backward pass
                 grad = loss_func.backward(batch_y, out)
                 for l in layers_reversed:
@@ -341,9 +330,9 @@ class mydnn:
                 loss = loss / batch_size
                 history['Steps'].append(step_counter_tot)
                 history[metric_name].append(loss)
-                if step % 1000 == 0:
+                #if step % 1000 == 0: # Commented out for debugging purposes
                     # TODO: add loss on validation set - see guidelines
-                    print("iteration {} - loss {}".format(step, loss))
+                print("iteration {}/{} - loss {}".format(step, step_max, loss))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
@@ -467,7 +456,7 @@ if __name__ == '__main__':
         print("Batch size", batch_size)
         model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
                       )  # TODO: remove debug entirely
-        model.fit(np.array([[1, 0], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.001)  # classification
+        model.fit(np.array([[1, 0], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.1)  # classification
 
     # TWO LAYER
     print("Testing two-layer")
@@ -477,3 +466,7 @@ if __name__ == '__main__':
                                     {"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
                       )  # TODO: remove debug entirely
         model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
+
+
+
+
