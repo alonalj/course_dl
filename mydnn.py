@@ -51,7 +51,7 @@ class l2_norm:
 class mse:
     def forward(self, y, y_tag):
         assert y.shape == y_tag.shape
-        return np.square(y - y_tag)
+        return np.mean(np.square(y - y_tag), axis=0)
 
     def backward(self, y, y_tag):
         assert y.shape == y_tag.shape
@@ -159,8 +159,9 @@ class layer:
         # Instead of Hadamard product, can also use matrix multiplication:
         #    np.matmul(np.diag(self._act_fn.backward(self._z)[:,0]), grad)
 
-        self._dw += np.mean(np.matmul(np.diag(self._delta.reshape(self._delta.size)), self._x.T), axis=0)
-        self._db += np.sum(self._delta)
+        batch_size = self._x.shape[1]
+        self._dw += (1/batch_size) * np.matmul(self._delta, self._x.T)
+        self._db += np.expand_dims(np.sum(self._delta, axis=1), axis=1)
         self._grad += np.matmul(self._w.T, self._delta)
 
     def reset(self):
@@ -311,13 +312,13 @@ class mydnn:
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
                 x = batch_x
-       
+      
+
                 # forward pass
                 out = layers[0].forward(x.T)
                 for l in layers[1:]:
                     out = l.forward(out)
                 loss = loss_func.forward(batch_y.T, out)
-              
 
                 # backward pass
                 grad = loss_func.backward(batch_y.T, out)
@@ -335,13 +336,14 @@ class mydnn:
                 history[metric_name].append(loss)
                 #if step % 1000 == 0: # Commented out for debugging purposes
                     # TODO: add loss on validation set - see guidelines
-                print("iteration {}/{} - loss {}".format(step+1, step_max, loss))
+                print("iteration {}/{} - loss {}".format(step+1, step_max, loss.T))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
                 for l in layers_reversed:
                     l.reset()
                 learning_rate *= learning_rate_decay
+
 
         return history
 
@@ -459,7 +461,7 @@ if __name__ == '__main__':
         print("Batch size", batch_size)
         model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
                       )  # TODO: remove debug entirely
-        model.fit(np.array([[4, 2], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.1)  # classification
+        model.fit(np.array([[4, 0], [0, 1]]), np.array([[4], [1]]), 10, batch_size, 0.01)  # classification
 
     # TWO LAYER
     print("Testing two-layer")
