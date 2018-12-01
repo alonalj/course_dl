@@ -50,10 +50,12 @@ class l2_norm:
 # --------------
 class mse:
     def forward(self, y, y_tag):
-        return np.mean(np.square(y - y_tag))
+        assert y.shape == y_tag.shape
+        return np.square(y - y_tag)
 
     def backward(self, y, y_tag):
-        return -2 * np.mean(y - y_tag)
+        assert y.shape == y_tag.shape
+        return -2 * (y - y_tag)
 
 
 # TODO: fix this
@@ -157,8 +159,8 @@ class layer:
         # Instead of Hadamard product, can also use matrix multiplication:
         #    np.matmul(np.diag(self._act_fn.backward(self._z)[:,0]), grad)
 
-        self._dw += np.matmul(self._delta, self._x.T)
-        self._db += self._delta
+        self._dw += np.mean(np.matmul(np.diag(self._delta.reshape(self._delta.size)), self._x.T), axis=0)
+        self._db += np.sum(self._delta)
         self._grad += np.matmul(self._w.T, self._delta)
 
     def reset(self):
@@ -314,10 +316,11 @@ class mydnn:
                 out = layers[0].forward(x.T)
                 for l in layers[1:]:
                     out = l.forward(out)
-                loss = loss_func.forward(batch_y, out)
-                
+                loss = loss_func.forward(batch_y.T, out)
+              
+
                 # backward pass
-                grad = loss_func.backward(batch_y, out)
+                grad = loss_func.backward(batch_y.T, out)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
@@ -332,7 +335,7 @@ class mydnn:
                 history[metric_name].append(loss)
                 #if step % 1000 == 0: # Commented out for debugging purposes
                     # TODO: add loss on validation set - see guidelines
-                print("iteration {}/{} - loss {}".format(step, step_max, loss))
+                print("iteration {}/{} - loss {}".format(step+1, step_max, loss))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
@@ -456,7 +459,7 @@ if __name__ == '__main__':
         print("Batch size", batch_size)
         model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
                       )  # TODO: remove debug entirely
-        model.fit(np.array([[1, 0], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.1)  # classification
+        model.fit(np.array([[4, 2], [0, 1]]), np.array([[2], [0]]), 10, batch_size, 0.1)  # classification
 
     # TWO LAYER
     print("Testing two-layer")
