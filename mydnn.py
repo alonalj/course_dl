@@ -472,6 +472,16 @@ if __name__ == '__main__':
                       )  # TODO: remove debug entirely
         model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
 
+    # TWO LAYER, WIDE HIDDEN LAYER
+    print("Testing two-layer, wide hidden layer")
+    for batch_size in [16]:
+        print("Batch size", batch_size)
+        model = mydnn(architecture=[{"input": 2, "output": 128, "nonlinear": "relu", "regularization": None},
+                                    {"input": 128, "output": 2, "nonlinear": "relu", "regularization": None}], loss="MSE")
+        model.fit(np.array([[4, 1], [0, 1], [3, 9], [3, 3]]),
+                  np.array([[5, 3], [1, -1], [12, -6], [6, 0]]), 10, batch_size, 0.01)  # classification
+
+
 
 
 
