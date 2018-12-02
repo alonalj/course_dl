@@ -9,8 +9,10 @@ import matplotlib.pyplot as plt
 import sys
 import pdb
 import math
+import time
 
-def download_data():
+
+def maybe_download_data():
     # downloading data if necessary
     try:
         with gzip.open('mnist.pkl.gz', 'rb') as f:
@@ -51,7 +53,7 @@ class l2_norm:
 class mse:
     def forward(self, y, y_tag):
         assert y.shape == y_tag.shape
-        return np.mean(np.square(y - y_tag), axis=0)
+        return np.sum(np.mean(np.square(y - y_tag), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
 
     def backward(self, y, y_tag):
         assert y.shape == y_tag.shape
@@ -190,6 +192,70 @@ params2 = {"input": 4,
            "regularization": "l1"}
 
 
+def normalize(train, val, test):
+    # subtract training set's mean sample from all samples
+    (x_train, y_train), (x_val, y_val), (x_test, y_test) = train, val, test
+    sample_mean = x_train.mean(axis=0, keepdims=True)
+    x_train = x_train - sample_mean
+    x_val = x_val - sample_mean
+    x_test = x_test - sample_mean
+
+    return (x_train, y_train), (x_val, y_val), (x_test, y_test)
+
+
+def maybe_expand_dims(data):
+    if len(data.shape) != 2:
+        data = np.expand_dims(data, 1)
+    return data
+
+
+def plot_figures(dict_x_y, title):
+    """
+    the results should be depicted in two figures (one for loss
+    and one for accuracy), where the X-axis is the number of iterations (number of
+    backward iterations during training) and the Y -axis will be the loss or accuracy.
+    In each figure show both the training and validation curves.
+    :param dict_x_y - a dictionary of the form {'x_axis_name': [], 'y_axis_name': []} corresponding to
+            the x and y values to plot. E.g.: {'Steps': [1,2,..5], 'Accuracy': [89, 95,..., 100]}
+    :param title - plot title
+    """
+
+    def plot_df(df, title, color):
+        # plot using a data frame
+        x_name = df.columns[0]
+        y_name = df.columns[1]
+
+        plt.plot(x_name, y_name, data=df, marker='', color=color, linewidth=2)
+        plt.legend()
+        plt.xlabel(x_name)
+        plt.ylabel(y_name.split(' ')[1].title())
+        plt.title(title)
+
+    for metric in ['loss', 'accuracy']:
+        for data_type in ['Train', 'Validation']:
+            color = 'darkslategray' if 'Train' in data_type else 'c'
+            metric_values = []
+            num_backwards = []
+            epoch_counter = 1
+            # gather metric results from all epochs
+            for epoch_dict in dict_x_y:
+                metric_values.append(epoch_dict[data_type + ' ' + metric])
+                num_backwards.append(epoch_counter*epoch_dict['n_backwards'])
+                epoch_counter += 1
+            # plot metric results
+            if metric_values[0] is not None:
+                df = pd.DataFrame.from_dict({'Steps':num_backwards, data_type + ' ' + metric: metric_values})
+                plot_df(df, title, color)
+        # display and close so next metric type is on new plot
+        plt.show()  # TODO: replace with plt.save?
+        plt.close()
+
+
+def shuffle(x, y):
+    indices = np.random.choice(range(y.shape[0]),len(y),replace=False)
+    return x[indices], y[indices]
+
+
 class mydnn:
     # TODO B
     def __init__(self, architecture, loss, weight_decay=0):
@@ -216,43 +282,6 @@ class mydnn:
         layers_reversed = layers.copy()
         layers_reversed.reverse()
         return layers, layers_reversed
-
-    def _normalize(self, x_train, x_val, x_test):
-        # subtract training set's mean sample from all samples
-        sample_mean = x_train.mean(axis=0, keepdims=True)
-        x_train = x_train - sample_mean
-        x_val = x_val - sample_mean
-        x_test = x_test - sample_mean
-
-        return x_train, x_val, x_test
-
-    def _plot_figures(self, dict_x_y, title):
-        """
-        the results should be depicted in two figures (one for loss
-        and one for accuracy), where the X-axis is the number of iterations (number of
-        backward iterations during training) and the Y -axis will be the loss or accuracy.
-        In each figure show both the training and validation curves.
-        :param dict_x_y - a dictionary of the form {'x_axis_name': [], 'y_axis_name': []} corresponding to
-                the x and y values to plot. E.g.: {'Steps': [1,2,..5], 'Accuracy': [89, 95,..., 100]}
-        :param title - plot title
-        """
-
-        # preparing data for easy plotting
-        df = pd.DataFrame.from_dict(dict_x_y)
-        x_name = df.columns[0]
-        y_name = df.columns[1]
-
-        # plotting
-        plt.plot(x_name, y_name, data=df, marker='', color='green', linewidth=2)
-        # plt.plot('x', 'train_sq', data=df, marker='', color='blue', linewidth=2)
-        # plt.plot('x', 'test_01', data=df, marker='', color='orange', linewidth=2)  # linestyle='dashed', label="toto")
-        # plt.plot('x', 'test_sq', data=df, marker='', color='red', linewidth=2)  # linestyle='dashed', label="toto")
-        plt.legend()
-
-        plt.xlabel(x_name)
-        plt.ylabel(y_name)
-        plt.title(title)
-        plt.show()
 
     # TODO B
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
@@ -296,29 +325,32 @@ class mydnn:
             loss_func = mse()
             metric_name = 'Loss'
         elif self.loss == 'cross-entropy':
+            loss_func = cross_entropy()
             metric_name = 'Accuracy'
 
-        history = {'Steps': [], metric_name: []}
         learning_rate = max(min_lr, learning_rate)
         step_counter_tot = 0
+        history = []
 
         # training
         for e in range(epochs):
-            print("Epoch %d" % e)
-
+            epoch_dict = {}
+            start_time_epoch = time.time()
+            x_train, y_train = shuffle(x_train, y_train)
             step_max = max(1, math.ceil(len(y_train) / batch_size))
             for step in range(step_max):  # TODO verify this doesn't skip any batches
-
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
-                x = batch_x
-      
+
+                # expand batch dimensions if necessary:
+                batch_x = maybe_expand_dims(batch_x)
+                batch_y = maybe_expand_dims(batch_y)
 
                 # forward pass
-                out = layers[0].forward(x.T)
+                out = layers[0].forward(batch_x.T)
                 for l in layers[1:]:
                     out = l.forward(out)
-                loss = loss_func.forward(batch_y.T, out)
+                loss = loss_func.forward(batch_y.T, out)  # the average loss over batch
 
                 # backward pass
                 grad = loss_func.backward(batch_y.T, out)
@@ -331,24 +363,39 @@ class mydnn:
                     l.update_grad(learning_rate / batch_size)
 
                 # save and print results
-                loss = loss / batch_size
-                history['Steps'].append(step_counter_tot)
-                history[metric_name].append(loss)
-                #if step % 1000 == 0: # Commented out for debugging purposes
-                    # TODO: add loss on validation set - see guidelines
-                print("iteration {}/{} - loss {}".format(step+1, step_max, loss.T))
+                if step % 100 == 0:
+                    print("iteration {}/{} - loss {}".format(step, step_max, loss.T))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
                 for l in layers_reversed:
                     l.reset()
-                learning_rate *= learning_rate_decay
+                learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
+            train_loss, train_acc = self.evaluate(x_train.T, y_train.T)
+            val_loss, val_acc = self.evaluate(x_val.T, y_val.T)
+
+            # saving to epoch dictionary
+            epoch_dict['Train accuracy'] = train_acc
+            epoch_dict['Validation accuracy'] = val_acc
+            epoch_dict['Train loss'] = train_loss
+            epoch_dict['Validation loss'] = val_loss
+            epoch_dict['n_backwards'] = step_max
+
+            # printing
+            duration_epoch = time.time() - start_time_epoch
+            if self.loss == 'MSE':
+                print("Epoch {}/{} - {} seconds - loss: {} - val_loss: {} "
+                      .format(e, epochs, duration_epoch, train_loss, val_loss))
+            else:
+                print("Epoch {}/{} - {} seconds - loss: {} - acc: {} - val_loss: {} - val_acc: {}"
+                      .format(e, epochs, duration_epoch, train_loss, train_acc, val_loss, val_acc))
+
+            history.append(epoch_dict)
 
         return history
 
     def predict(self, X, batch_size=None):
-        # TODO B
         """
         The predict function will get an nd-array of inputs and return the network prediction
         :param X:  a 2d array, with valid dimensions for the network.
@@ -360,10 +407,12 @@ class mydnn:
         layers_forward, _ = self.graph
         if batch_size is None:
             batch_size = len(X)
-        for step in range(max(1, math.ceil(len(X) / batch_size) - 1)):
+
+        step_max = max(1, math.ceil(len(X) / batch_size))
+        for step in range(step_max):
             batch_x = X[step * batch_size: (step + 1) * batch_size]
             # first layer
-            out = layers_forward[0].forward(batch_x.T)
+            out = layers_forward[0].forward(batch_x)
             # rest of layers
             for l in layers_forward[1:]:
                 out = l.forward(out)
@@ -371,7 +420,7 @@ class mydnn:
         return np.array(pred)
 
     def evaluate(self, X, y, batch_size=None):
-        # TODO A
+        # TODO A - should be complete
         """
         :param X: a 2d array, valid as an input to the network
         :param y: a 2d array, the labels of X in one-hot representation for classification or a value for each sample
@@ -380,12 +429,25 @@ class mydnn:
         :return: [loss, accuracy] - for regression a list with the loss, for classification the
         loss and the accuracy
         """
-        [loss, accuracy] = None
+        pred = self.predict(X, batch_size)
+        accuracy = None
+        if self.loss == 'MSE':
+            loss_func = mse()
+        else:
+            loss_func = cross_entropy()
+            accuracy = 100 * np.sum(np.argmax(pred, 1) == y) / float(len(y))
+        loss = loss_func.forward(y, pred)  # loss functions already handle averaging over batch
         return [loss, accuracy]
 
 
 if __name__ == '__main__':
-    # train_set, valid_set, test_set = download_data()
+
+    # MIST data preparations
+    train_set, valid_set, test_set = maybe_download_data()
+    train_set, valid_set, test_set = normalize(train_set, valid_set, test_set) # includes normalizing both train and validation according to train stats
+    x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
+    x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
+    x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
 
     # TODO: A
     '''
@@ -429,9 +491,30 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    # model = mydnn(architecture=None, loss=None)
-    # model.fit(...)
-    # model._plot_figures(...)
+    depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    for depth in depth_options:
+        # print("depth", depth)
+        for num_neurons in width_options:
+            output_shape = num_neurons
+            architecture = []
+            layer_ids = range(depth)
+            for layer_id in layer_ids:
+                layer_dict = {}
+                if layer_id == 0:
+                    layer_dict["input"] = x_train.shape[1]
+                else:
+                    layer_dict["input"] = output_shape
+                if layer_id == layer_ids[-1]:  # last layer
+                    layer_dict["output"] = y_train.shape[1]
+                else:
+                    layer_dict["output"] = num_neurons
+                layer_dict["nonlinear"] = "relu"
+                layer_dict["regularization"] = None
+                architecture.append(layer_dict)
+            output_shape = layer_dict["output"]
+            model = mydnn(architecture=architecture, loss="MSE")
+            history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
+            plot_figures(history, "test")
 
     # TODO: B
     '''
@@ -451,16 +534,18 @@ if __name__ == '__main__':
     # model._plot_figures(...)
     # model._plot_3d_figure(...)
 
-    # ------------
-    # TESTING
-    # -----------
+
+
+    # -----------------------
+    # TESTING - INTERNAL ONLY #TODO: REMOVE
+    # -----------------------
 
     # ONE LAYER
     print("Testing one-layer")
-    for batch_size in [1, 2]:
+    for batch_size in [1]:
         print("Batch size", batch_size)
         model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
-                      )  # TODO: remove debug entirely
+                      )
         model.fit(np.array([[4, 0], [0, 1]]), np.array([[4], [1]]), 10, batch_size, 0.01)  # classification
 
     # TWO LAYER
@@ -469,7 +554,7 @@ if __name__ == '__main__':
         print("Batch size", batch_size)
         model = mydnn(architecture=[{"input": 2, "output": 2, "nonlinear": "relu", "regularization": None},
                                     {"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
-                      )  # TODO: remove debug entirely
+                      )
         model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
 
     # TWO LAYER, WIDE HIDDEN LAYER
