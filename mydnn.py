@@ -524,11 +524,11 @@ if __name__ == '__main__':
                     layer_dict["output"] = y_train.shape[1]
                 else:
                     layer_dict["output"] = num_neurons
-                layer_dict["nonlinear"] = "softmax"
+                layer_dict["nonlinear"] = "relu"
                 layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="cross-entropy")
+            model = mydnn(architecture=architecture, loss="MSE")
             history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
