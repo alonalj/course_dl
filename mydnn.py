@@ -47,28 +47,6 @@ class l2_norm:
         return 2 * w
 
 
-# --------------
-# Loss functions
-# --------------
-class mse:
-    def forward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return np.sum(np.mean(np.square(y - y_tag), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
-
-    def backward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return -2 * (y - y_tag)
-
-
-# TODO: fix this
-class cross_entropy:
-    def forward(self, y, y_tag):
-        return -1 * np.sum(np.multiply(y, np.log(y_tag)))
-
-    def backward(self, y, y_tag):
-        return 0
-
-
 # --------------------
 # Activation functions
 # --------------------
@@ -93,19 +71,46 @@ class softmax:
         exps = np.exp(x)
         return exps / np.sum(exps)
 
+    # TODO: fix this
     def backward(self, x):
-        # https://medium.com/@aerinykim/
-        # how-to-implement-the-softmax-derivative-independently-from-any-loss-function-ae6d44363a9d
-        jacobian_m = np.diag(x)
+        return x
 
-        for i in range(len(jacobian_m)):
-            for j in range(len(jacobian_m)):
-                if i == j:
-                    jacobian_m[i][j] = x[i] * (1 - x[i])
-                else:
-                    jacobian_m[i][j] = -x[i] * x[j]
 
-        return jacobian_m
+# --------------
+# Loss functions
+# --------------
+class mse:
+    def forward(self, y, y_tag):
+        assert y.shape == y_tag.shape
+        return np.sum(np.mean(np.square(y - y_tag), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
+
+    def backward(self, y, y_tag):
+        assert y.shape == y_tag.shape
+        return -2 * (y - y_tag)
+
+
+# TODO: fix this
+class cross_entropy:
+    def forward(self, y, y_tag):
+        assert y.shape == y_tag.shape
+        s = softmax()
+
+        m = y.shape[0]
+        p = s.forward(y)
+        log_likelihood = -1 * y_tag * np.log(p)
+        loss = np.sum(log_likelihood) / m
+        return loss
+
+    def backward(self, y, y_tag):
+        assert y.shape == y_tag.shape
+        s = softmax()
+
+        m = y.shape[0]
+        p = s.forward(y)
+        grad = p - y_tag
+        grad = grad/m
+
+        return grad
 
 
 # -----------
@@ -519,11 +524,11 @@ if __name__ == '__main__':
                     layer_dict["output"] = y_train.shape[1]
                 else:
                     layer_dict["output"] = num_neurons
-                layer_dict["nonlinear"] = "relu"
+                layer_dict["nonlinear"] = "softmax"
                 layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="MSE")
+            model = mydnn(architecture=architecture, loss="cross-entropy")
             history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
