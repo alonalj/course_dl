@@ -371,7 +371,7 @@ class mydnn:
 
                 # update gradients
                 for l in layers_reversed:
-                    l.update_grad(learning_rate / batch_size)
+                    l.update_grad(learning_rate / batch_size, self.weight_decay)
 
                 # save and print results
                 if step % 100 == 0:
