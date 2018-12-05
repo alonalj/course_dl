@@ -69,9 +69,8 @@ class sigmoid:
 class softmax:
     def forward(self, x):
         exps = np.exp(x)
-        return exps / np.sum(exps)
+        return exps / np.sum(exps, axis=1, keepdims=True)
 
-    # TODO: fix this
     def backward(self, x):
         return x
 
@@ -80,36 +79,34 @@ class softmax:
 # Loss functions
 # --------------
 class mse:
-    def forward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return np.sum(np.mean(np.square(y - y_tag), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
+    def forward(self, x, y):
+        assert x.shape == y.shape
+        return np.sum(np.mean(np.square(y - x), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
 
-    def backward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return -2 * (y - y_tag)
+    def backward(self, x, y):
+        assert x.shape == y.shape
+        return -2 * (y - x)
 
 
 # TODO: fix this
 class cross_entropy:
-    def forward(self, y, y_tag):
-        assert y.shape == y_tag.shape
+    def forward(self, x, y):
+        assert x.shape == y.shape
         s = softmax()
 
-        m = y.shape[0]
-        p = s.forward(y)
-        log_likelihood = -1 * y_tag * np.log(p)
-        loss = np.sum(log_likelihood) / m
+        num_examples = y.shape[0]
+        log_likelihood = -np.log(x[range(num_examples), y])
+        loss = np.sum(log_likelihood) / num_examples
         return loss
 
-    def backward(self, y, y_tag):
-        assert y.shape == y_tag.shape
+    def backward(self, x, y):
+        assert x.shape == y.shape
         s = softmax()
 
-        m = y.shape[0]
-        p = s.forward(y)
-        grad = p - y_tag
-        grad = grad/m
-
+        num_examples = y.shape[0]
+        grad = x
+        grad[range(num_examples), y] -= 1
+        grad = grad/num_examples
         return grad
 
 
@@ -366,10 +363,10 @@ class mydnn:
                 out, rglr = layers[0].forward(batch_x.T)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = loss_func.forward(batch_y.T, out + self.weight_decay*rglr)  # the average loss over batch
+                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y.T)  # the average loss over batch
 
                 # backward pass
-                grad = loss_func.backward(batch_y.T, out)
+                grad = loss_func.backward(out, batch_y.T)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
@@ -452,7 +449,7 @@ class mydnn:
         else:
             loss_func = cross_entropy()
             accuracy = 100 * np.sum(np.argmax(pred, 1) == y) / float(len(y))
-        loss = loss_func.forward(y, pred)  # loss functions already handle averaging over batch
+        loss = loss_func.forward(pred, y)  # loss functions already handle averaging over batch
         return [loss, accuracy]
 
 
@@ -520,15 +517,21 @@ if __name__ == '__main__':
                     layer_dict["input"] = x_train.shape[1]
                 else:
                     layer_dict["input"] = output_shape
+
                 if layer_id == layer_ids[-1]:  # last layer
                     layer_dict["output"] = y_train.shape[1]
                 else:
                     layer_dict["output"] = num_neurons
-                layer_dict["nonlinear"] = "relu"
+
+                if layer_id == layer_ids[-1]: # last layer with softmax
+                    layer_dict["nonlinear"] = "softmax"
+                else:
+                    layer_dict["nonlinear"] = "relu"
+
                 layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="MSE")
+            model = mydnn(architecture=architecture, loss="cross-entropy")
             history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
