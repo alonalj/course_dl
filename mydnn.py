@@ -47,28 +47,6 @@ class l2_norm:
         return 2 * w
 
 
-# --------------
-# Loss functions
-# --------------
-class mse:
-    def forward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return np.sum(np.mean(np.square(y - y_tag), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
-
-    def backward(self, y, y_tag):
-        assert y.shape == y_tag.shape
-        return -2 * (y - y_tag)
-
-
-# TODO: fix this
-class cross_entropy:
-    def forward(self, y, y_tag):
-        return -1 * np.sum(np.multiply(y, np.log(y_tag)))
-
-    def backward(self, y, y_tag):
-        return 0
-
-
 # --------------------
 # Activation functions
 # --------------------
@@ -89,23 +67,54 @@ class sigmoid:
 
 
 class softmax:
+    def __init__(self):
+        self.exp_val = 0
+
     def forward(self, x):
         exps = np.exp(x)
-        return exps / np.sum(exps)
+        self.exp_val = exps
+        return exps / np.sum(exps, axis=1, keepdims=True) # TODO: check axis correct
 
     def backward(self, x):
-        # https://medium.com/@aerinykim/
-        # how-to-implement-the-softmax-derivative-independently-from-any-loss-function-ae6d44363a9d
-        jacobian_m = np.diag(x)
+        return x * (self.exp_val - 1)
+        # return x
 
-        for i in range(len(jacobian_m)):
-            for j in range(len(jacobian_m)):
-                if i == j:
-                    jacobian_m[i][j] = x[i] * (1 - x[i])
-                else:
-                    jacobian_m[i][j] = -x[i] * x[j]
 
-        return jacobian_m
+# --------------
+# Loss functions
+# --------------
+class mse:
+    def forward(self, x, y):
+        assert x.shape == y.shape
+        return np.sum(np.mean(np.square(y - x), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
+
+    def backward(self, x, y):
+        assert x.shape == y.shape
+        return -2 * (y - x)
+
+
+# TODO: fix this
+class cross_entropy:
+    def forward(self, x, y):
+        assert x.shape == y.shape
+        s = softmax()  # TODO: remove or use...
+
+        num_examples = y.shape[0]
+        log_likelihood = -np.log(x)
+        #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
+        loss = np.sum(y * log_likelihood) / num_examples
+        return loss
+
+    def backward(self, x, y):
+        assert x.shape == y.shape
+        s = softmax() #
+        grad = y# * x
+
+        # num_examples = y.shape[0]
+        # grad = x
+        # grad[range(num_examples), y] -= 1
+        # grad = grad/num_examples
+        return grad
 
 
 # -----------
@@ -123,7 +132,7 @@ class layer:
         self._act_fn = params["nonlinear"]
         self._regularization = params["regularization"]
 
-        # replace string with function pointer
+        # replace strings with function pointer
         if self._act_fn == "relu":
             self._act_fn = relu()
         elif self._act_fn == "sigmoid":
@@ -133,8 +142,15 @@ class layer:
         else:
             sys.exit("Error: undefined activation function {relu, sigmoid, softmax}.")
 
-        self._w = np.random.uniform(-1 / np.sqrt(self._in_dim), \
-                                     1 / np.sqrt(self._in_dim), \
+        if self._regularization == "l1":
+            self._regularization = l1_norm()
+        elif self._regularization == "l2":
+            self._regularization = l2_norm()
+        else:
+            sys.exit("Error: undefined activation function {l1, l2}.")
+
+        self._w = np.random.uniform(-1 / np.sqrt(self._in_dim),
+                                     1 / np.sqrt(self._in_dim),
                                     (self._out_dim, self._in_dim))
         # parameters
         self._b = np.zeros((self._out_dim, 1))
@@ -149,35 +165,37 @@ class layer:
 
         self._grad = 0
 
-    def forward(self, x):
+    def forward(self, x, rglr=None):
         self._x = x
         self._z = np.matmul(self._w, x) + self._b
         self._y = self._act_fn.forward(self._z)
 
-        return self._y
+        # For the first layer
+        if rglr is None:
+            rglr = 0
+
+        return [self._y, self._regularization.forward(rglr + self._w)]
 
     def backward(self, grad):
-        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
-        # Instead of Hadamard product, can also use matrix multiplication:
-        #    np.matmul(np.diag(self._act_fn.backward(self._z)[:,0]), grad)
-
         batch_size = self._x.shape[1]
-        self._dw += (1/batch_size) * np.matmul(self._delta, self._x.T)
-        self._db += np.expand_dims(np.sum(self._delta, axis=1), axis=1)
-        self._grad += np.matmul(self._w.T, self._delta)
+
+        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
+        self._dw = (1/batch_size) * np.matmul(self._delta, self._x.T)
+        self._db = np.expand_dims(np.sum(self._delta, axis=1), axis=1)
+        self._grad = np.matmul(self._w.T, self._delta)
 
     def reset(self):
         self._dw = 0
         self._db = 0
         self._grad = 0
 
-    def update_grad(self, eta):
+    def update_grad(self, eta, w_decay=0):
+        self._dw += w_decay * self._regularization.backward(self._w)
         self._w = self._w - eta * self._dw
         self._b = self._b - eta * self._db
 
     def get_grad(self):
         return self._grad
-
 
 
 # Debug
@@ -256,6 +274,10 @@ def shuffle(x, y):
     return x[indices], y[indices]
 
 
+def to_one_hot(n_labels, data):
+    return np.eye(n_labels)[data]
+
+
 class mydnn:
     # TODO B
     def __init__(self, architecture, loss, weight_decay=0):
@@ -327,6 +349,8 @@ class mydnn:
         elif self.loss == 'cross-entropy':
             loss_func = cross_entropy()
             metric_name = 'Accuracy'
+        else:
+            sys.exit("Error: undefined activation function {MSE, cross-entropy}.")
 
         learning_rate = max(min_lr, learning_rate)
         step_counter_tot = 0
@@ -342,25 +366,21 @@ class mydnn:
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
 
-                # expand batch dimensions if necessary:
-                batch_x = maybe_expand_dims(batch_x)
-                batch_y = maybe_expand_dims(batch_y)
-
                 # forward pass
-                out = layers[0].forward(batch_x.T)
+                out, rglr = layers[0].forward(batch_x.T)
                 for l in layers[1:]:
-                    out = l.forward(out)
-                loss = loss_func.forward(batch_y.T, out)  # the average loss over batch
+                    out, rglr = l.forward(out, rglr)
+                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y.T)  # the average loss over batch
 
                 # backward pass
-                grad = loss_func.backward(batch_y.T, out)
+                grad = loss_func.backward(out, batch_y.T)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
 
                 # update gradients
                 for l in layers_reversed:
-                    l.update_grad(learning_rate / batch_size)
+                    l.update_grad(learning_rate / batch_size, self.weight_decay)
 
                 # save and print results
                 if step % 100 == 0:
@@ -412,10 +432,10 @@ class mydnn:
         for step in range(step_max):
             batch_x = X[step * batch_size: (step + 1) * batch_size]
             # first layer
-            out = layers_forward[0].forward(batch_x)
+            out, _ = layers_forward[0].forward(batch_x)
             # rest of layers
             for l in layers_forward[1:]:
-                out = l.forward(out)
+                out, _ = l.forward(out)
             pred.extend(out)
         return np.array(pred)
 
@@ -436,7 +456,7 @@ class mydnn:
         else:
             loss_func = cross_entropy()
             accuracy = 100 * np.sum(np.argmax(pred, 1) == y) / float(len(y))
-        loss = loss_func.forward(y, pred)  # loss functions already handle averaging over batch
+        loss = loss_func.forward(pred, y)  # loss functions already handle averaging over batch
         return [loss, accuracy]
 
 
@@ -445,9 +465,17 @@ if __name__ == '__main__':
     # MIST data preparations
     train_set, valid_set, test_set = maybe_download_data()
     train_set, valid_set, test_set = normalize(train_set, valid_set, test_set) # includes normalizing both train and validation according to train stats
-    x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
-    x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
-    x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
+    n_labels = len(np.unique(train_set[1]))
+    x_train, y_train = train_set[0], train_set[1]
+    x_val, y_val = valid_set[0], valid_set[1]
+    x_test, y_test = test_set[0], test_set[1]
+    # x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
+    # x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
+    # x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
+    y_train = to_one_hot(n_labels, y_train)
+    y_val = to_one_hot(n_labels, y_val)
+    y_test = to_one_hot(n_labels, y_test)
+
 
     # TODO: A
     '''
@@ -504,16 +532,22 @@ if __name__ == '__main__':
                     layer_dict["input"] = x_train.shape[1]
                 else:
                     layer_dict["input"] = output_shape
+
                 if layer_id == layer_ids[-1]:  # last layer
                     layer_dict["output"] = y_train.shape[1]
                 else:
                     layer_dict["output"] = num_neurons
-                layer_dict["nonlinear"] = "relu"
-                layer_dict["regularization"] = None
+
+                if layer_id == layer_ids[-1]: # last layer with softmax
+                    layer_dict["nonlinear"] = "softmax"
+                else:
+                    layer_dict["nonlinear"] = "relu"
+
+                layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="MSE")
-            history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
+            model = mydnn(architecture=architecture, loss="cross-entropy")
+            history = model.fit(x_train, y_train, 20, 125, 0.0001, 0.99, 10000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
     # TODO: B
@@ -544,7 +578,7 @@ if __name__ == '__main__':
     print("Testing one-layer")
     for batch_size in [1]:
         print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
+        model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l1"}], loss="MSE",
                       )
         model.fit(np.array([[4, 0], [0, 1]]), np.array([[4], [1]]), 10, batch_size, 0.01)  # classification
 
@@ -552,8 +586,8 @@ if __name__ == '__main__':
     print("Testing two-layer")
     for batch_size in [1, 2]:
         print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 2, "nonlinear": "relu", "regularization": None},
-                                    {"input": 2, "output": 1, "nonlinear": "relu", "regularization": None}], loss="MSE",
+        model = mydnn(architecture=[{"input": 2, "output": 2, "nonlinear": "relu", "regularization": "l1"},
+                                    {"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l1"}], loss="MSE",
                       )
         model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
 
@@ -561,12 +595,9 @@ if __name__ == '__main__':
     print("Testing two-layer, wide hidden layer")
     for batch_size in [16]:
         print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 128, "nonlinear": "relu", "regularization": None},
-                                    {"input": 128, "output": 2, "nonlinear": "relu", "regularization": None}], loss="MSE")
+        model = mydnn(architecture=[{"input": 2, "output": 128, "nonlinear": "relu", "regularization": "l1"},
+                                    {"input": 128, "output": 2, "nonlinear": "relu", "regularization": "l1"}], loss="MSE")
         model.fit(np.array([[4, 1], [0, 1], [3, 9], [3, 3]]),
                   np.array([[5, 3], [1, -1], [12, -6], [6, 0]]), 10, batch_size, 0.01)  # classification
-
-
-
 
 
