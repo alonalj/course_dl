@@ -82,21 +82,20 @@ class softmax:
 class mse:
     def forward(self, x, y):
         assert x.shape == y.shape
-        return np.sum(np.mean(np.square(y - x), axis=1)) # TODO: fixed to mean over samples and sum over classes, although they mentioned we can assume that for classification we will use only cross-entropy
+        return np.sum(np.mean(np.square(y - x), axis=1)) # mean is over samples and sum over classes (in case the user wishes to use MSE for a classification task)
 
     def backward(self, x, y):
         assert x.shape == y.shape
         return -2 * (y - x)
 
 
-# TODO: fix this
 class cross_entropy:
     def forward(self, x, y):
         assert x.shape == y.shape
         num_examples = y.shape[1]
         log_likelihood = -np.log(x)
         #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
-        loss = np.sum(y * log_likelihood) / float(num_examples)   # TODO: NOTE - could also use (same loss outcome): loss = np.sum(-np.log(x[np.argmax(y, 0), range(num_examples)])) / float(num_examples)
+        loss = np.sum(y * log_likelihood) / float(num_examples)
         return loss
 
     def backward(self, x, y):
@@ -257,7 +256,7 @@ def plot_figures(dict_x_y, title):
                 df = pd.DataFrame.from_dict({'Steps':num_backwards, data_type + ' ' + metric: metric_values})
                 plot_df(df, title, color)
         # display and close so next metric type is on new plot
-        plt.show()  # TODO: replace with plt.save?
+        plt.show()  # TODO: replace with plt.save
         plt.close()
 
 
@@ -286,14 +285,13 @@ class mydnn:
         self.architecture = architecture
         self.loss = loss
         self.weight_decay = weight_decay
-        # self.debug = debug  # TODO: remove from signature as well as from here
         self.graph = self.build_graph()
 
     def build_graph(self):
         layers = []
         for i in range(len(self.architecture)):
             layers.append(layer(self.architecture[i]))
-        layers[-1].name = self.loss # TODO remove
+        layers[-1].name = self.loss
         layers_reversed = layers.copy()
         layers_reversed.reverse()
         return layers, layers_reversed
@@ -385,7 +383,7 @@ class mydnn:
                     l.reset()
                 learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
-            train_loss, train_acc = self.evaluate(batch_x, batch_y)
+            train_loss, train_acc = self.evaluate(x_train.T, y_train.T, batch_size=batch_size)
             val_loss, val_acc = self.evaluate(x_val.T, y_val.T)
 
             # saving to epoch dictionary
@@ -429,11 +427,13 @@ class mydnn:
             # rest of layers
             for l in layers_forward[1:]:
                 out, _ = l.forward(out)
-            pred.extend(out)
-        return np.array(pred)
+            if len(pred) == 0:
+                pred = out
+            else:
+                pred = np.append(pred, out, 1)
+        return pred
 
     def evaluate(self, X, y, batch_size=None):
-        # TODO A - should be complete
         """
         :param X: a 2d array, valid as an input to the network
         :param y: a 2d array, the labels of X in one-hot representation for classification or a value for each sample
@@ -541,7 +541,7 @@ if __name__ == '__main__':
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
             model = mydnn(architecture=architecture, loss="cross-entropy")
-            history = model.fit(x_train, y_train, 69, 125, 0.01, 1, 10000, x_val=x_val, y_val=y_val)
+            history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
     # TODO: B
@@ -561,37 +561,3 @@ if __name__ == '__main__':
     # model.fit(...)
     # model._plot_figures(...)
     # model._plot_3d_figure(...)
-
-
-
-    # -----------------------
-    # TESTING - INTERNAL ONLY #TODO: REMOVE
-    # -----------------------
-
-    # ONE LAYER
-    print("Testing one-layer")
-    for batch_size in [1]:
-        print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l1"}], loss="MSE",
-                      )
-        model.fit(np.array([[4, 0], [0, 1]]), np.array([[4], [1]]), 10, batch_size, 0.01)  # classification
-
-    # TWO LAYER
-    print("Testing two-layer")
-    for batch_size in [1, 2]:
-        print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 2, "nonlinear": "relu", "regularization": "l1"},
-                                    {"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l1"}], loss="MSE",
-                      )
-        model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 10, batch_size, 0.001)  # classification
-
-    # TWO LAYER, WIDE HIDDEN LAYER
-    print("Testing two-layer, wide hidden layer")
-    for batch_size in [16]:
-        print("Batch size", batch_size)
-        model = mydnn(architecture=[{"input": 2, "output": 128, "nonlinear": "relu", "regularization": "l1"},
-                                    {"input": 128, "output": 2, "nonlinear": "relu", "regularization": "l1"}], loss="MSE")
-        model.fit(np.array([[4, 1], [0, 1], [3, 9], [3, 3]]),
-                  np.array([[5, 3], [1, -1], [12, -6], [6, 0]]), 10, batch_size, 0.01)  # classification
-
-
