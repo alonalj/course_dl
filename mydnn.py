@@ -67,12 +67,13 @@ class sigmoid:
 
 
 class softmax:
+
     def forward(self, x):
         exps = np.exp(x)
         return exps / np.sum(exps, axis=1, keepdims=True)
 
-    def backward(self, x):
-        return x
+    def backward(self, x, y):
+        return y - x
 
 
 # --------------
@@ -92,21 +93,15 @@ class mse:
 class cross_entropy:
     def forward(self, x, y):
         assert x.shape == y.shape
-        s = softmax()
-
-        num_examples = y.shape[0]
-        log_likelihood = -np.log(x[range(num_examples), y])
-        loss = np.sum(log_likelihood) / num_examples
+        num_examples = y.shape[1]
+        log_likelihood = -np.log(x)
+        #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
+        loss = np.sum(y * log_likelihood) / float(num_examples)   # TODO: NOTE - could also use (same loss outcome): loss = np.sum(-np.log(x[np.argmax(y, 0), range(num_examples)])) / float(num_examples)
         return loss
 
     def backward(self, x, y):
         assert x.shape == y.shape
-        s = softmax()
-
-        num_examples = y.shape[0]
-        grad = x
-        grad[range(num_examples), y] -= 1
-        grad = grad/num_examples
+        grad = y
         return grad
 
 
@@ -124,6 +119,7 @@ class layer:
         self._out_dim = params["output"]
         self._act_fn = params["nonlinear"]
         self._regularization = params["regularization"]
+        self.name = ''
 
         # replace strings with function pointer
         if self._act_fn == "relu":
@@ -152,15 +148,15 @@ class layer:
         self._z = 0
 
         # parameter gradients
-        self._delta = 0
+        self._grad_out = 0
         self._dw = np.zeros((self._out_dim, self._in_dim))
         self._db = np.zeros((self._out_dim, 1))
 
-        self._grad = 0
+        self._grad_out = 0
 
     def forward(self, x, rglr=None):
         self._x = x
-        self._z = np.matmul(self._w, x) + self._b
+        self._z = np.dot(self._w, x) + self._b
         self._y = self._act_fn.forward(self._z)
 
         # For the first layer
@@ -169,26 +165,29 @@ class layer:
 
         return [self._y, self._regularization.forward(rglr + self._w)]
 
-    def backward(self, grad):
-        batch_size = self._x.shape[1]
-
-        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
-        self._dw += (1/batch_size) * np.matmul(self._delta, self._x.T)
-        self._db += np.expand_dims(np.sum(self._delta, axis=1), axis=1)
-        self._grad += np.matmul(self._w.T, self._delta)
+    def backward(self, grad_in):
+        if self.name == 'cross-entropy':
+            delta = self._act_fn.backward(grad_in, self._z)
+        else:
+            delta = grad_in * self._act_fn.backward(self._z)
+        # grad is the incoming delta from above (i.e. the delta that reached the current layer from later layers)
+        self._dw = np.dot(delta, self._x.T)
+        self._db = grad_in.dot(np.ones((delta.shape[1], 1)))
+        self._grad_out = self._w.T.dot(delta)
 
     def reset(self):
         self._dw = 0
         self._db = 0
-        self._grad = 0
+        self._grad_out = 0
 
     def update_grad(self, eta, w_decay=0):
         self._dw += w_decay * self._regularization.backward(self._w)
         self._w = self._w - eta * self._dw
+        # print(self._w[0][0])
         self._b = self._b - eta * self._db
 
     def get_grad(self):
-        return self._grad
+        return self._grad_out
 
 
 # Debug
@@ -267,6 +266,10 @@ def shuffle(x, y):
     return x[indices], y[indices]
 
 
+def to_one_hot(n_labels, data):
+    return np.eye(n_labels)[data]
+
+
 class mydnn:
     # TODO B
     def __init__(self, architecture, loss, weight_decay=0):
@@ -290,6 +293,7 @@ class mydnn:
         layers = []
         for i in range(len(self.architecture)):
             layers.append(layer(self.architecture[i]))
+        layers[-1].name = self.loss # TODO remove
         layers_reversed = layers.copy()
         layers_reversed.reverse()
         return layers, layers_reversed
@@ -355,29 +359,25 @@ class mydnn:
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
 
-                # expand batch dimensions if necessary:
-                batch_x = maybe_expand_dims(batch_x)
-                batch_y = maybe_expand_dims(batch_y)
+                batch_x = batch_x.T
+                batch_y = batch_y.T
 
                 # forward pass
-                out, rglr = layers[0].forward(batch_x.T)
+                out, rglr = layers[0].forward(batch_x)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y.T)  # the average loss over batch
+                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
 
                 # backward pass
-                grad = loss_func.backward(out, batch_y.T)
+                grad = loss_func.backward(out, batch_y)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
 
                 # update gradients
                 for l in layers_reversed:
-                    l.update_grad(learning_rate / batch_size, self.weight_decay)
+                    l.update_grad(learning_rate / float(batch_size), self.weight_decay)
 
-                # save and print results
-                if step % 100 == 0:
-                    print("iteration {}/{} - loss {}".format(step, step_max, loss.T))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
@@ -385,7 +385,7 @@ class mydnn:
                     l.reset()
                 learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
-            train_loss, train_acc = self.evaluate(x_train.T, y_train.T)
+            train_loss, train_acc = self.evaluate(batch_x, batch_y)
             val_loss, val_acc = self.evaluate(x_val.T, y_val.T)
 
             # saving to epoch dictionary
@@ -419,11 +419,11 @@ class mydnn:
         pred = []
         layers_forward, _ = self.graph
         if batch_size is None:
-            batch_size = len(X)
+            batch_size = X.shape[1]
 
-        step_max = max(1, math.ceil(len(X) / batch_size))
+        step_max = max(1, math.ceil(X.shape[1]/ batch_size))
         for step in range(step_max):
-            batch_x = X[step * batch_size: (step + 1) * batch_size]
+            batch_x = X[:, step * batch_size: (step + 1) * batch_size]
             # first layer
             out, _ = layers_forward[0].forward(batch_x)
             # rest of layers
@@ -448,7 +448,7 @@ class mydnn:
             loss_func = mse()
         else:
             loss_func = cross_entropy()
-            accuracy = 100 * np.sum(np.argmax(pred, 1) == y) / float(len(y))
+            accuracy = 100 * np.sum(np.argmax(pred, 0) == np.argmax(y, 0)) / float(y.shape[1])
         loss = loss_func.forward(pred, y)  # loss functions already handle averaging over batch
         return [loss, accuracy]
 
@@ -458,9 +458,17 @@ if __name__ == '__main__':
     # MIST data preparations
     train_set, valid_set, test_set = maybe_download_data()
     train_set, valid_set, test_set = normalize(train_set, valid_set, test_set) # includes normalizing both train and validation according to train stats
-    x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
-    x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
-    x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
+    n_labels = len(np.unique(train_set[1]))
+    x_train, y_train = train_set[0], train_set[1]
+    x_val, y_val = valid_set[0], valid_set[1]
+    x_test, y_test = test_set[0], test_set[1]
+    # x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
+    # x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
+    # x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
+    y_train = to_one_hot(n_labels, y_train)
+    y_val = to_one_hot(n_labels, y_val)
+    y_test = to_one_hot(n_labels, y_test)
+
 
     # TODO: A
     '''
@@ -504,7 +512,8 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    # depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    depth_options,width_options = [3], [10]
     for depth in depth_options:
         # print("depth", depth)
         for num_neurons in width_options:
@@ -532,7 +541,7 @@ if __name__ == '__main__':
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
             model = mydnn(architecture=architecture, loss="cross-entropy")
-            history = model.fit(x_train, y_train, 20, 125, 0.001, 0.99, 1000, x_val=x_val, y_val=y_val)
+            history = model.fit(x_train, y_train, 69, 125, 0.01, 1, 10000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
     # TODO: B
@@ -584,8 +593,5 @@ if __name__ == '__main__':
                                     {"input": 128, "output": 2, "nonlinear": "relu", "regularization": "l1"}], loss="MSE")
         model.fit(np.array([[4, 1], [0, 1], [3, 9], [3, 3]]),
                   np.array([[5, 3], [1, -1], [12, -6], [6, 0]]), 10, batch_size, 0.01)  # classification
-
-
-
 
 
