@@ -67,17 +67,13 @@ class sigmoid:
 
 
 class softmax:
-    def __init__(self):
-        self.exp_val = 0
 
     def forward(self, x):
         exps = np.exp(x)
-        self.exp_val = exps
-        return exps / np.sum(exps, axis=1, keepdims=True) # TODO: check axis correct
+        return exps / np.sum(exps, axis=1, keepdims=True)
 
-    def backward(self, x):
-        return x * (self.exp_val - 1)
-        # return x
+    def backward(self, x, y):
+        return y - x
 
 
 # --------------
@@ -97,23 +93,15 @@ class mse:
 class cross_entropy:
     def forward(self, x, y):
         assert x.shape == y.shape
-        s = softmax()  # TODO: remove or use...
-
-        num_examples = y.shape[0]
+        num_examples = y.shape[1]
         log_likelihood = -np.log(x)
         #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
-        loss = np.sum(y * log_likelihood) / num_examples
+        loss = np.sum(y * log_likelihood) / float(num_examples)   # could also use (same loss outcome): loss = np.sum(-np.log(x[np.argmax(y, 0), range(num_examples)])) / float(num_examples)
         return loss
 
     def backward(self, x, y):
         assert x.shape == y.shape
-        s = softmax() #
-        grad = y# * x
-
-        # num_examples = y.shape[0]
-        # grad = x
-        # grad[range(num_examples), y] -= 1
-        # grad = grad/num_examples
+        grad = y
         return grad
 
 
@@ -131,6 +119,7 @@ class layer:
         self._out_dim = params["output"]
         self._act_fn = params["nonlinear"]
         self._regularization = params["regularization"]
+        self.name = ''
 
         # replace strings with function pointer
         if self._act_fn == "relu":
@@ -159,15 +148,15 @@ class layer:
         self._z = 0
 
         # parameter gradients
-        self._delta = 0
+        self._grad_out = 0
         self._dw = np.zeros((self._out_dim, self._in_dim))
         self._db = np.zeros((self._out_dim, 1))
 
-        self._grad = 0
+        self._grad_out = 0
 
     def forward(self, x, rglr=None):
         self._x = x
-        self._z = np.matmul(self._w, x) + self._b
+        self._z = np.dot(self._w, x) + self._b
         self._y = self._act_fn.forward(self._z)
 
         # For the first layer
@@ -176,26 +165,29 @@ class layer:
 
         return [self._y, self._regularization.forward(rglr + self._w)]
 
-    def backward(self, grad):
-        batch_size = self._x.shape[1]
-
-        self._delta = np.multiply(grad, self._act_fn.backward(self._z))
-        self._dw = (1/batch_size) * np.matmul(self._delta, self._x.T)
-        self._db = np.expand_dims(np.sum(self._delta, axis=1), axis=1)
-        self._grad = np.matmul(self._w.T, self._delta)
+    def backward(self, grad_in):
+        if self.name == 'cross-entropy':
+            delta = self._act_fn.backward(grad_in, self._z)
+        else:
+            delta = grad_in * self._act_fn.backward(self._z)
+        # grad is the incoming delta from above (i.e. the delta that reached the current layer from later layers)
+        self._dw = np.dot(delta, self._x.T)
+        self._db = grad_in.dot(np.ones((delta.shape[1], 1)))
+        self._grad_out = self._w.T.dot(delta)
 
     def reset(self):
         self._dw = 0
         self._db = 0
-        self._grad = 0
+        self._grad_out = 0
 
     def update_grad(self, eta, w_decay=0):
         self._dw += w_decay * self._regularization.backward(self._w)
         self._w = self._w - eta * self._dw
+        # print(self._w[0][0])
         self._b = self._b - eta * self._db
 
     def get_grad(self):
-        return self._grad
+        return self._grad_out
 
 
 # Debug
@@ -301,6 +293,7 @@ class mydnn:
         layers = []
         for i in range(len(self.architecture)):
             layers.append(layer(self.architecture[i]))
+        layers[-1].name = self.loss # TODO remove
         layers_reversed = layers.copy()
         layers_reversed.reverse()
         return layers, layers_reversed
@@ -366,25 +359,28 @@ class mydnn:
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
 
+                batch_x = batch_x.T
+                batch_y = batch_y.T
+
                 # forward pass
-                out, rglr = layers[0].forward(batch_x.T)
+                out, rglr = layers[0].forward(batch_x)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y.T)  # the average loss over batch
+                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
 
                 # backward pass
-                grad = loss_func.backward(out, batch_y.T)
+                grad = loss_func.backward(out, batch_y)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
 
                 # update gradients
                 for l in layers_reversed:
-                    l.update_grad(learning_rate / batch_size, self.weight_decay)
+                    l.update_grad(learning_rate / float(batch_size), self.weight_decay)
 
                 # save and print results
                 if step % 100 == 0:
-                    print("iteration {}/{} - loss {}".format(step, step_max, loss.T))
+                    print("iteration {}/{} - loss {}".format(step, step_max, loss))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
@@ -426,11 +422,11 @@ class mydnn:
         pred = []
         layers_forward, _ = self.graph
         if batch_size is None:
-            batch_size = len(X)
+            batch_size = X.shape[1]
 
-        step_max = max(1, math.ceil(len(X) / batch_size))
+        step_max = max(1, math.ceil(X.shape[1]/ batch_size))
         for step in range(step_max):
-            batch_x = X[step * batch_size: (step + 1) * batch_size]
+            batch_x = X[:, step * batch_size: (step + 1) * batch_size]
             # first layer
             out, _ = layers_forward[0].forward(batch_x)
             # rest of layers
@@ -455,7 +451,7 @@ class mydnn:
             loss_func = mse()
         else:
             loss_func = cross_entropy()
-            accuracy = 100 * np.sum(np.argmax(pred, 1) == y) / float(len(y))
+            accuracy = 100 * np.sum(np.argmax(pred, 0) == np.argmax(y, 0)) / float(y.shape[1])
         loss = loss_func.forward(pred, y)  # loss functions already handle averaging over batch
         return [loss, accuracy]
 
@@ -519,7 +515,8 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    # depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    depth_options,width_options = [3], [10]
     for depth in depth_options:
         # print("depth", depth)
         for num_neurons in width_options:
@@ -547,7 +544,7 @@ if __name__ == '__main__':
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
             model = mydnn(architecture=architecture, loss="cross-entropy")
-            history = model.fit(x_train, y_train, 20, 125, 0.0001, 0.99, 10000, x_val=x_val, y_val=y_val)
+            history = model.fit(x_train, y_train, 69, 125, 0.01, 1, 10000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
     # TODO: B
