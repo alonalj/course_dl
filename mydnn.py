@@ -96,7 +96,7 @@ class cross_entropy:
         num_examples = y.shape[1]
         log_likelihood = -np.log(x)
         #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
-        loss = np.sum(y * log_likelihood) / float(num_examples)   # could also use (same loss outcome): loss = np.sum(-np.log(x[np.argmax(y, 0), range(num_examples)])) / float(num_examples)
+        loss = np.sum(y * log_likelihood) / float(num_examples)   # TODO: NOTE - could also use (same loss outcome): loss = np.sum(-np.log(x[np.argmax(y, 0), range(num_examples)])) / float(num_examples)
         return loss
 
     def backward(self, x, y):
@@ -378,9 +378,6 @@ class mydnn:
                 for l in layers_reversed:
                     l.update_grad(learning_rate / float(batch_size), self.weight_decay)
 
-                # save and print results
-                if step % 100 == 0:
-                    print("iteration {}/{} - loss {}".format(step, step_max, loss))
                 step_counter_tot += 1
 
                 # reset gradients and update learning rate for next round
@@ -388,7 +385,7 @@ class mydnn:
                     l.reset()
                 learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
-            train_loss, train_acc = self.evaluate(x_train.T, y_train.T)
+            train_loss, train_acc = self.evaluate(batch_x, batch_y)
             val_loss, val_acc = self.evaluate(x_val.T, y_val.T)
 
             # saving to epoch dictionary
