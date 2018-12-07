@@ -421,7 +421,7 @@ class mydnn:
 
         step_max = max(1, math.ceil(X.shape[1]/ batch_size))
         for step in range(step_max):
-            batch_x = X[:, step * batch_size: (step + 1) * batch_size]
+            batch_x = X[:, step * batch_size: (step + 1) * batch_size] #TODO: verify indices match the pred-appended indices below
             # first layer
             out, _ = layers_forward[0].forward(batch_x)
             # rest of layers
