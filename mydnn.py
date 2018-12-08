@@ -95,7 +95,7 @@ class cross_entropy:
         num_examples = y.shape[1]
         log_likelihood = -np.log(x)
         #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
-        loss = np.sum(y * log_likelihood) / float(num_examples)
+        loss = np.sum(y * log_likelihood, axis=0)
         return loss
 
     def backward(self, x, y):
@@ -179,7 +179,7 @@ class layer:
         self._db = 0
         self._grad_out = 0
 
-    def update_grad(self, eta, w_decay=0):
+    def update_grad(self, eta, w_decay=0.0):
         self._dw += w_decay * self._regularization.backward(self._w)
         self._w = self._w - eta * self._dw
         # print(self._w[0][0])
@@ -271,7 +271,7 @@ def to_one_hot(n_labels, data):
 
 class mydnn:
     # TODO B
-    def __init__(self, architecture, loss, weight_decay=0):
+    def __init__(self, architecture, loss, weight_decay=0.0):
         """
         :param architecture: A list of dictionaries, each dictionary represents a layer, for each layer the dictionary
          will consist
@@ -286,6 +286,13 @@ class mydnn:
         self.loss = loss
         self.weight_decay = weight_decay
         self.graph = self.build_graph()
+
+        if self.loss == 'MSE':
+            self.loss_func = mse()
+        elif self.loss == 'cross-entropy':
+            self.loss_func = cross_entropy()
+        else:
+            sys.exit("Error: undefined activation function {MSE, cross-entropy}.")
 
     def build_graph(self):
         layers = []
@@ -333,16 +340,6 @@ class mydnn:
         """
         layers, layers_reversed = self.graph
 
-        # loss function
-        if self.loss == 'MSE':
-            loss_func = mse()
-            metric_name = 'Loss'
-        elif self.loss == 'cross-entropy':
-            loss_func = cross_entropy()
-            metric_name = 'Accuracy'
-        else:
-            sys.exit("Error: undefined activation function {MSE, cross-entropy}.")
-
         learning_rate = max(min_lr, learning_rate)
         step_counter_tot = 0
         history = []
@@ -353,6 +350,8 @@ class mydnn:
             start_time_epoch = time.time()
             x_train, y_train = shuffle(x_train, y_train)
             step_max = max(1, math.ceil(len(y_train) / batch_size))
+            train_loss = 0
+            train_acc = 0
             for step in range(step_max):  # TODO verify this doesn't skip any batches
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
@@ -364,10 +363,15 @@ class mydnn:
                 out, rglr = layers[0].forward(batch_x)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
+                loss = self.loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
+                train_loss += np.sum(loss)
+
+                # accuracy
+                accuracy = 100 * np.sum(np.argmax(out, 0) == np.argmax(batch_y, 0)) / float(batch_y.shape[1])
+                train_acc += accuracy
 
                 # backward pass
-                grad = loss_func.backward(out, batch_y)
+                grad = self.loss_func.backward(out, batch_y)
                 for l in layers_reversed:
                     l.backward(grad)
                     grad = l.get_grad()
@@ -383,8 +387,11 @@ class mydnn:
                     l.reset()
                 learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
-            train_loss, train_acc = self.evaluate(x_train.T, y_train.T, batch_size=batch_size)
-            val_loss, val_acc = self.evaluate(x_val.T, y_val.T)
+            train_loss = train_loss / x_train.shape[0]
+            train_acc = train_acc / step_max
+
+            val_loss, val_acc = self.evaluate(x_val, y_val)
+            val_loss = np.mean(val_loss)
 
             # saving to epoch dictionary
             epoch_dict['Train accuracy'] = train_acc
@@ -442,15 +449,39 @@ class mydnn:
         :return: [loss, accuracy] - for regression a list with the loss, for classification the
         loss and the accuracy
         """
-        pred = self.predict(X, batch_size)
-        accuracy = None
-        if self.loss == 'MSE':
-            loss_func = mse()
-        else:
-            loss_func = cross_entropy()
-            accuracy = 100 * np.sum(np.argmax(pred, 0) == np.argmax(y, 0)) / float(y.shape[1])
-        loss = loss_func.forward(pred, y)  # loss functions already handle averaging over batch
-        return [loss, accuracy]
+        layers, layers_reversed = self.graph
+
+        if batch_size is None:
+            batch_size = X.shape[0]
+
+        X, y = shuffle(X, y)
+        step_max = max(1, math.ceil(len(y) / batch_size))
+        train_loss, train_acc = 0, 0
+
+        # Start evaluation
+        for step in range(step_max):
+            batch_x = X[step * batch_size: (step + 1) * batch_size]
+            batch_y = y[step * batch_size: (step + 1) * batch_size]
+
+            batch_x = batch_x.T
+            batch_y = batch_y.T
+
+            # forward pass
+            out, rglr = layers[0].forward(batch_x)
+            for l in layers[1:]:
+                out, rglr = l.forward(out, rglr)
+            loss = self.loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
+            train_loss += np.sum(loss)
+
+            # accuracy
+            pred = out
+            accuracy = 100 * np.sum(np.argmax(pred, 0) == np.argmax(batch_y, 0)) / float(batch_y.shape[1])
+            train_acc += accuracy
+
+        train_loss = train_loss / X.shape[0]
+        train_acc = train_acc / step_max
+
+        return [train_loss, train_acc]
 
 
 if __name__ == '__main__':
@@ -540,7 +571,7 @@ if __name__ == '__main__':
                 layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="cross-entropy")
+            model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.0)
             history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
