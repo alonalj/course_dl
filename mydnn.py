@@ -363,7 +363,7 @@ class mydnn:
                 out, rglr = layers[0].forward(batch_x)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = self.loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
+                loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr  # the average loss over batch
                 train_loss += np.sum(loss)
 
                 # accuracy
@@ -470,7 +470,7 @@ class mydnn:
             out, rglr = layers[0].forward(batch_x)
             for l in layers[1:]:
                 out, rglr = l.forward(out, rglr)
-            loss = self.loss_func.forward(out + self.weight_decay*rglr, batch_y)  # the average loss over batch
+            loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr # the average loss over batch
             train_loss += np.sum(loss)
 
             # accuracy
@@ -571,7 +571,7 @@ if __name__ == '__main__':
                 layer_dict["regularization"] = "l1"
                 architecture.append(layer_dict)
             output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.0)
+            model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.01)
             history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
             plot_figures(history, "test")
 
