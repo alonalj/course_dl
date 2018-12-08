@@ -70,7 +70,7 @@ class softmax:
 
     def forward(self, x):
         exps = np.exp(x)
-        return exps / np.sum(exps, axis=1, keepdims=True)
+        return exps / np.sum(exps, axis=0, keepdims=True)
 
     def backward(self, x, y):
         return y - x
