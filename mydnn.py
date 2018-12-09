@@ -67,7 +67,6 @@ class sigmoid:
 
 
 class softmax:
-
     def forward(self, x):
         exps = np.exp(x - np.max(x))  # subtract max for numerical stability (as in course Q&A)
         return exps / np.sum(exps, axis=0, keepdims=True)
@@ -509,13 +508,16 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    batch_size = 128
-    lr = 0.005
-    lr_decay = 1.0
-    layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
-    layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
-    model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
-    model.fit(x_train, y_train, 100, batch_size, lr, x_val=x_val, y_val=y_val)
+    _batch_size = [128, 1024, 10000]
+    lr = 0.001
+    epochs = 20
+    for batch_size in _batch_size:
+        print("Running batch size: {}, lr: {}".format(batch_size, lr))
+        layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
+        layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
+        model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
+        history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
+        plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
 
 
     # TODO: A
