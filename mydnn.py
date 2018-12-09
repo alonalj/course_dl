@@ -510,7 +510,7 @@ if __name__ == '__main__':
     '''
     _batch_size = [128, 1024, 10000]
     lr = 0.001
-    epochs = 20
+    epochs = 50
     for batch_size in _batch_size:
         print("Running batch size: {}, lr: {}".format(batch_size, lr))
         layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
