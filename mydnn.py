@@ -498,7 +498,6 @@ if __name__ == '__main__':
     y_val = to_one_hot(n_labels, y_val)
     y_test = to_one_hot(n_labels, y_test)
 
-    # TODO: A
     '''
     Batch Size 
     -------------
@@ -508,19 +507,18 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    _batch_size = [128, 1024, 10000]
-    lr = 0.001
-    epochs = 50
-    for batch_size in _batch_size:
-        print("Running batch size: {}, lr: {}".format(batch_size, lr))
-        layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
-        layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
-        model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
-        history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
-        plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
+    #_batch_size = [128, 1024, 10000]
+    #lr = 0.001
+    #epochs = 50
+    #for batch_size in _batch_size:
+    #    print("Running batch size: {}".format(batch_size, lr))
+    #    layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
+    #    layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
+    #    model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
+    #    history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
+    #    plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
 
 
-    # TODO: A
     '''
     Regularization
     -------------
@@ -530,9 +528,28 @@ if __name__ == '__main__':
     value is \lambda = 5e - 4). Discuss how the use of regularization affects
     generalization.
     '''
-    # model = mydnn(architecture=None, loss=None)
-    # model.fit(...)
-    # model._plot_figures(...)
+    batch_size = 128
+    lr = 0.001
+    _regularization = ["l1", "l1", "l2"]
+    _wd = [0, 0.005, 0.005]
+    epochs = 25
+    i = 0
+    for regularization in _regularization:
+        print("Running regularization: {}, wd: {}".format(regularization, _wd[i]))
+        layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": regularization}
+        layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": regularization}
+        model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=_wd[i])
+        history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
+        plot_figures(history, "Regularization: {}, wd: {}".format(regularization, _wd[i]))
+
+        # Plot weights histogram
+        plt.hist(model.graph[1][0]._w.flatten(), 20)
+        plt.xlabel('Value')
+        plt.ylabel('#')
+        plt.title('Weights Distribution, regularization: {}, wd: {}'.format(regularization, _wd[i]))
+        plt.show()
+
+        i += 1
 
     # TODO: B
     '''
