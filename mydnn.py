@@ -507,16 +507,16 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    #_batch_size = [128, 1024, 10000]
-    #lr = 0.001
-    #epochs = 50
-    #for batch_size in _batch_size:
-    #    print("Running batch size: {}".format(batch_size, lr))
-    #    layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
-    #    layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
-    #    model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
-    #    history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
-    #    plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
+    _batch_size = [128, 1024, 10000]
+    lr = 0.001
+    epochs = 50
+    for batch_size in _batch_size:
+        print("Running batch size: {}".format(batch_size, lr))
+        layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
+        layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
+        model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
+        history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
+        plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
 
 
     '''
