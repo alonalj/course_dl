@@ -499,18 +499,6 @@ if __name__ == '__main__':
     y_val = to_one_hot(n_labels, y_val)
     y_test = to_one_hot(n_labels, y_test)
 
-    # TESTING: TODO: remove
-
-    # TWO LAYERS - MSE TEST
-    print("Testing 2-layer with MSE, no regularization, RELU nonlinearity.")
-    l1 = {"input": 2, "output": 3, "nonlinear": "relu", "regularization": "l1"}
-    l2 = {"input": 3, "output": 2, "nonlinear": "sigmoid", "regularization": "l1"}
-    l3 = {"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l2"}
-    model = mydnn(architecture=[l1, l2, l3], loss="MSE")
-    model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 100, 3, 0.01, x_val=np.array([[1, 0], [0, 1]]), y_val=np.array([[1], [0]]))  # classification
-
-
-
     # TODO: A
     '''
     Batch Size 
@@ -521,10 +509,14 @@ if __name__ == '__main__':
     10000) to the learning performance. Discuss your results, and design and run
     more experiments to support your hypothesis, if needed.
     '''
-    # model = mydnn(architecture=None, loss=None)
-    # print(layer(1,2,3).forward())
-    # model._plot_figures({'Steps':[1,2,3], 'Accuracy': [98,100,89]}, 'Test')
-    # model.fit(...)
+    batch_size = 128
+    lr = 0.005
+    lr_decay = 1.0
+    layer_1 = {"input": x_train.shape[1], "output": 128, "nonlinear": "relu", "regularization": "l1"}
+    layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
+    model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
+    model.fit(x_train, y_train, 100, batch_size, lr, x_val=x_val, y_val=y_val)
+
 
     # TODO: A
     '''
