@@ -69,7 +69,7 @@ class sigmoid:
 class softmax:
 
     def forward(self, x):
-        exps = np.exp(x)
+        exps = np.exp(x - np.max(x))  # subtract max for numerical stability (as in course Q&A)
         return exps / np.sum(exps, axis=0, keepdims=True)
 
     def backward(self, x, y):
@@ -82,7 +82,7 @@ class softmax:
 class mse:
     def forward(self, x, y):
         assert x.shape == y.shape
-        return np.sum(np.mean(np.square(y - x), axis=1)) # mean is over samples and sum over classes (in case the user wishes to use MSE for a classification task)
+        return np.mean(np.square(y - x), axis=0)  # mean is over label axis (in case labels are vectors such as one-hot)
 
     def backward(self, x, y):
         assert x.shape == y.shape
@@ -92,9 +92,8 @@ class mse:
 class cross_entropy:
     def forward(self, x, y):
         assert x.shape == y.shape
-        num_examples = y.shape[1]
         log_likelihood = -np.log(x)
-        #  each sample in y is one-hot, resulting in a single element per sample. On this we sum to obtain total loss:
+        # y is one-hot -> each sample's loss affected by a single element -> element-wise product and sum = sample loss.
         loss = np.sum(y * log_likelihood, axis=0)
         return loss
 
@@ -169,7 +168,7 @@ class layer:
             delta = self._act_fn.backward(grad_in, self._z)
         else:
             delta = grad_in * self._act_fn.backward(self._z)
-        # grad is the incoming delta from above (i.e. the delta that reached the current layer from later layers)
+        # grad_in is the incoming gradient from above
         self._dw = np.dot(delta, self._x.T)
         self._db = grad_in.dot(np.ones((delta.shape[1], 1)))
         self._grad_out = self._w.T.dot(delta)
@@ -363,11 +362,11 @@ class mydnn:
                 out, rglr = layers[0].forward(batch_x)
                 for l in layers[1:]:
                     out, rglr = l.forward(out, rglr)
-                loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr  # the average loss over batch
+                loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr
                 train_loss += np.sum(loss)
 
                 # accuracy
-                accuracy = 100 * np.sum(np.argmax(out, 0) == np.argmax(batch_y, 0)) / float(batch_y.shape[1])
+                accuracy = np.sum(np.argmax(out, 0) == np.argmax(batch_y, 0))
                 train_acc += accuracy
 
                 # backward pass
@@ -388,9 +387,9 @@ class mydnn:
                 learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
 
             train_loss = train_loss / x_train.shape[0]
-            train_acc = train_acc / step_max
+            train_acc = 100 * train_acc / x_train.shape[0]
 
-            val_loss, val_acc = self.evaluate(x_val, y_val)
+            val_loss, val_acc = self.evaluate(x_val, y_val, batch_size=batch_size)
             val_loss = np.mean(val_loss)
 
             # saving to epoch dictionary
@@ -470,23 +469,23 @@ class mydnn:
             out, rglr = layers[0].forward(batch_x)
             for l in layers[1:]:
                 out, rglr = l.forward(out, rglr)
-            loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr # the average loss over batch
+            loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr
             train_loss += np.sum(loss)
 
             # accuracy
             pred = out
-            accuracy = 100 * np.sum(np.argmax(pred, 0) == np.argmax(batch_y, 0)) / float(batch_y.shape[1])
+            accuracy = np.sum(np.argmax(pred, 0) == np.argmax(batch_y, 0))
             train_acc += accuracy
 
         train_loss = train_loss / X.shape[0]
-        train_acc = train_acc / step_max
+        train_acc = 100 * train_acc / X.shape[0]
 
         return [train_loss, train_acc]
 
 
 if __name__ == '__main__':
 
-    # MIST data preparations
+    # MIST data preparations  - #TODO - move to its own function
     train_set, valid_set, test_set = maybe_download_data()
     train_set, valid_set, test_set = normalize(train_set, valid_set, test_set) # includes normalizing both train and validation according to train stats
     n_labels = len(np.unique(train_set[1]))
@@ -499,6 +498,17 @@ if __name__ == '__main__':
     y_train = to_one_hot(n_labels, y_train)
     y_val = to_one_hot(n_labels, y_val)
     y_test = to_one_hot(n_labels, y_test)
+
+    # TESTING: TODO: remove
+
+    # TWO LAYERS - MSE TEST
+    print("Testing 2-layer with MSE, no regularization, RELU nonlinearity.")
+    l1 = {"input": 2, "output": 3, "nonlinear": "relu", "regularization": "l1"}
+    l2 = {"input": 3, "output": 2, "nonlinear": "sigmoid", "regularization": "l1"}
+    l3 = {"input": 2, "output": 1, "nonlinear": "relu", "regularization": "l2"}
+    model = mydnn(architecture=[l1, l2, l3], loss="MSE")
+    model.fit(np.array([[1, 0], [0, 1]]), np.array([[1], [0]]), 100, 3, 0.01, x_val=np.array([[1, 0], [0, 1]]), y_val=np.array([[1], [0]]))  # classification
+
 
 
     # TODO: A
@@ -543,37 +553,37 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    # depth_options, width_options = np.arange(1,4), np.arange(1, 513)
-    depth_options,width_options = [3], [10]
-    for depth in depth_options:
-        # print("depth", depth)
-        for num_neurons in width_options:
-            output_shape = num_neurons
-            architecture = []
-            layer_ids = range(depth)
-            for layer_id in layer_ids:
-                layer_dict = {}
-                if layer_id == 0:
-                    layer_dict["input"] = x_train.shape[1]
-                else:
-                    layer_dict["input"] = output_shape
-
-                if layer_id == layer_ids[-1]:  # last layer
-                    layer_dict["output"] = y_train.shape[1]
-                else:
-                    layer_dict["output"] = num_neurons
-
-                if layer_id == layer_ids[-1]: # last layer with softmax
-                    layer_dict["nonlinear"] = "softmax"
-                else:
-                    layer_dict["nonlinear"] = "relu"
-
-                layer_dict["regularization"] = "l1"
-                architecture.append(layer_dict)
-            output_shape = layer_dict["output"]
-            model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.01)
-            history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
-            plot_figures(history, "test")
+    # # depth_options, width_options = np.arange(1,4), np.arange(1, 513)
+    # depth_options, width_options = [3], [10]
+    # for depth in depth_options:
+    #     # print("depth", depth)
+    #     for num_neurons in width_options:
+    #         output_shape = num_neurons
+    #         architecture = []
+    #         layer_ids = range(depth)
+    #         for layer_id in layer_ids:
+    #             layer_dict = {}
+    #             if layer_id == 0:
+    #                 layer_dict["input"] = x_train.shape[1]
+    #             else:
+    #                 layer_dict["input"] = output_shape
+    #
+    #             if layer_id == layer_ids[-1]:  # last layer
+    #                 layer_dict["output"] = y_train.shape[1]
+    #             else:
+    #                 layer_dict["output"] = num_neurons
+    #
+    #             if layer_id == layer_ids[-1]: # last layer with softmax
+    #                 layer_dict["nonlinear"] = "softmax"
+    #             else:
+    #                 layer_dict["nonlinear"] = "relu"
+    #
+    #             layer_dict["regularization"] = "l1"
+    #             architecture.append(layer_dict)
+    #         output_shape = layer_dict["output"]
+    #         model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.0)
+    #         history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
+    #         plot_figures(history, "test")
 
     # TODO: B
     '''
