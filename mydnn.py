@@ -10,7 +10,7 @@ import sys
 import pdb
 import math
 import time
-
+import random
 
 def maybe_download_data():
     # downloading data if necessary
@@ -81,11 +81,11 @@ class softmax:
 class mse:
     def forward(self, x, y):
         assert x.shape == y.shape
-        return np.mean(np.square(y - x), axis=0)  # mean is over label axis (in case labels are vectors such as one-hot)
+        return 0.5 * np.square(y - x)
 
     def backward(self, x, y):
         assert x.shape == y.shape
-        return -2 * (y - x)
+        return -(y - x)
 
 
 class cross_entropy:
@@ -98,7 +98,7 @@ class cross_entropy:
 
     def backward(self, x, y):
         assert x.shape == y.shape
-        grad = y
+        grad = y  # This is not the actual dC/dOut, but it is the portion that will backprop into softmax. See explanation in pdf.
         return grad
 
 
@@ -216,7 +216,7 @@ def maybe_expand_dims(data):
     return data
 
 
-def plot_figures(dict_x_y, title):
+def plot_figures(dict_x_y, title, metrics):
     """
     the results should be depicted in two figures (one for loss
     and one for accuracy), where the X-axis is the number of iterations (number of
@@ -238,7 +238,7 @@ def plot_figures(dict_x_y, title):
         plt.ylabel(y_name.split(' ')[1].title())
         plt.title(title)
 
-    for metric in ['loss', 'accuracy']:
+    for metric in metrics:
         for data_type in ['Train', 'Validation']:
             color = 'darkslategray' if 'Train' in data_type else 'c'
             metric_values = []
@@ -247,14 +247,15 @@ def plot_figures(dict_x_y, title):
             # gather metric results from all epochs
             for epoch_dict in dict_x_y:
                 metric_values.append(epoch_dict[data_type + ' ' + metric])
-                num_backwards.append(epoch_counter*epoch_dict['n_backwards'])
+                num_backwards.append(epoch_counter * epoch_dict['n_backwards'])
                 epoch_counter += 1
             # plot metric results
             if metric_values[0] is not None:
-                df = pd.DataFrame.from_dict({'Steps':num_backwards, data_type + ' ' + metric: metric_values})
+                df = pd.DataFrame.from_dict({'Steps': num_backwards, data_type + ' ' + metric: metric_values})
                 plot_df(df, title, color)
         # display and close so next metric type is on new plot
-        plt.show()  # TODO: replace with plt.save
+        # plt.show()  # TODO: replace with plt.save
+        plt.savefig('../out/{}.png'.format(metric + ' for ' + title))
         plt.close()
 
 
@@ -364,7 +365,7 @@ class mydnn:
                 loss = self.loss_func.forward(out, batch_y) + self.weight_decay*rglr
                 train_loss += np.sum(loss)
 
-                # accuracy
+                # accuracy  #TODO: only if cross-etropy
                 accuracy = np.sum(np.argmax(out, 0) == np.argmax(batch_y, 0))
                 train_acc += accuracy
 
@@ -499,7 +500,7 @@ if __name__ == '__main__':
     y_test = to_one_hot(n_labels, y_test)
 
     '''
-    Batch Size 
+    Batch Size
     -------------
     We first consider a basic architecture with one hidden layer containing 128 neurons,
     a ReLU activation function, and softmax output layer. Your experiment
@@ -516,7 +517,7 @@ if __name__ == '__main__':
         layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": "l1"}
         model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=0.0)
         history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
-        plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr))
+        plot_figures(history, "Batch Size {}, Learning Rate: {}".format(batch_size, lr), metrics=['loss', 'accuracy'])
 
 
     '''
@@ -540,7 +541,7 @@ if __name__ == '__main__':
         layer_2 = {"input": 128, "output": y_train.shape[1], "nonlinear": "softmax", "regularization": regularization}
         model = mydnn(architecture=[layer_1, layer_2], loss="cross-entropy", weight_decay=_wd[i])
         history = model.fit(x_train, y_train, epochs, batch_size, lr, x_val=x_val, y_val=y_val)
-        plot_figures(history, "Regularization: {}, wd: {}".format(regularization, _wd[i]))
+        plot_figures(history, "Regularization: {}, wd: {}".format(regularization, _wd[i]), metrics=['loss', 'accuracy'])
 
         # Plot weights histogram
         plt.hist(model.graph[1][0]._w.flatten(), 20)
@@ -564,37 +565,60 @@ if __name__ == '__main__':
     learning theory perspective (hypothesis set size, training set size, overfitting
     etc...).
     '''
-    # # depth_options, width_options = np.arange(1,4), np.arange(1, 513)
-    # depth_options, width_options = [3], [10]
-    # for depth in depth_options:
-    #     # print("depth", depth)
-    #     for num_neurons in width_options:
-    #         output_shape = num_neurons
-    #         architecture = []
-    #         layer_ids = range(depth)
-    #         for layer_id in layer_ids:
-    #             layer_dict = {}
-    #             if layer_id == 0:
-    #                 layer_dict["input"] = x_train.shape[1]
-    #             else:
-    #                 layer_dict["input"] = output_shape
+    def make_architecture(depth, width, in_shape, out_shape, activ, rglr, loss):
+        print("depth {}, width {}".format(depth, width))
+        output_shape = width
+        architecture = []
+        layer_ids = range(depth)
+        for layer_id in layer_ids:
+            layer_dict = {}
+            # input layer handled differently:
+            if layer_id == 0:
+                layer_dict["input"] = in_shape
+            else:
+                layer_dict["input"] = output_shape
+            # output layer handled differently:
+            if layer_id == layer_ids[-1]:
+                layer_dict["output"] = out_shape
+                if loss == 'cross-entropy':
+                    layer_dict["nonlinear"] = "softmax"
+                else:
+                    layer_dict["nonlinear"] = activ
+            else:
+                layer_dict["output"] = width
+                layer_dict["nonlinear"] = activ
+            layer_dict["regularization"] = rglr
+            architecture.append(layer_dict)
+        # output_shape = layer_dict["output"]
+        return architecture
     #
-    #             if layer_id == layer_ids[-1]:  # last layer
-    #                 layer_dict["output"] = y_train.shape[1]
-    #             else:
-    #                 layer_dict["output"] = num_neurons
     #
-    #             if layer_id == layer_ids[-1]: # last layer with softmax
-    #                 layer_dict["nonlinear"] = "softmax"
-    #             else:
-    #                 layer_dict["nonlinear"] = "relu"
+    # depth_options, width_options = np.arange(1,4), np.arange(1, 513, 100)
+    # best_acc = 0
+    # rglr = "l1"
+    # activ = "relu"
+    # loss = "cross-entropy"
+    # weight_decay = 0.0
+    # for lr in [0.007, 0.001]:
+    #     try:
+    #         for depth in depth_options:
+    #             for width in width_options:
+    #                 # if depth != 3 or num_neurons != 301:
+    #                 #     continue
+    #                 is_best = False  #TODO: remove
+    #                 architecture = make_architecture(depth, width, x_train.shape[1], y_train.shape[1], activ, rglr, loss)
     #
-    #             layer_dict["regularization"] = "l1"
-    #             architecture.append(layer_dict)
-    #         output_shape = layer_dict["output"]
-    #         model = mydnn(architecture=architecture, loss="cross-entropy", weight_decay=0.0)
-    #         history = model.fit(x_train, y_train, 70, 100, 0.005, 1, 1000, x_val=x_val, y_val=y_val)
-    #         plot_figures(history, "test")
+    #                 model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
+    #                 history = model.fit(x_train, y_train, 70, 64, lr, 1, 1000, x_val=x_val, y_val=y_val)
+    #                 last_epoch_acc = history[-1]["Validation accuracy"]
+    #                 if last_epoch_acc > best_acc:
+    #                     is_best = True
+    #                     best_acc = last_epoch_acc
+    #                     best_architecture = architecture
+    #                 plot_figures(history, "depth {}   width: {}   (lr: {})"  #TODO: add test result to top of image
+    #                              .format(str(depth), str(width), str(lr)), metrics=['loss', 'accuracy'])
+    #     except:
+    #         continue
 
     # TODO: B
     '''
@@ -609,7 +633,88 @@ if __name__ == '__main__':
     a 3d graph showing y'test (predicted values for the test points) as function of
     x = (x1, x2).
     '''
-    # model = mydnn(architecture=None, loss=None)
-    # model.fit(...)
-    # model._plot_figures(...)
+
+    def plot_3d(xy_mesh, z, title):
+        from mpl_toolkits.mplot3d import Axes3D
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        from matplotlib.ticker import LinearLocator, FormatStrFormatter
+        import numpy as np
+
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+
+        # Make data.
+        X = np.arange(-5, 5, 0.25)
+        Y = np.arange(-5, 5, 0.25)
+        X, Y = np.meshgrid(X, Y)
+        R = np.sqrt(X ** 2 + Y ** 2)
+        Z = np.sin(R)
+
+        # Make data.
+        X, Y = xy_mesh
+        Z = z.reshape((1000,1000))
+
+        # Plot the surface.
+        surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
+                               linewidth=0, antialiased=False)
+
+        # Customize the z axis.
+        ax.set_zlim(-1.01, 1.01)
+        ax.zaxis.set_major_locator(LinearLocator(10))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+
+        # Add a color bar which maps values to colors.
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+        plt.savefig('../out/3d_'+title+'.png')
+        plt.close()
+        # plt.show()
+
+    def f(x):
+        x1, x2 = x[0], x[1]
+        return [x1 * np.exp(-x1 ** 2 - x2 ** 2)]
+
+    # test set
+    test_x_mesh = np.meshgrid(np.linspace(-2, 2, 1000), np.linspace(-2, 2, 1000))
+    test_x = np.array([test_x_mesh[0].flatten(), test_x_mesh[1].flatten()]).T
+    test_y = np.apply_along_axis(f, 1, test_x)
+
+    # train set
+    for m in [1000]: # TODO: add 100 as well
+        train_x, train_y = [], []
+        for i in range(m):
+            x = np.array([[random.uniform(-2, 2), random.uniform(-2, 2)]])
+            train_x.append(x[0])
+        train_x, train_y = np.array(train_x), np.apply_along_axis(f, 1, train_x)
+
+        depth_options, width_options = np.arange(1, 4), np.arange(1, 513, 100)
+        best_acc = 0
+        rglr = "l1"
+        activ = "sigmoid"
+        loss = "MSE"
+        weight_decay = 0.0
+        for lr in [0.01, 0.007]:#[0.0001]:
+
+            for depth in depth_options:
+                for width in width_options:
+                    # if depth != 3 or num_neurons != 301:
+                    #     continue
+                    is_best = False  # TODO: remove
+                    architecture = make_architecture(depth, width, train_x.shape[1], train_y.shape[1], activ, rglr, loss)
+
+                    model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
+                    history = model.fit(train_x, train_y, 1000, 125, lr, 1, 10000, x_val=test_x, y_val=test_y)
+                    last_epoch_acc = history[-1]["Validation loss"]
+                    if last_epoch_acc > best_acc:
+                        is_best = True
+                        best_acc = last_epoch_acc
+                        best_architecture = architecture
+                    plot_figures(history, "Q4 is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
+                                 .format(str(is_best), str(m), str(depth), str(width), str(lr)), metrics=['loss'])
+                    preds = model.predict(test_x.T, 100)
+                    plot_3d(test_x_mesh, preds, "is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
+                                 .format(str(is_best), str(m), str(depth), str(width), str(lr)))
+            # except:
+            #     continue
+
     # model._plot_3d_figure(...)
