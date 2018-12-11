@@ -18,6 +18,7 @@ def maybe_download_data():
         with gzip.open('mnist.pkl.gz', 'rb') as f:
             train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
     except:
+        print("downloading MNIST...")
         data_url = "http://deeplearning.net/data/mnist/mnist.pkl.gz"  # Load the dataset
         urllib.request.urlretrieve(data_url, "mnist.pkl.gz")
         with gzip.open('mnist.pkl.gz', 'rb') as f:
@@ -81,7 +82,7 @@ class softmax:
 class mse:
     def forward(self, x, y):
         assert x.shape == y.shape
-        return 0.5 * np.square(y - x)
+        return np.sum(0.5 * np.power(y - x, 2))
 
     def backward(self, x, y):
         assert x.shape == y.shape
@@ -98,7 +99,7 @@ class cross_entropy:
 
     def backward(self, x, y):
         assert x.shape == y.shape
-        grad = y  # This is not the actual dC/dOut, but it is the portion that will backprop into softmax. See explanation in pdf.
+        grad = y  # This is not the actual dC/dOut, but it is the portion that will backprop into softmax (dL/dz has a simple solution when the activation on z is softmax).
         return grad
 
 
@@ -254,7 +255,6 @@ def plot_figures(dict_x_y, title, metrics):
                 df = pd.DataFrame.from_dict({'Steps': num_backwards, data_type + ' ' + metric: metric_values})
                 plot_df(df, title, color)
         # display and close so next metric type is on new plot
-        # plt.show()  # TODO: replace with plt.save
         plt.savefig('../out/{}.png'.format(metric + ' for ' + title))
         plt.close()
 
@@ -340,7 +340,8 @@ class mydnn:
         layers, layers_reversed = self.graph
 
         learning_rate = max(min_lr, learning_rate)
-        step_counter_tot = 0
+        learning_rate_original = learning_rate
+        step_global = 0
         history = []
 
         # training
@@ -351,7 +352,7 @@ class mydnn:
             step_max = max(1, math.ceil(len(y_train) / batch_size))
             train_loss = 0
             train_acc = 0
-            for step in range(step_max):  # TODO verify this doesn't skip any batches
+            for step in range(step_max):
                 batch_x = x_train[step * batch_size: (step + 1) * batch_size]
                 batch_y = y_train[step * batch_size: (step + 1) * batch_size]
 
@@ -379,12 +380,13 @@ class mydnn:
                 for l in layers_reversed:
                     l.update_grad(learning_rate / float(batch_size), self.weight_decay)
 
-                step_counter_tot += 1
+                step_global += 1
 
                 # reset gradients and update learning rate for next round
                 for l in layers_reversed:
                     l.reset()
-                learning_rate = max(learning_rate * learning_rate_decay**(int(step/decay_rate)), min_lr)
+                learning_rate = max(learning_rate_original * learning_rate_decay**(int(step_global/decay_rate)), min_lr)
+                # print(learning_rate)
 
             train_loss = train_loss / x_train.shape[0]
             train_acc = 100 * train_acc / x_train.shape[0]
@@ -427,7 +429,7 @@ class mydnn:
 
         step_max = max(1, math.ceil(X.shape[1]/ batch_size))
         for step in range(step_max):
-            batch_x = X[:, step * batch_size: (step + 1) * batch_size] #TODO: verify indices match the pred-appended indices below
+            batch_x = X[:, step * batch_size: (step + 1) * batch_size]
             # first layer
             out, _ = layers_forward[0].forward(batch_x)
             # rest of layers
@@ -484,8 +486,10 @@ class mydnn:
 
 
 if __name__ == '__main__':
+    my_m = 1000
+    # sys.stdout = open("d3_output_"+str(my_m)+".txt", "w")
 
-    # MIST data preparations  - #TODO - move to its own function
+    # MIST data preparations
     train_set, valid_set, test_set = maybe_download_data()
     train_set, valid_set, test_set = normalize(train_set, valid_set, test_set) # includes normalizing both train and validation according to train stats
     n_labels = len(np.unique(train_set[1]))
@@ -552,7 +556,6 @@ if __name__ == '__main__':
 
         i += 1
 
-    # TODO: B
     '''
     Architecture:
     -------------
@@ -591,36 +594,35 @@ if __name__ == '__main__':
             architecture.append(layer_dict)
         # output_shape = layer_dict["output"]
         return architecture
-    #
-    #
-    # depth_options, width_options = np.arange(1,4), np.arange(1, 513, 100)
-    # best_acc = 0
-    # rglr = "l1"
-    # activ = "relu"
-    # loss = "cross-entropy"
-    # weight_decay = 0.0
-    # for lr in [0.007, 0.001]:
-    #     try:
-    #         for depth in depth_options:
-    #             for width in width_options:
-    #                 # if depth != 3 or num_neurons != 301:
-    #                 #     continue
-    #                 is_best = False  #TODO: remove
-    #                 architecture = make_architecture(depth, width, x_train.shape[1], y_train.shape[1], activ, rglr, loss)
-    #
-    #                 model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
-    #                 history = model.fit(x_train, y_train, 70, 64, lr, 1, 1000, x_val=x_val, y_val=y_val)
-    #                 last_epoch_acc = history[-1]["Validation accuracy"]
-    #                 if last_epoch_acc > best_acc:
-    #                     is_best = True
-    #                     best_acc = last_epoch_acc
-    #                     best_architecture = architecture
-    #                 plot_figures(history, "depth {}   width: {}   (lr: {})"  #TODO: add test result to top of image
-    #                              .format(str(depth), str(width), str(lr)), metrics=['loss', 'accuracy'])
-    #     except:
-    #         continue
 
-    # TODO: B
+
+    depth_options, width_options = np.arange(1,4), np.arange(1, 513, 100)
+    best_acc = 0
+    rglr = "l1"
+    activ = "relu"
+    loss = "cross-entropy"
+    weight_decay = 0.0
+    for lr in [0.007, 0.001]:
+        try:
+            for depth in depth_options:
+                for width in width_options:
+                    # if depth != 3 or num_neurons != 301:
+                    #     continue
+                    is_best = False
+                    architecture = make_architecture(depth, width, x_train.shape[1], y_train.shape[1], activ, rglr, loss)
+
+                    model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
+                    history = model.fit(x_train, y_train, 70, 64, lr, 1, 1000, x_val=x_val, y_val=y_val)
+                    last_epoch_acc = history[-1]["Validation accuracy"]
+                    if last_epoch_acc > best_acc:
+                        is_best = True
+                        best_acc = last_epoch_acc
+                        best_architecture = architecture
+                    plot_figures(history, "depth {}   width: {}   (lr: {})"
+                                 .format(str(depth), str(width), str(lr)), metrics=['loss', 'accuracy'])
+        except:
+            continue
+
     '''
     Regression:
     -------------
@@ -653,14 +655,15 @@ if __name__ == '__main__':
 
         # Make data.
         X, Y = xy_mesh
-        Z = z.reshape((1000,1000))
+        reshape_size = int(np.sqrt(z.shape[1]))
+        Z = z.reshape((reshape_size, reshape_size))
 
         # Plot the surface.
         surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
                                linewidth=0, antialiased=False)
 
         # Customize the z axis.
-        ax.set_zlim(-1.01, 1.01)
+        ax.set_zlim(-0.3, 0.3)
         ax.zaxis.set_major_locator(LinearLocator(10))
         ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 
@@ -679,13 +682,12 @@ if __name__ == '__main__':
     test_x = np.array([test_x_mesh[0].flatten(), test_x_mesh[1].flatten()]).T
     test_y = np.apply_along_axis(f, 1, test_x)
 
+
     # train set
-    for m in [1000]: # TODO: add 100 as well
+    for m in [my_m]: # TODO: add 100 as well
         train_x, train_y = [], []
-        for i in range(m):
-            x = np.array([[random.uniform(-2, 2), random.uniform(-2, 2)]])
-            train_x.append(x[0])
-        train_x, train_y = np.array(train_x), np.apply_along_axis(f, 1, train_x)
+        train_x = np.random.uniform(low=-2, high=2, size=(m, 2))
+        train_y = np.apply_along_axis(f, 1, train_x)
 
         depth_options, width_options = np.arange(1, 4), np.arange(1, 513, 100)
         best_acc = 0
@@ -693,28 +695,25 @@ if __name__ == '__main__':
         activ = "sigmoid"
         loss = "MSE"
         weight_decay = 0.0
-        for lr in [0.01, 0.007]:#[0.0001]:
-
-            for depth in depth_options:
-                for width in width_options:
-                    # if depth != 3 or num_neurons != 301:
+        batch_size = 100
+        for lr in [0.007]:
+            print("lr", lr)
+            for depth in [2,3]:
+                for width in [2**i for i in range(4,9)]:
+                    # if depth != 5 or width != 201:
                     #     continue
-                    is_best = False  # TODO: remove
+                    is_best = False
                     architecture = make_architecture(depth, width, train_x.shape[1], train_y.shape[1], activ, rglr, loss)
 
                     model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
-                    history = model.fit(train_x, train_y, 1000, 125, lr, 1, 10000, x_val=test_x, y_val=test_y)
+                    history = model.fit(train_x, train_y, 100000, batch_size, lr, 1, 1000*float(m/batch_size), x_val=test_x, y_val=test_y)
                     last_epoch_acc = history[-1]["Validation loss"]
                     if last_epoch_acc > best_acc:
                         is_best = True
                         best_acc = last_epoch_acc
                         best_architecture = architecture
-                    plot_figures(history, "Q4 is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
+                    plot_figures(history, "short_test_Q4 is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
                                  .format(str(is_best), str(m), str(depth), str(width), str(lr)), metrics=['loss'])
                     preds = model.predict(test_x.T, 100)
-                    plot_3d(test_x_mesh, preds, "is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
-                                 .format(str(is_best), str(m), str(depth), str(width), str(lr)))
-            # except:
-            #     continue
-
-    # model._plot_3d_figure(...)
+                    plot_3d(test_x_mesh, preds, "short_test_is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
+                            .format(str(is_best), str(m), str(depth), str(width), str(lr)))
