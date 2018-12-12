@@ -112,7 +112,6 @@ class layer:
     """
 
     def __init__(self, params):
-        # TODO: add assertions
         self._in_dim = params["input"]
         self._out_dim = params["output"]
         self._act_fn = params["nonlinear"]
@@ -269,7 +268,6 @@ def to_one_hot(n_labels, data):
 
 
 class mydnn:
-    # TODO B
     def __init__(self, architecture, loss, weight_decay=0.0):
         """
         :param architecture: A list of dictionaries, each dictionary represents a layer, for each layer the dictionary
@@ -302,7 +300,6 @@ class mydnn:
         layers_reversed.reverse()
         return layers, layers_reversed
 
-    # TODO B
     def fit(self, x_train, y_train, epochs, batch_size, learning_rate, learning_rate_decay=1.0,
             decay_rate=1, min_lr=0.0, x_val=None, y_val=None, ):
         """
@@ -486,7 +483,6 @@ class mydnn:
 
 
 if __name__ == '__main__':
-    my_m = 1000
     # sys.stdout = open("d3_output_"+str(my_m)+".txt", "w")
 
     # MIST data preparations
@@ -496,9 +492,6 @@ if __name__ == '__main__':
     x_train, y_train = train_set[0], train_set[1]
     x_val, y_val = valid_set[0], valid_set[1]
     x_test, y_test = test_set[0], test_set[1]
-    # x_train, y_train = maybe_expand_dims(train_set[0]), maybe_expand_dims(train_set[1])
-    # x_val, y_val = maybe_expand_dims(valid_set[0]), maybe_expand_dims(valid_set[1])
-    # x_test, y_test = maybe_expand_dims(test_set[0]), maybe_expand_dims(test_set[1])
     y_train = to_one_hot(n_labels, y_train)
     y_val = to_one_hot(n_labels, y_val)
     y_test = to_one_hot(n_labels, y_test)
@@ -592,7 +585,6 @@ if __name__ == '__main__':
                 layer_dict["nonlinear"] = activ
             layer_dict["regularization"] = rglr
             architecture.append(layer_dict)
-        # output_shape = layer_dict["output"]
         return architecture
 
 
@@ -602,11 +594,11 @@ if __name__ == '__main__':
     activ = "relu"
     loss = "cross-entropy"
     weight_decay = 0.0
-    for lr in [0.007, 0.001]:
+    for lr in [0.007]:
         try:
             for depth in depth_options:
                 for width in width_options:
-                    # if depth != 3 or num_neurons != 301:
+                    # if depth != 3 or width != 501:
                     #     continue
                     is_best = False
                     architecture = make_architecture(depth, width, x_train.shape[1], y_train.shape[1], activ, rglr, loss)
@@ -614,14 +606,16 @@ if __name__ == '__main__':
                     model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
                     history = model.fit(x_train, y_train, 70, 64, lr, 1, 1000, x_val=x_val, y_val=y_val)
                     last_epoch_acc = history[-1]["Validation accuracy"]
-                    if last_epoch_acc > best_acc:
+                    if last_epoch_acc > best_acc:  # This is only a single measure. The loss and accuracy curves are more informative to determine best model.
                         is_best = True
                         best_acc = last_epoch_acc
                         best_architecture = architecture
                     plot_figures(history, "depth {}   width: {}   (lr: {})"
                                  .format(str(depth), str(width), str(lr)), metrics=['loss', 'accuracy'])
+                    print(model.evaluate(x_test, y_test, 64))
         except:
             continue
+
 
     '''
     Regression:
@@ -646,28 +640,21 @@ if __name__ == '__main__':
         fig = plt.figure()
         ax = fig.gca(projection='3d')
 
-        # Make data.
-        X = np.arange(-5, 5, 0.25)
-        Y = np.arange(-5, 5, 0.25)
-        X, Y = np.meshgrid(X, Y)
-        R = np.sqrt(X ** 2 + Y ** 2)
-        Z = np.sin(R)
-
-        # Make data.
+        # data prep
         X, Y = xy_mesh
         reshape_size = int(np.sqrt(z.shape[1]))
         Z = z.reshape((reshape_size, reshape_size))
 
-        # Plot the surface.
+        # plot
         surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
                                linewidth=0, antialiased=False)
 
-        # Customize the z axis.
+        # setting axes
         ax.set_zlim(-0.3, 0.3)
         ax.zaxis.set_major_locator(LinearLocator(10))
         ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 
-        # Add a color bar which maps values to colors.
+        # color bar and saving
         fig.colorbar(surf, shrink=0.5, aspect=5)
         plt.savefig('../out/3d_'+title+'.png')
         plt.close()
@@ -678,13 +665,12 @@ if __name__ == '__main__':
         return [x1 * np.exp(-x1 ** 2 - x2 ** 2)]
 
     # test set
-    test_x_mesh = np.meshgrid(np.linspace(-2, 2, 1000), np.linspace(-2, 2, 1000))
+    test_x_mesh = np.meshgrid(np.linspace(-2, 2, 100), np.linspace(-2, 2, 100))  # We later use a test set with 1000
     test_x = np.array([test_x_mesh[0].flatten(), test_x_mesh[1].flatten()]).T
     test_y = np.apply_along_axis(f, 1, test_x)
 
-
     # train set
-    for m in [my_m]: # TODO: add 100 as well
+    for m in [100, 1000]:
         train_x, train_y = [], []
         train_x = np.random.uniform(low=-2, high=2, size=(m, 2))
         train_y = np.apply_along_axis(f, 1, train_x)
@@ -700,13 +686,11 @@ if __name__ == '__main__':
             print("lr", lr)
             for depth in [2,3]:
                 for width in [2**i for i in range(4,9)]:
-                    # if depth != 5 or width != 201:
-                    #     continue
                     is_best = False
                     architecture = make_architecture(depth, width, train_x.shape[1], train_y.shape[1], activ, rglr, loss)
 
                     model = mydnn(architecture=architecture, loss=loss, weight_decay=weight_decay)
-                    history = model.fit(train_x, train_y, 100000, batch_size, lr, 1, 1000*float(m/batch_size), x_val=test_x, y_val=test_y)
+                    history = model.fit(train_x, train_y, 150000, batch_size, lr, 1, 1000*float(m/batch_size), x_val=test_x, y_val=test_y)
                     last_epoch_acc = history[-1]["Validation loss"]
                     if last_epoch_acc > best_acc:
                         is_best = True
@@ -714,6 +698,10 @@ if __name__ == '__main__':
                         best_architecture = architecture
                     plot_figures(history, "short_test_Q4 is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
                                  .format(str(is_best), str(m), str(depth), str(width), str(lr)), metrics=['loss'])
+                    # test set with 1000 points in linspace per x and y
+                    test_x_mesh = np.meshgrid(np.linspace(-2, 2, 1000), np.linspace(-2, 2, 1000))
+                    test_x = np.array([test_x_mesh[0].flatten(), test_x_mesh[1].flatten()]).T
+                    test_y = np.apply_along_axis(f, 1, test_x)
                     preds = model.predict(test_x.T, 100)
                     plot_3d(test_x_mesh, preds, "short_test_is_best {}  n_samples: {}  depth: {}   width: {}   (lr: {})"
                             .format(str(is_best), str(m), str(depth), str(width), str(lr)))
