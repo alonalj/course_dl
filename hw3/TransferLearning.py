@@ -71,7 +71,7 @@ class cifar10vgg(cifar100vgg):
         maxepoches = 250
         learning_rate = 0.1
         lr_decay = 1e-6
-        lr_drop = 20
+        lr_drop = 50
 
         # The data, shuffled and split between train and test sets:
         x_train = x_train.astype('float32')
@@ -207,42 +207,42 @@ class TransferEmbeddingsKNN:
 if __name__ == '__main__':
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
 
-    # # 3.1
-    # cifar_10_vgg = cifar10vgg()
-    # model = cifar_10_vgg.model
-    # for layer in model.layers:
-    #     print(layer, layer.trainable)
-    # print(cifar_10_vgg.model.layers)
-    #
-    # for train_size in [100, 1000, 10000]:
-    #     print("Training on size {}".format(train_size))
-    #     X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-    #         X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
-    #
-    #     model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
-    #
-    #     predicted_x = model.predict(X_test)
-    #     residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
-    #     loss = sum(residuals) / len(residuals)
-    #     print("the test 0/1 loss is: ", loss)
+    # 3.1
+    cifar_10_vgg = cifar10vgg()
+    model = cifar_10_vgg.model
+    for layer in model.layers:
+        print(layer, layer.trainable)
+    print(cifar_10_vgg.model.layers)
 
-    # 3.2
     for train_size in [100, 1000, 10000]:
-        history = {'acc': [], 'val_acc': []}
-        neighbor_options = np.arange(1,45,4)
-        for num_neighbors in neighbor_options:
-            m = TransferEmbeddingsKNN(cifar100vgg(False).model)
-            X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-                X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
-            train_embeddings = m.predict_embedding(X_train_small)
-            test_embeddings = m.predict_embedding(X_test_small)
-            m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
-            acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
-            preds = m.predict_knn(test_embeddings)
-            val_acc = m.eval_knn(y_test_small, preds)
-            history['acc'].append(acc)  # train acc
-            history['val_acc'].append(val_acc)  # val acc
-        plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
+        print("Training on size {}".format(train_size))
+        X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+            X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
+
+        model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
+
+        predicted_x = model.predict(X_test)
+        residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
+        loss = sum(residuals) / len(residuals)
+        print("the test 0/1 loss is: ", loss)
+
+    # # 3.2
+    # for train_size in [100, 1000, 10000]:
+    #     history = {'acc': [], 'val_acc': []}
+    #     neighbor_options = np.arange(1,45,4)
+    #     for num_neighbors in neighbor_options:
+    #         m = TransferEmbeddingsKNN(cifar100vgg(False).model)
+    #         X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+    #             X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
+    #         train_embeddings = m.predict_embedding(X_train_small)
+    #         test_embeddings = m.predict_embedding(X_test_small)
+    #         m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
+    #         acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
+    #         preds = m.predict_knn(test_embeddings)
+    #         val_acc = m.eval_knn(y_test_small, preds)
+    #         history['acc'].append(acc)  # train acc
+    #         history['val_acc'].append(val_acc)  # val acc
+    #     plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
 
 
 
