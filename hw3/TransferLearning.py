@@ -4,6 +4,8 @@ from sklearn.model_selection import train_test_split
 from keras.datasets import cifar10
 from matplotlib import pyplot as plt
 from keras import Model
+from keras import backend as K
+
 from cifar100vgg import *
 # TODO verify the above import works consistently
 
@@ -60,10 +62,15 @@ class cifar10vgg(cifar100vgg):
     the random seed 42 so we can reproduce your results.
     '''
 
-    def __init__(self, train=False):
+    def __init__(self, train=False, first_trainable_layer=-2, add_regularizer_for_cifar100_weights=False):
         super().__init__(train)
         self.num_classes = 10
-        self.create_new_model(base_model=self.model)
+        self.add_regularizer_for_cifar100_weights = add_regularizer_for_cifar100_weights
+        self.weights_cifar100 = None
+        self.create_new_model(base_model=self.model, first_trainable_layer=first_trainable_layer)
+
+    def l2_reg_weight_diff(self, weights):
+        return 0.01 * K.sum(K.square(weights-self.weights_cifar100))  #K.sum(K.abs(weights-self.weights_cifar100))
 
     def train(self, model, x_train, y_train, x_test, y_test):
         # training parameters
@@ -71,7 +78,7 @@ class cifar10vgg(cifar100vgg):
         maxepoches = 250
         learning_rate = 0.1
         lr_decay = 1e-6
-        lr_drop = 20
+        lr_drop = 25
 
         # The data, shuffled and split between train and test sets:
         x_train = x_train.astype('float32')
@@ -113,14 +120,18 @@ class cifar10vgg(cifar100vgg):
                                           epochs=maxepoches,
                                           validation_data=(x_test, y_test), callbacks=[reduce_lr], verbose=2)
         plot_figures(historytemp.history, "cifar10 trained on "+str(train_size)+" samples")
-        model.save_weights('cifar10vgg.h5')
+        model.save_weights('cifar10vgg_reg_{}_nSamples_{}.h5'.format(str(self.add_regularizer_for_cifar100_weights), str(train_size)))
         return model
 
-    def create_new_model(self, base_model):
+    def create_new_model(self, base_model, first_trainable_layer):
 
         # Check the trainable status of the individual layers
         print("before")
         print("len", len(base_model.layers))
+
+        if self.add_regularizer_for_cifar100_weights:
+            self.weights_cifar100 = base_model.layers[first_trainable_layer].get_weights()  # weights we don't want to change too much because they belong to cifar100 task too
+            base_model.layers[first_trainable_layer].kernel_regularizer = self.l2_reg_weight_diff
 
         x = Dense(self.num_classes, activation='relu')(base_model.layers[-3].output)
         out = Activation('softmax')(x)
@@ -128,14 +139,14 @@ class cifar10vgg(cifar100vgg):
         new_model = Model(inputs=base_model.input, outputs=[out])
         new_model.summary()
 
-        for layer in new_model.layers[:-2]:
+        for layer in new_model.layers[:first_trainable_layer]:
             print(layer, layer.trainable)
 
         print("after")
         print("len", len(new_model.layers))
 
         # freeze layers
-        for layer in new_model.layers[:-2]:
+        for layer in new_model.layers[:first_trainable_layer]:
             layer.trainable = False
 
         self.model = new_model
@@ -226,25 +237,43 @@ if __name__ == '__main__':
     #     loss = sum(residuals) / len(residuals)
     #     print("the test 0/1 loss is: ", loss)
 
-    # 3.2
+    # # 3.2
+    # for train_size in [100, 1000, 10000]:
+    #     history = {'acc': [], 'val_acc': []}
+    #     neighbor_options = np.arange(1,45,4)
+    #     for num_neighbors in neighbor_options:
+    #         m = TransferEmbeddingsKNN(cifar100vgg(False).model)
+    #         X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+    #             X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
+    #         train_embeddings = m.predict_embedding(X_train_small)
+    #         test_embeddings = m.predict_embedding(X_test_small)
+    #         m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
+    #         acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
+    #         preds = m.predict_knn(test_embeddings)
+    #         val_acc = m.eval_knn(y_test_small, preds)
+    #         history['acc'].append(acc)  # train acc
+    #         history['val_acc'].append(val_acc)  # val acc
+    #     plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
+
+    # # 3.3
+    cifar_10_vgg = cifar10vgg(first_trainable_layer=-9, add_regularizer_for_cifar100_weights=True)
+    model = cifar_10_vgg.model
+
+    for layer in model.layers:
+        print(layer, layer.trainable)
+    print(cifar_10_vgg.model.layers)
+
     for train_size in [100, 1000, 10000]:
-        history = {'acc': [], 'val_acc': []}
-        neighbor_options = np.arange(1,45,4)
-        for num_neighbors in neighbor_options:
-            m = TransferEmbeddingsKNN(cifar100vgg(False).model)
-            X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-                X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
-            train_embeddings = m.predict_embedding(X_train_small)
-            test_embeddings = m.predict_embedding(X_test_small)
-            m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
-            acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
-            preds = m.predict_knn(test_embeddings)
-            val_acc = m.eval_knn(y_test_small, preds)
-            history['acc'].append(acc)  # train acc
-            history['val_acc'].append(val_acc)  # val acc
-        plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
+        print("Training on size {}".format(train_size))
+        X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+            X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
 
+        model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
 
+        predicted_x = model.predict(X_test)
+        residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
+        loss = sum(residuals) / len(residuals)
+        print("the test 0/1 loss is: ", loss)
 
 
 
