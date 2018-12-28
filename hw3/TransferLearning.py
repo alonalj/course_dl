@@ -5,6 +5,7 @@ from keras.datasets import cifar10
 from matplotlib import pyplot as plt
 from keras import Model
 from keras import backend as K
+import tensorflow as tf
 
 from cifar100vgg import *
 # TODO verify the above import works consistently
@@ -47,7 +48,7 @@ def plot_figures(dict_x_y, title, metrics=['loss', 'acc'], iterations=None, x_ax
                 df = pd.DataFrame.from_dict({x_axis_name: iterations, data_type_name + ' ' + metric: metric_values})
                 plot_df(df, title, color)
         # display and close so next metric type is on new plot
-        plt.savefig('../../out/{}.png'.format(metric + ' for ' + title))
+        plt.savefig(OUT_DIR+'{}.png'.format(metric + ' for ' + title))
         # plt.show()
         plt.close()
 
@@ -69,13 +70,10 @@ class cifar10vgg(cifar100vgg):
         self.weights_cifar100 = None
         self.create_new_model(base_model=self.model, first_trainable_layer=first_trainable_layer)
 
-    def l2_reg_weight_diff(self, weights):
-        return 0.01 * K.sum(K.square(weights-self.weights_cifar100))  #K.sum(K.abs(weights-self.weights_cifar100))
-
     def train(self, model, x_train, y_train, x_test, y_test):
         # training parameters
         batch_size = 64
-        maxepoches = 250
+        maxepoches = 150
         learning_rate = 0.1
         lr_decay = 1e-6
         lr_drop = 25
@@ -119,8 +117,8 @@ class cifar10vgg(cifar100vgg):
                                           steps_per_epoch=x_train.shape[0] // batch_size,
                                           epochs=maxepoches,
                                           validation_data=(x_test, y_test), callbacks=[reduce_lr], verbose=2)
-        plot_figures(historytemp.history, "cifar10 trained on "+str(train_size)+" samples")
-        model.save_weights('cifar10vgg_reg_{}_nSamples_{}.h5'.format(str(self.add_regularizer_for_cifar100_weights), str(train_size)))
+        plot_figures(historytemp.history, "cifar10 trained on "+str(train_size)+" samples, regularization="+str(REG))
+        model.save_weights(OUT_DIR+'cifar10vgg_reg_{}_nSamples_{}.h5'.format(str(REG), str(train_size)))
         return model
 
     def create_new_model(self, base_model, first_trainable_layer):
@@ -129,10 +127,30 @@ class cifar10vgg(cifar100vgg):
         print("before")
         print("len", len(base_model.layers))
 
-        if self.add_regularizer_for_cifar100_weights:
-            self.weights_cifar100 = base_model.layers[first_trainable_layer].get_weights()  # weights we don't want to change too much because they belong to cifar100 task too
-            base_model.layers[first_trainable_layer].kernel_regularizer = self.l2_reg_weight_diff
+        # idx of layer we want to change
+        critical_layer_cifar100_idx = -6
+        weights_cifar100_kernel = base_model.layers[critical_layer_cifar100_idx].get_weights()[0]  # 0=kernel (1=bias)
+        weights_cifar100_bias = base_model.layers[critical_layer_cifar100_idx].get_weights()[1]
 
+        def l2_reg_weight_diff_kernel(weights):
+            return REG * K.sum(K.square(weights - weights_cifar100_kernel))
+
+        def l2_reg_weight_diff_bias(weights):
+            return REG * K.sum(K.square(weights - weights_cifar100_bias))
+
+        if self.add_regularizer_for_cifar100_weights:
+
+            # getting the configuration of the cifar100 model
+            c = base_model.get_config()
+            # changing the regularizer for the critical layer
+            c['layers'][critical_layer_cifar100_idx]['config']['kernel_regularizer'] = l2_reg_weight_diff_kernel
+            c['layers'][critical_layer_cifar100_idx]['config']['bias_regularizer'] = l2_reg_weight_diff_bias
+            # creating a new base model (still suits cifar100) with the modified regularizer
+            base_model = Sequential.from_config(c)
+            # setting all weights as they were in the original cifar100 model
+            base_model.model.load_weights(OUT_DIR+'cifar100vgg.h5')
+
+        # using base model to create our new model
         x = Dense(self.num_classes, activation='relu')(base_model.layers[-3].output)
         out = Activation('softmax')(x)
 
@@ -217,7 +235,8 @@ class TransferEmbeddingsKNN:
 
 if __name__ == '__main__':
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
-
+    REG = 0
+    OUT_DIR = '/content/drive/My Drive/phd/courses/DL/'
     # # 3.1
     # cifar_10_vgg = cifar10vgg()
     # model = cifar_10_vgg.model
@@ -256,14 +275,15 @@ if __name__ == '__main__':
     #     plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
 
     # # 3.3
-    cifar_10_vgg = cifar10vgg(first_trainable_layer=-9, add_regularizer_for_cifar100_weights=True)
+    REG = 0.5
+    cifar_10_vgg = cifar10vgg(first_trainable_layer=-6, add_regularizer_for_cifar100_weights=True)
     model = cifar_10_vgg.model
 
     for layer in model.layers:
         print(layer, layer.trainable)
     print(cifar_10_vgg.model.layers)
 
-    for train_size in [100, 1000, 10000]:
+    for train_size in [10000, 1000, 100]:
         print("Training on size {}".format(train_size))
         X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
             X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
