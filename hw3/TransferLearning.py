@@ -8,8 +8,6 @@ from keras import backend as K
 import tensorflow as tf
 
 from cifar100vgg import *
-# TODO verify the above import works consistently
-
 
 def plot_figures(dict_x_y, title, metrics=['loss', 'acc'], iterations=None, x_axis_name='Epochs'):
     """
@@ -55,7 +53,8 @@ def plot_figures(dict_x_y, title, metrics=['loss', 'acc'], iterations=None, x_ax
 
 class cifar10vgg(cifar100vgg):
     '''
-    Creates a new DNN according to guidelines in 3.1: Replace the last fully-connected layer with a new
+    Creates a new DNN according to guidelines in 3.1 by inheriting from cifar100vgg model supplied in the github link.
+    Original guidelines: Replace the last fully-connected layer with a new
     initialized layer, where the output size is the number of classes in CIFAR-10 (i.e.,
     10 classes). We will then freeze all other layers and train the last layer only with
     the small (sample) available dataset for CIFAR-10. Repeat this procedure for
@@ -73,7 +72,7 @@ class cifar10vgg(cifar100vgg):
     def train(self, model, x_train, y_train, x_test, y_test):
         # training parameters
         batch_size = 64
-        maxepoches = 150
+        maxepoches = 250
         learning_rate = 0.1
         lr_decay = 1e-6
         lr_drop = 25
@@ -123,10 +122,6 @@ class cifar10vgg(cifar100vgg):
 
     def create_new_model(self, base_model, first_trainable_layer):
 
-        # Check the trainable status of the individual layers
-        print("before")
-        print("len", len(base_model.layers))
-
         # idx of layer we want to change
         critical_layer_cifar100_idx = -6
         weights_cifar100_kernel = base_model.layers[critical_layer_cifar100_idx].get_weights()[0]  # 0=kernel (1=bias)
@@ -156,9 +151,6 @@ class cifar10vgg(cifar100vgg):
 
         new_model = Model(inputs=base_model.input, outputs=[out])
         new_model.summary()
-
-        for layer in new_model.layers[:first_trainable_layer]:
-            print(layer, layer.trainable)
 
         print("after")
         print("len", len(new_model.layers))
@@ -225,54 +217,47 @@ class TransferEmbeddingsKNN:
         return acc
 
 
-        # import numpy as np
-        # from scipy.spatial.distance import cdist
-        # preds = y_train_small[np.argmin(cdist(train_embeddings, test_embeddings), 1)]
-        # return preds
-
-        # def predict_knn(self, x):
-    #
-
 if __name__ == '__main__':
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
     REG = 0
-    OUT_DIR = '/content/drive/My Drive/phd/courses/DL/'
-    # # 3.1
-    # cifar_10_vgg = cifar10vgg()
-    # model = cifar_10_vgg.model
-    # for layer in model.layers:
-    #     print(layer, layer.trainable)
-    # print(cifar_10_vgg.model.layers)
-    #
-    # for train_size in [100, 1000, 10000]:
-    #     print("Training on size {}".format(train_size))
-    #     X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-    #         X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
-    #
-    #     model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
-    #
-    #     predicted_x = model.predict(X_test)
-    #     residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
-    #     loss = sum(residuals) / len(residuals)
-    #     print("the test 0/1 loss is: ", loss)
+    OUT_DIR = '../out/'
 
-    # # 3.2
-    # for train_size in [100, 1000, 10000]:
-    #     history = {'acc': [], 'val_acc': []}
-    #     neighbor_options = np.arange(1,45,4)
-    #     for num_neighbors in neighbor_options:
-    #         m = TransferEmbeddingsKNN(cifar100vgg(False).model)
-    #         X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-    #             X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
-    #         train_embeddings = m.predict_embedding(X_train_small)
-    #         test_embeddings = m.predict_embedding(X_test_small)
-    #         m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
-    #         acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
-    #         preds = m.predict_knn(test_embeddings)
-    #         val_acc = m.eval_knn(y_test_small, preds)
-    #         history['acc'].append(acc)  # train acc
-    #         history['val_acc'].append(val_acc)  # val acc
-    #     plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
+    # 3.1
+    cifar_10_vgg = cifar10vgg()
+    model = cifar_10_vgg.model
+    for layer in model.layers:
+        print(layer, layer.trainable)
+    print(cifar_10_vgg.model.layers)
+
+    for train_size in [100, 1000, 10000]:
+        print("Training on size {}".format(train_size))
+        X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+            X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
+
+        model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
+
+        predicted_x = model.predict(X_test)
+        residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
+        loss = sum(residuals) / len(residuals)
+        print("the test 0/1 loss is: ", loss)
+
+    # 3.2
+    for train_size in [100, 1000, 10000]:
+        history = {'acc': [], 'val_acc': []}
+        neighbor_options = np.arange(1,45,4)
+        for num_neighbors in neighbor_options:
+            m = TransferEmbeddingsKNN(cifar100vgg(False).model)
+            X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+                X_train, y_train, train_size=train_size, test_size=1000, random_state=42, stratify=y_train)
+            train_embeddings = m.predict_embedding(X_train_small)
+            test_embeddings = m.predict_embedding(X_test_small)
+            m.train_knn(train_embeddings,y_train_small,n_neighbors=num_neighbors)
+            acc = m.eval_knn(y_train_small, m.predict_knn(train_embeddings))
+            preds = m.predict_knn(test_embeddings)
+            val_acc = m.eval_knn(y_test_small, preds)
+            history['acc'].append(acc)  # train acc
+            history['val_acc'].append(val_acc)  # val acc
+        plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
 
     # # 3.3
     REG = 0.5
@@ -294,7 +279,3 @@ if __name__ == '__main__':
         residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
         loss = sum(residuals) / len(residuals)
         print("the test 0/1 loss is: ", loss)
-
-
-
-# TODO: for catastrophic forgetting - also test on the validation set for CIFAR 100 (sample) to show it is less harmful
