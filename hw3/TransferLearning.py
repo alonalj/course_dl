@@ -46,7 +46,7 @@ def plot_figures(dict_x_y, title, metrics=['loss', 'acc'], iterations=None, x_ax
                 df = pd.DataFrame.from_dict({x_axis_name: iterations, data_type_name + ' ' + metric: metric_values})
                 plot_df(df, title, color)
         # display and close so next metric type is on new plot
-        plt.savefig(OUT_DIR+'{}.png'.format(metric + ' for ' + title))
+        plt.savefig('{}.png'.format(metric + ' for ' + title))
         # plt.show()
         plt.close()
 
@@ -117,7 +117,7 @@ class cifar10vgg(cifar100vgg):
                                           epochs=maxepoches,
                                           validation_data=(x_test, y_test), callbacks=[reduce_lr], verbose=2)
         plot_figures(historytemp.history, "cifar10 trained on "+str(train_size)+" samples, regularization="+str(REG))
-        model.save_weights(OUT_DIR+'cifar10vgg_reg_{}_nSamples_{}.h5'.format(str(REG), str(train_size)))
+        model.save_weights('cifar10vgg_reg_{}_nSamples_{}.h5'.format(str(REG), str(train_size)))
         return model
 
     def create_new_model(self, base_model, first_trainable_layer):
@@ -143,7 +143,7 @@ class cifar10vgg(cifar100vgg):
             # creating a new base model (still suits cifar100) with the modified regularizer
             base_model = Sequential.from_config(c)
             # setting all weights as they were in the original cifar100 model
-            base_model.model.load_weights(OUT_DIR+'cifar100vgg.h5')
+            base_model.model.load_weights('cifar100vgg.h5')
 
         # using base model to create our new model
         x = Dense(self.num_classes, activation='relu')(base_model.layers[-3].output)
@@ -220,7 +220,6 @@ class TransferEmbeddingsKNN:
 if __name__ == '__main__':
     (X_train, y_train), (X_test, y_test) = cifar10.load_data()
     REG = 0
-    OUT_DIR = '../out/'
 
     # 3.1
     cifar_10_vgg = cifar10vgg()

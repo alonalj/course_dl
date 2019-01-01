@@ -1,6 +1,6 @@
 Please note that TransferLearning.py includes cifar100vgg.py due to inheritance
 (hence you will see the import statement: import from cifar100vgg import *).
-If TransferLearning.py is run from command line - this should not be an issue.
+If TransferLearning.py is run from command line (from within the src folder) - this should not be an issue.
 If this is run from the PyCharm IDE, the containing src folder must be marked as Source Root (right click -> Mark Directory as -> Source Root), or similarly modified on other IDEs.
 
 For the first and final sections of transfer learning ("fine tuning" and "your own solution"), we removed the resulting weight files from the
