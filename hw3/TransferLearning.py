@@ -18,24 +18,27 @@ def download_resulting_weights_for_transfer_learning():
     try:
         import urllib.request
     except:
-        warnings.warn("****** urllib package not installed - canott fetch the solutions (i.e. the resulting weights post transfer-learning).******")
+        warnings.warn("****** urllib package not installed - cannot fetch the solutions (i.e. the resulting weights post transfer-learning).******")
     try:
+        print("Downloading our solution weight files. This may take around 1 minute.")
         # Resulting weights for section "Fine tunning"
-        urllib.request.urlretrieve("https://drive.google.com/open?id=16xSArtqC9m7MrvFoxYKBcmCW1vyUEsqi",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=16xSArtqC9m7MrvFoxYKBcmCW1vyUEsqi&export=download",
                                    'cifar10vgg_nSamples_100.h5')
-        urllib.request.urlretrieve("https://drive.google.com/open?id=1bvQ5dzg7BelIrN4uuAFYUPq3oYTkNUNq",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1bvQ5dzg7BelIrN4uuAFYUPq3oYTkNUNq&export=download",
                                    'cifar10vgg_nSamples_1000.h5')
-        urllib.request.urlretrieve("https://drive.google.com/open?id=1koxj7XFAozl6cjLArCG7h-iZ58PQfsdk",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1koxj7XFAozl6cjLArCG7h-iZ58PQfsdk&export=download",
                                    'cifar10vgg_nSamples_10000.h5')
         # Resulting weights for section "Your own solution"
-        urllib.request.urlretrieve("https://drive.google.com/open?id=1iHyCkEza0z4DIV6h587C0JjAk-F1RPZb",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1iHyCkEza0z4DIV6h587C0JjAk-F1RPZb&export=download",
                                    'cifar10vgg_reg_0_nSamples_10000.h5')
-        urllib.request.urlretrieve("https://drive.google.com/open?id=17Y4L8_3T-Y339DCr8c7gohlqu35PXcxO",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=17Y4L8_3T-Y339DCr8c7gohlqu35PXcxO&export=download",
                                    'cifar10vgg_reg_0.5_nSamples_10000.h5')
-        urllib.request.urlretrieve("https://drive.google.com/open?id=1zCWsaoneJztcS_aspUc8hO2Ci_QYO0jo",
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1zCWsaoneJztcS_aspUc8hO2Ci_QYO0jo&export=download",
                                    'cifar10vgg_reg_5_nSamples_10000.h5')
     except:
-        warnings.warn("****** Cannot auto-download the solution weights (post trasnfer learning weights). If you want to load our final results, please use links in code to download manually. ******")
+        print("****** \nCannot auto-download the solution weights (post trasnfer learning weights). If you want to load "
+              "our final results, \nplease use the following link to download manually: "
+              "https://drive.google.com/open?id=1GeT20aVI4X_DW9e665UA8T7O2B1_B-S5 \n******")
 
 
 def try_loading_saved_weights(model, weights_file_name):
@@ -307,7 +310,6 @@ if __name__ == '__main__':
 
     # 3.3
     for REG in {0, 0.5, 5}:
-        REG = 0.5
         cifar_10_vgg = cifar10vgg(first_trainable_layer=-6, add_regularizer_for_cifar100_weights=True)
         model = cifar_10_vgg.model
 
