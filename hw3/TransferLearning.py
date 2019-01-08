@@ -6,8 +6,56 @@ from matplotlib import pyplot as plt
 from keras import Model
 from keras import backend as K
 import tensorflow as tf
+import os
+import warnings
 
 from cifar100vgg import *
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+def download_resulting_weights_for_transfer_learning():
+    try:
+        import urllib.request
+    except:
+        warnings.warn("****** urllib package not installed - cannot fetch the solutions (i.e. the resulting weights post transfer-learning).******")
+    try:
+        print("Downloading our solution weight files. This may take around 1 minute.")
+        # Resulting weights for section "Fine tunning"
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=16xSArtqC9m7MrvFoxYKBcmCW1vyUEsqi&export=download",
+                                   'cifar10vgg_nSamples_100.h5')
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1bvQ5dzg7BelIrN4uuAFYUPq3oYTkNUNq&export=download",
+                                   'cifar10vgg_nSamples_1000.h5')
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1koxj7XFAozl6cjLArCG7h-iZ58PQfsdk&export=download",
+                                   'cifar10vgg_nSamples_10000.h5')
+        # Resulting weights for section "Your own solution"
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1iHyCkEza0z4DIV6h587C0JjAk-F1RPZb&export=download",
+                                   'cifar10vgg_reg_0_nSamples_10000.h5')
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=17Y4L8_3T-Y339DCr8c7gohlqu35PXcxO&export=download",
+                                   'cifar10vgg_reg_0.5_nSamples_10000.h5')
+        urllib.request.urlretrieve("https://drive.google.com/uc?authuser=0&id=1zCWsaoneJztcS_aspUc8hO2Ci_QYO0jo&export=download",
+                                   'cifar10vgg_reg_5_nSamples_10000.h5')
+    except:
+        print("****** \nCannot auto-download the solution weights (post trasnfer learning weights). If you want to load "
+              "our final results, \nplease use the following link to download manually: "
+              "https://drive.google.com/open?id=1GeT20aVI4X_DW9e665UA8T7O2B1_B-S5 \n******")
+
+
+def try_loading_saved_weights(model, weights_file_name):
+    import os
+    if os.path.exists(weights_file_name):
+        model.load_weights(weights_file_name)
+        print("Successfully loaded weights from: {}".format(weights_file_name))
+    else:
+        try:
+            download_resulting_weights_for_transfer_learning()
+            model.load_weights(weights_file_name)
+            print("Successfully loaded weights from: {}".format(weights_file_name))
+        except:
+            print("ERROR")
+            pass
+    return model
+
 
 def plot_figures(dict_x_y, title, metrics=['loss', 'acc'], iterations=None, x_axis_name='Epochs'):
     """
@@ -224,6 +272,7 @@ if __name__ == '__main__':
     # 3.1
     cifar_10_vgg = cifar10vgg()
     model = cifar_10_vgg.model
+
     for layer in model.layers:
         print(layer, layer.trainable)
     print(cifar_10_vgg.model.layers)
@@ -233,8 +282,9 @@ if __name__ == '__main__':
         X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
             X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
 
+        model = try_loading_saved_weights(model, 'cifar10vgg_nSamples_{}.h5'.format(train_size))
         model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
-
+        model.save_weights('cifar10vgg_nSamples_{}.h5'.format(train_size))
         predicted_x = model.predict(X_test)
         residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
         loss = sum(residuals) / len(residuals)
@@ -258,23 +308,24 @@ if __name__ == '__main__':
             history['val_acc'].append(val_acc)  # val acc
         plot_figures(history, "embeddings + knn for cifar10 trained on "+str(train_size)+" samples", metrics=['acc'],iterations=neighbor_options, x_axis_name='K (neighbors)')
 
-    # # 3.3
-    REG = 0.5
-    cifar_10_vgg = cifar10vgg(first_trainable_layer=-6, add_regularizer_for_cifar100_weights=True)
-    model = cifar_10_vgg.model
+    # 3.3
+    for REG in {0, 0.5, 5}:
+        cifar_10_vgg = cifar10vgg(first_trainable_layer=-6, add_regularizer_for_cifar100_weights=True)
+        model = cifar_10_vgg.model
 
-    for layer in model.layers:
-        print(layer, layer.trainable)
-    print(cifar_10_vgg.model.layers)
+        for layer in model.layers:
+            print(layer, layer.trainable)
+        print(cifar_10_vgg.model.layers)
 
-    for train_size in [10000, 1000, 100]:
-        print("Training on size {}".format(train_size))
-        X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
-            X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
+        for train_size in [10000]:
+            print("Training on size {}".format(train_size))
+            X_train_small, X_test_small, y_train_small, y_test_small = train_test_split(
+                X_train, y_train, train_size=train_size, random_state=42, stratify=y_train)
 
-        model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
+            model = try_loading_saved_weights(model, 'cifar10vgg_reg_{}_nSamples_{}.h5'.format(REG, train_size))
+            model = cifar_10_vgg.train(model, X_train_small, y_train_small, X_test_small, y_test_small)
 
-        predicted_x = model.predict(X_test)
-        residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
-        loss = sum(residuals) / len(residuals)
-        print("the test 0/1 loss is: ", loss)
+            predicted_x = model.predict(X_test)
+            residuals = (np.argmax(predicted_x, 1) != np.argmax(y_test, 1))
+            loss = sum(residuals) / len(residuals)
+            print("the test 0/1 loss is: ", loss)
