@@ -134,8 +134,8 @@ def data_generator(data_type, tiles_per_dim):
         if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
             print(folder)
             print(np.array(X_batch).shape)
-        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)),\
-              list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
+        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size)),\
+              list(np.array(y_batch).reshape(c.n_tiles_per_sample, -1, c.n_classes))
 
 
 def temp():
@@ -213,6 +213,22 @@ if __name__ == '__main__':
                 print(hist)
             step += 1
 
+        # Validating at end of epoch
+        val_steps_max = 0
+        prev_total_loss = np.inf
+        print("VALIDATING")
+        val_generator = data_generator("val", c.tiles_per_dim)
+        for X_batch_val, y_batch_val in val_generator:
+            hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
+            current_total_loss = hist_val[0]
+            if current_total_loss < prev_total_loss:
+                resnet.save_weights('resnet_weights_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}.h5'.format(c.max_size, c.tiles_per_dim, c.n_tiles_per_sample))
+            prev_total_loss = hist_val[0]
+            print(hist_val)
+            val_steps_max += 1
+            # if val_steps_max == 5:
+            #     print("Finished validating on {} batches".format(val_steps_max))
+            #     break
             # callbacks=[reduce_lr])
 
     # resnet_cifar_10_history = resnet.fit_generator(train_generator,
