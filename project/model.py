@@ -120,7 +120,7 @@ def data_generator(data_type, tiles_per_dim):
             if len(y_batch) == batch_size:
                 # print(np.array(X_batch).ndim)
                 # print(np.array(X_batch))
-                if np.array(X_batch).shape[1:] != (6, 56, 56):
+                if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
                     print(folder)
                     print(np.array(X_batch).shape)
                 yield np.array(X_batch), np.array(y_batch)
@@ -130,7 +130,7 @@ def data_generator(data_type, tiles_per_dim):
         if len(y_batch) != batch_size:  # if equal, already yielded above
             # print(np.array(X_batch).shape)
             # print(np.array(X_batch))
-            if np.array(X_batch).shape[1:] != (6, 56, 56):
+            if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
                 print(folder)
                 print(np.array(X_batch).shape)
             yield np.array(X_batch), np.array(y_batch)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     c = Conf()
     batch_size = 128
     maxepoches = 250
-    learning_rate = 0.01
+    learning_rate = 0.1
 
     train_generator = data_generator("train", c.tiles_per_dim)
     val_generator = data_generator("val", c.tiles_per_dim)
