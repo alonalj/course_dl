@@ -83,8 +83,9 @@ def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, wei
 #     x = Dense(c.n_classes, activation='softmax', kernel_regularizer=regularizers.l2(weight_decay))(x)
 #     return x
 
-def pass_single_tile_per_sample(x_in, weight_decay=0.0001):
+def resnet_weights_shared_over_tiles(x_in=None, weight_decay=0.0001):
     # x_in = keras.layers.ZeroPadding2D()(x_in)
+    x_in = Input(shape=(c.max_size, c.max_size, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -97,7 +98,7 @@ def pass_single_tile_per_sample(x_in, weight_decay=0.0001):
 
     x = GlobalAveragePooling2D()(x)
     x = Dense(c.n_classes, activation='softmax')(x)
-    return x
+    return Model(x_in, x, name="Resnet_model")
 
 
 def build_resnet(weight_decay=0.0001):
@@ -106,12 +107,13 @@ def build_resnet(weight_decay=0.0001):
     # the evaluation over all tiles to happen in the same pass)
     inputs_from_sample = []
     outputs_from_sample = []
+    shared_net = resnet_weights_shared_over_tiles()
     for i in range(n_tiles_per_sample):
         x_in = keras.layers.Input(shape=(c.max_size, c.max_size), name="in_{}".format(i))
         inputs_from_sample.append(x_in)
         x_in = keras.layers.Reshape(target_shape=(x_in.shape[1], x_in.shape[2], 1),name="in_reshape_{}".format(i))(x_in)
     # for i in range(n_tiles_per_sample):
-        x_out = pass_single_tile_per_sample(x_in)
+        x_out = shared_net(x_in)
         outputs_from_sample.append(x_out)
     print(inputs_from_sample)
     print(outputs_from_sample)
