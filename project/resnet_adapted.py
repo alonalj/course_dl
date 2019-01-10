@@ -84,7 +84,7 @@ def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, wei
 #     return x
 
 def pass_single_tile_per_sample(x_in, weight_decay=0.0001):
-    x_in = keras.layers.ZeroPadding2D()(x_in)
+    # x_in = keras.layers.ZeroPadding2D()(x_in)
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -102,17 +102,20 @@ def pass_single_tile_per_sample(x_in, weight_decay=0.0001):
 
 def build_resnet(weight_decay=0.0001):
     n_tiles_per_sample = c.n_tiles_per_sample  # original tiles + OoD
-    x_in_all_tiles = Input(shape=(n_tiles_per_sample, c.max_size, c.max_size))
     # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
     # the evaluation over all tiles to happen in the same pass)
+    inputs_from_sample = []
+    outputs_from_sample = []
     for i in range(n_tiles_per_sample):
-        x_in = keras.layers.Lambda(lambda x: x[:,i, :, :])(x_in_all_tiles)
-        x_in = keras.layers.Reshape(target_shape=(x_in.shape[1], x_in.shape[2], 1))(x_in)
-        x_out_all_tiles = pass_single_tile_per_sample(x_in)
-        if i != 0:
-            x_out_all_tiles = keras.layers.merge.concatenate([x_out_prev, x_out_all_tiles])
-        x_out_prev = x_out_all_tiles
+        x_in = keras.layers.Input(shape=(c.max_size, c.max_size), name="in_{}".format(i))
+        inputs_from_sample.append(x_in)
+        x_in = keras.layers.Reshape(target_shape=(x_in.shape[1], x_in.shape[2], 1),name="in_reshape_{}".format(i))(x_in)
+    # for i in range(n_tiles_per_sample):
+        x_out = pass_single_tile_per_sample(x_in)
+        outputs_from_sample.append(x_out)
+    print(inputs_from_sample)
+    print(outputs_from_sample)
         # TODO: add regularization so that x_out_prev vectors concatenated are orthogonal except for -1s (might need two additional labels to represent -1 instead of just one)
-    return Model(inputs=x_in_all_tiles, outputs=x_out_all_tiles)
+    return Model(inputs=inputs_from_sample, outputs=outputs_from_sample)
 
 

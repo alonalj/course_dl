@@ -88,52 +88,54 @@ def data_generator(data_type, tiles_per_dim):
     split_dict = load_obj("train_test_val_dict")
     folders = split_dict[data_type]
     dataset_folder = "dataset_{}".format(tiles_per_dim)
-    while True:
-        np.random.shuffle(folders)  # shuffle folders between epochs
-        X_batch = []
-        y_batch = []
-        for folder in folders:
-            folder_path = dataset_folder+'/'+folder
-            files = os.listdir(folder_path)
-            np.random.shuffle(files)  # random shuffle files in folders too
-            images_in_folder = []
-            labels_in_folder = []
-            if len(files) != c.n_tiles_per_sample:
-                print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
-            for f in files:
+    # while True:
+    np.random.shuffle(folders)  # shuffle folders between epochs
+    X_batch = []
+    y_batch = []
+    for folder in folders:
+        folder_path = dataset_folder+'/'+folder
+        files = os.listdir(folder_path)
+        np.random.shuffle(files)  # random shuffle files in folders too
+        images_in_folder = []
+        labels_in_folder = []
+        if len(files) != c.n_tiles_per_sample:
+            print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
+        for f in files:
 
-                label = f.split('_')[-1].split('.')[0]
-                if label == "-1":
-                    # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
-                    label = c.n_original_tiles
-                labels_in_folder.append(label)
-                im = cv2.imread(folder_path + '/' + f)
-                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                im_resized = resize_image(im, max_size=c.max_size)
-                assert im_resized.shape == (c.max_size, c.max_size)
-                images_in_folder.append(im_resized)
+            label = f.split('_')[-1].split('.')[0]
+            if label == "-1":
+                # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
+                label = c.n_original_tiles
+            labels_in_folder.append(label)
+            im = cv2.imread(folder_path + '/' + f)
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            im_resized = resize_image(im, max_size=c.max_size)
+            assert im_resized.shape == (c.max_size, c.max_size)
+            images_in_folder.append(im_resized)
 
-            X_batch.append(np.array(images_in_folder))  # a folder is one single sample
-            # print(labels_in_folder)
-            folder_labels = to_categorical(labels_in_folder, num_classes=c.n_classes)
-            y_batch.append(np.concatenate(folder_labels))
-            if len(y_batch) == batch_size:
-                # print(np.array(X_batch).ndim)
-                # print(np.array(X_batch))
-                if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
-                    print(folder)
-                    print(np.array(X_batch).shape)
-                yield np.array(X_batch), np.array(y_batch)
-                X_batch = []
-                y_batch = []
-        # handle last batch in case n_folders not fully divisible by batch_size (has a remainder)
-        if len(y_batch) != batch_size:  # if equal, already yielded above
-            # print(np.array(X_batch).shape)
+        X_batch.append(np.array(images_in_folder))  # a folder is one single sample
+        # print(labels_in_folder)
+        folder_labels = to_categorical(labels_in_folder, num_classes=c.n_classes)
+        y_batch.append(folder_labels)
+        if len(y_batch) == batch_size:
+            # print(np.array(X_batch).ndim)
             # print(np.array(X_batch))
             if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
                 print(folder)
                 print(np.array(X_batch).shape)
-            yield np.array(X_batch), np.array(y_batch)
+            yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)), \
+                  list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
+            X_batch = []
+            y_batch = []
+    # handle last batch in case n_folders not fully divisible by batch_size (has a remainder)
+    if len(y_batch) != batch_size:  # if equal, already yielded above
+        # print(np.array(X_batch).shape)
+        # print(np.array(X_batch))
+        if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
+            print(folder)
+            print(np.array(X_batch).shape)
+        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)),\
+              list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
 
 
 def temp():
@@ -199,11 +201,25 @@ if __name__ == '__main__':
     )
     resnet.summary()
 
-    resnet_cifar_10_history = resnet.fit_generator(train_generator,
-                                                   steps_per_epoch=n_samples_train // batch_size,
-                                                   epochs=maxepoches,
-                                                   validation_data=val_generator, validation_steps=1)#,
-                                                   # callbacks=[reduce_lr])
+    for e in range(maxepoches):
+        print("Epoch {}".format(e))
+        train_generator = data_generator("train", c.tiles_per_dim)
+        step = 0
+        for X_batch, y_batch in train_generator:
+            # print(X_batch.shape)
+            # print(y_batch.shape)
+            hist = resnet.train_on_batch(X_batch, y_batch)#, batch_size, epochs=maxepoches)
+            if step % 5 == 0:
+                print(hist)
+            step += 1
+
+            # callbacks=[reduce_lr])
+
+    # resnet_cifar_10_history = resnet.fit_generator(train_generator,
+    #                                                steps_per_epoch=n_samples_train // batch_size,
+    #                                                epochs=maxepoches,
+    #                                                validation_data=val_generator, validation_steps=1)#,
+    #                                                # callbacks=[reduce_lr])
 
 
 
