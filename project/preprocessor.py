@@ -31,7 +31,6 @@ def shredder(raw_input_dir, tiles_per_dim):
 
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
-
     for f in files:
         # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
         folder_output_dir = output_dir+f.split('.')[0]+'/'
@@ -45,6 +44,9 @@ def shredder(raw_input_dir, tiles_per_dim):
             np.random.shuffle(idx)
             for c_idx in idx[:tiles_per_dim]:
                 cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+        else:
+            folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
+
         im = cv2.imread(raw_input_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         height = im.shape[0]
@@ -61,6 +63,13 @@ def shredder(raw_input_dir, tiles_per_dim):
                 crops_previous.append(crop)
                 names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
                 i = i + 1
+
+        # take OoD from last image in files as "previous" for first img
+        if f == files[-1]:
+            idx = np.arange(len(crops_previous))
+            np.random.shuffle(idx)
+            for c_idx in idx[:tiles_per_dim]:
+                cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
 
 def split_into_train_val_test(dataset_folder, portion_train, portion_val):
@@ -89,7 +98,7 @@ def load_obj(name, directory=''):
         return pkl.load(f)
 
 
-def resize_image(image, max_size=None, resize_factor=None):
+def resize_image(image, max_size=None, resize_factor=None, train=True):
     import cv2
     import math
     if resize_factor and not max_size:
@@ -102,16 +111,36 @@ def resize_image(image, max_size=None, resize_factor=None):
         im_resized = cv2.resize(image, (image.shape[0] // ratio, image.shape[1] // ratio))  # TODO: verify indicese don't need swapping...
     else:
         raise Exception("One, and only one, of max_size and resize_factor should be defined.")
+
+    # TODO: because of OoD as well as images being of different size, need to do zero pad now
+    # img = cv2.imread("img_src.jpg")
+    shape = im_resized.shape
+    w = shape[1]
+    h = shape[0]
+    slack_w = max_size - w  # padding size w
+    slack_h = max_size - h  # padding size h
+    # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
+    # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
+    import random
+    start_w = random.randint(0, slack_w)
+    end_w = start_w + w
+    start_h = random.randint(0, slack_h)
+    end_h = start_h + h
+    base_size = max_size, max_size
+    base = np.zeros(base_size, dtype=np.uint8)
+    # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
+    base[start_h:end_h, start_w:end_w] = im_resized
+    im_resized = base
     return im_resized
 
 
 if __name__ == '__main__':
 
     # TODO: need this for multiple tile sizes, as well as for documents
-    # shredder("images/", 2)
+    shredder("images/", 2)
     # shredder("images/", 4)
     # shredder("images/", 5)
-    # shredder("documents/", 2)
+    shredder("documents/", 2)
     # shredder("documents/", 4)
     # shredder("documents/", 5)
 
