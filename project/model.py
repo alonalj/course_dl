@@ -85,6 +85,7 @@ def lr_scheduler(epoch):
 
 
 def data_generator(data_type, tiles_per_dim):
+    import random
     split_dict = load_obj("train_test_val_dict")
     folders = split_dict[data_type]
     dataset_folder = "dataset_{}".format(tiles_per_dim)
@@ -93,6 +94,13 @@ def data_generator(data_type, tiles_per_dim):
     X_batch = []
     y_batch = []
     for folder in folders:
+        skip_folder = False
+        flip_img = False
+        if random.random() > 0.5:
+            flip_img = True
+        if c.only_images and len(folder) < 7:
+            # print(len(folder))
+            continue
         folder_path = dataset_folder+'/'+folder
         files = os.listdir(folder_path)
         np.random.shuffle(files)  # random shuffle files in folders too
@@ -101,17 +109,29 @@ def data_generator(data_type, tiles_per_dim):
         if len(files) != c.n_tiles_per_sample:
             print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
         for f in files:
-
+            if skip_folder:
+                continue
             label = f.split('_')[-1].split('.')[0]
             if label == "-1":
                 # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
                 label = c.n_original_tiles
             labels_in_folder.append(label)
             im = cv2.imread(folder_path + '/' + f)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            try:
+                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            except:
+                print("failed on {}".format(folder_path + '/' + f))
+                skip_folder = True
+                continue
+
             im_resized = resize_image(im, max_size=c.max_size)
             assert im_resized.shape == (c.max_size, c.max_size)
+            if flip_img:
+                im_resized = cv2.flip(im_resized, 1)
             images_in_folder.append(im_resized)
+
+        if np.array(images_in_folder).shape != (c.n_tiles_per_sample, c.max_size, c.max_size):
+            continue
 
         X_batch.append(np.array(images_in_folder))  # a folder is one single sample
         # print(labels_in_folder)
@@ -193,10 +213,11 @@ if __name__ == '__main__':
 
     reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
+    # adam = optimizers.Adam()
 
     resnet.compile(
         loss='categorical_crossentropy',
-        optimizer='sgd',
+        optimizer='adam',  # switch to adam later
         metrics=['accuracy']
     )
     resnet.summary()
@@ -222,7 +243,7 @@ if __name__ == '__main__':
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
             if current_total_loss < prev_total_loss:
-                resnet.save_weights('resnet_weights_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}.h5'.format(c.max_size, c.tiles_per_dim, c.n_tiles_per_sample))
+                resnet.save_weights('resnet_weights_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_onlyImg_{}.h5'.format(c.max_size, c.tiles_per_dim, c.n_tiles_per_sample, c.only_images))
             prev_total_loss = hist_val[0]
             print(hist_val)
             val_steps_max += 1

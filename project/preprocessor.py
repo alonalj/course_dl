@@ -22,54 +22,62 @@ def shredder(raw_input_dir, tiles_per_dim):
     Xb = []
     y = []
 
-    crops_previous = []
-    names_previous = []
-
     # raw_input_dir = "images/"
     output_dir = "dataset_{}/".format(tiles_per_dim)
     files = os.listdir(raw_input_dir)
 
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
-    for f in files:
-        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-        folder_output_dir = output_dir+f.split('.')[0]+'/'
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
-        os.mkdir(folder_output_dir)
+    crop_start_w = range(0, 46, 15)
+    crop_start_h = range(0, 46, 15)
+    for c_w in crop_start_w:
+        for c_h in crop_start_h:
+            crops_previous = []
+            names_previous = []
+            for f in files:
+                # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+                folder_output_dir = output_dir+f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)+'/'
+                if not os.path.exists(output_dir):
+                    os.mkdir(output_dir)
+                os.mkdir(folder_output_dir)
 
-        # add OOD from previous crops if exist:
-        if len(crops_previous) > 0:
-            idx = np.arange(len(crops_previous))
-            np.random.shuffle(idx)
-            for c_idx in idx[:tiles_per_dim]:
-                cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
-        else:
-            folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
+                # add OOD from previous crops if exist:
+                if len(crops_previous) > 0:
+                    idx = np.arange(len(crops_previous))
+                    np.random.shuffle(idx)
+                    for c_idx in idx[:tiles_per_dim]:
+                        cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+                else:
+                    folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
 
-        im = cv2.imread(raw_input_dir + f)
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        height = im.shape[0]
-        width = im.shape[1]
-        frac_h = height // tiles_per_dim
-        frac_w = width // tiles_per_dim
-        i = 0
-        crops_previous = []
-        names_previous = []
-        for h in range(tiles_per_dim):
-            for w in range(tiles_per_dim):
-                crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
-                cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
-                crops_previous.append(crop)
-                names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
-                i = i + 1
+                im = cv2.imread(raw_input_dir + f)
+                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
 
-        # take OoD from last image in files as "previous" for first img
-        if f == files[-1]:
-            idx = np.arange(len(crops_previous))
-            np.random.shuffle(idx)
-            for c_idx in idx[:tiles_per_dim]:
-                cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
+                # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
+                im = im[c_w:im.shape[0]-c_w, c_h:im.shape[1]-c_h]
+                # cv2.imshow("cropped", cropped)
+
+                height = im.shape[0]
+                width = im.shape[1]
+                frac_h = height // tiles_per_dim
+                frac_w = width // tiles_per_dim
+                i = 0
+                crops_previous = []
+                names_previous = []
+                for h in range(tiles_per_dim):
+                    for w in range(tiles_per_dim):
+                        crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
+                        cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
+                        crops_previous.append(crop)
+                        names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
+                        i = i + 1
+
+                # take OoD from last image in files as "previous" for first img
+                if f == files[-1]:
+                    idx = np.arange(len(crops_previous))
+                    np.random.shuffle(idx)
+                    for c_idx in idx[:tiles_per_dim]:
+                        cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
 
 def split_into_train_val_test(dataset_folder, portion_train, portion_val):
@@ -131,20 +139,20 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
     # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
     base[start_h:end_h, start_w:end_w] = im_resized
     im_resized = base
-    return im_resized
+    return im_resized / 255.
 
 
 if __name__ == '__main__':
 
     # TODO: need this for multiple tile sizes, as well as for documents
-    shredder("images/", 2)
+    # shredder("images/", 2)
     # shredder("images/", 4)
     # shredder("images/", 5)
-    shredder("documents/", 2)
+    # shredder("documents/", 2)
     # shredder("documents/", 4)
     # shredder("documents/", 5)
 
-    # split_into_train_val_test('dataset_2', 0.75, 0.15)
+    split_into_train_val_test('dataset_2', 0.75, 0.15)
     d = load_obj('train_test_val_dict')
     print(len(d['train']))
 
