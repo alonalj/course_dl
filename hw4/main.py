@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 from sklearn.model_selection import train_test_split
 from keras.datasets import imdb
 from keras.models import Sequential
@@ -10,9 +11,9 @@ from keras.models import Model
 
 
 # load the dataset but only keep the top words, zero the rest. Introduce special tokens.
-VOCABULARY_SIZE = 10000
+VOCABULARY_SIZE = 20000
 MAX_SAMPLES = 40000
-MAX_LEN = 200
+MAX_LEN = 256
 
 (sentences, sentiment), _ = imdb.load_data(num_words=VOCABULARY_SIZE)
 
@@ -54,10 +55,10 @@ X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=
 print(X_train.shape)
 print(y_train.shape)
 
-LSTM_SIZE = 100
+LSTM_SIZE = 256
 
 input = Input(shape=(MAX_LEN, ))
-se1 = Embedding(VOCABULARY_SIZE, 100, input_length=MAX_LEN, mask_zero=True)(input)
+se1 = Embedding(VOCABULARY_SIZE, 100, input_length=MAX_LEN, mask_zero=True)(input) #
 se2 = Dropout(0.3)(se1)
 
 # Stack 1
@@ -85,5 +86,21 @@ model.compile(loss='categorical_crossentropy',
 print(model.summary())
 model.fit(X_train, y_train,
           validation_data=(X_test, y_test),
-          epochs=10, batch_size=128)
+          epochs=5, batch_size=128)
 
+
+seed = []
+seed.append(word_to_id['<START>'])
+seed.append(word_to_id['the'])
+seed.append(word_to_id['movie'])
+seed.append(word_to_id['was'])
+
+
+for i in range(MAX_LEN-4):
+    seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
+    result = model.predict(seed_padded)
+    id = np.argmax(result)
+    seed.append(id)
+
+for i in range(MAX_LEN):
+    print("{} ", id_to_word[seed[i]])
