@@ -46,7 +46,7 @@ def word_level_time_dist():
     X_train, X_test, y_train, y_test = train_test_split(np.array(X_train), np.array(y_train), test_size=0.1)
 
     input = Input(shape=(MAX_LEN, ))
-    se1 = Embedding(VOCABULARY_SIZE, 200, input_length=MAX_LEN)(input) #, mask_zero=True
+    se1 = Embedding(VOCABULARY_SIZE, 200, input_length=MAX_LEN, mask_zero=True)(input)
     se2 = Dropout(0.3)(se1)
 
     # Stack 1
@@ -63,11 +63,16 @@ def word_level_time_dist():
     lstm3 = LSTM(LSTM_SIZE, return_sequences=True)(do2)
     bn3 = BatchNormalization()(lstm3)
     do3 = Dropout(0.3)(bn3)
-
-    fc1 = TimeDistributed(Dense(512, activation='relu'))(do3)
-    bn4 = BatchNormalization()(fc1)
+    
+    # Stack 4
+    lstm4 = LSTM(LSTM_SIZE, return_sequences=True)(do3)
+    bn4 = BatchNormalization()(lstm4)
     do4 = Dropout(0.3)(bn4)
-    output = TimeDistributed(Dense(VOCABULARY_SIZE, activation='softmax', input_shape=(MAX_LEN, LSTM_SIZE)))(do4)
+
+    fc1 = TimeDistributed(Dense(256, activation='relu'))(do4)
+    bn5 = BatchNormalization()(fc1)
+    do5 = Dropout(0.3)(bn5)
+    output = TimeDistributed(Dense(VOCABULARY_SIZE, activation='softmax', input_shape=(MAX_LEN, LSTM_SIZE)))(do5)
 
     model = Model(inputs=input, outputs=output)
 
@@ -75,11 +80,11 @@ def word_level_time_dist():
                   optimizer='adam')
     print(model.summary())
 
-    filepath = 'model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}-timedist-3lstm256-1fc512-vocab20000-maxlen100'
+    filepath = 'model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}-timedist-4lstm256-1fc256-vocab20000-maxlen100'
     checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='min')
     model.fit(X_train, y_train,
               validation_data=(X_test, y_test),
-              epochs=20, batch_size=128, callbacks=[checkpoint])
+              epochs=50, batch_size=128, callbacks=[checkpoint])
 
     seed = []
     seed.append(word_to_id['<START>'])
@@ -172,3 +177,5 @@ def word_level():
 
     for i in range(MAX_LEN):
         print("{} ".format(id_to_word[seed[i]]))
+
+word_level_time_dist()
