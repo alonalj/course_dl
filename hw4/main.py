@@ -64,10 +64,10 @@ def word_level_time_dist():
     bn3 = BatchNormalization()(lstm3)
     do3 = Dropout(0.3)(bn3)
 
-    fc1 = TimeDistributed(Dense(512, activation='relu'))(do4)
-    bn5 = BatchNormalization()(fc1)
-    do5 = Dropout(0.3)(bn5)
-    output = TimeDistributed(Dense(VOCABULARY_SIZE, activation='softmax', input_shape=(MAX_LEN, LSTM_SIZE)))(do5)
+    fc1 = TimeDistributed(Dense(512, activation='relu'))(do3)
+    bn4 = BatchNormalization()(fc1)
+    do4 = Dropout(0.3)(bn4)
+    output = TimeDistributed(Dense(VOCABULARY_SIZE, activation='softmax', input_shape=(MAX_LEN, LSTM_SIZE)))(do4)
 
     model = Model(inputs=input, outputs=output)
 
