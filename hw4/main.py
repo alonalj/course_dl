@@ -7,6 +7,7 @@ from keras.preprocessing import sequence
 from keras.layers import CuDNNLSTM, Bidirectional, Dropout, TimeDistributed, BatchNormalization, Input
 from keras.utils import to_categorical
 from keras.models import Model
+from keras.callbacks import ModelCheckpoint
 
 
 # load the dataset but only keep the top words, zero the rest. Introduce special tokens.
@@ -49,24 +50,19 @@ def word_level_time_dist():
     se2 = Dropout(0.3)(se1)
 
     # Stack 1
-    lstm1 = CuDNNLSTM(LSTM_SIZE, return_sequences=True)(se2)
+    lstm1 = LSTM(LSTM_SIZE, return_sequences=True)(se2)
     bn1 = BatchNormalization()(lstm1)
     do1 = Dropout(0.3)(bn1)
 
     # Stack 2
-    lstm2 = CuDNNLSTM(LSTM_SIZE, return_sequences=True)(do1)
+    lstm2 = LSTM(LSTM_SIZE, return_sequences=True)(do1)
     bn2 = BatchNormalization()(lstm2)
     do2 = Dropout(0.3)(bn2)
 
     # Stack 3
-    lstm3 = CuDNNLSTM(LSTM_SIZE, return_sequences=True)(do2)
+    lstm3 = LSTM(LSTM_SIZE, return_sequences=True)(do2)
     bn3 = BatchNormalization()(lstm3)
     do3 = Dropout(0.3)(bn3)
-
-    # Stack 4
-    lstm4 = CuDNNLSTM(LSTM_SIZE, return_sequences=True)(do3)
-    bn4 = BatchNormalization()(lstm4)
-    do4 = Dropout(0.3)(bn4)
 
     fc1 = TimeDistributed(Dense(512, activation='relu'))(do4)
     bn5 = BatchNormalization()(fc1)
@@ -78,9 +74,12 @@ def word_level_time_dist():
     model.compile(loss='sparse_categorical_crossentropy',
                   optimizer='adam')
     print(model.summary())
+
+    filepath = 'model-ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}-timedist-3lstm256-1fc512-vocab20000-maxlen100'
+    checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='min')
     model.fit(X_train, y_train,
               validation_data=(X_test, y_test),
-              epochs=20, batch_size=128)
+              epochs=20, batch_size=128, callbacks=[checkpoint])
 
     seed = []
     seed.append(word_to_id['<START>'])
