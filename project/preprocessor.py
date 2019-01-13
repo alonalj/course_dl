@@ -14,7 +14,8 @@ import os
 import pickle as pkl
 import numpy as np
 
-def shredder(raw_input_dir, tiles_per_dim):
+
+def shredder(raw_input_dir, tiles_per_dim, data_type):
     import cv2
     import os
 
@@ -25,18 +26,28 @@ def shredder(raw_input_dir, tiles_per_dim):
     # raw_input_dir = "images/"
     output_dir = "dataset_{}/".format(tiles_per_dim)
     files = os.listdir(raw_input_dir)
-
+    files_dict = load_obj('train_test_val_dict')
+    files = files_dict[data_type]  # augment only train files
+    list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
-    crop_start_w = range(0, 46, 15)
-    crop_start_h = range(0, 46, 15)
+    if data_type == 'train':
+        crop_start_w = range(0, 46, 15)
+        crop_start_h = range(0, 46, 15)
+    else:
+        crop_start_w = [0]
+        crop_start_h = [0]
+
     for c_w in crop_start_w:
         for c_h in crop_start_h:
             crops_previous = []
             names_previous = []
             for f in files:
                 # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-                folder_output_dir = output_dir+f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)+'/'
+                filename = f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)
+                folder_name = output_dir + filename
+                folder_output_dir = folder_name + '/'
+                list_of_folders.append(filename)
                 if not os.path.exists(output_dir):
                     os.mkdir(output_dir)
                 os.mkdir(folder_output_dir)
@@ -54,8 +65,9 @@ def shredder(raw_input_dir, tiles_per_dim):
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
 
                 # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
+
                 im = im[c_w:im.shape[0]-c_w, c_h:im.shape[1]-c_h]
-                # cv2.imshow("cropped", cropped)
+                    # cv2.imshow("cropped", cropped)
 
                 height = im.shape[0]
                 width = im.shape[1]
@@ -79,10 +91,16 @@ def shredder(raw_input_dir, tiles_per_dim):
                     for c_idx in idx[:tiles_per_dim]:
                         cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
+    files_dict[data_type] = list_of_folders
+    print(files_dict)
+    save_obj(files_dict, 'train_test_val_dict')
+
 
 def split_into_train_val_test(dataset_folder, portion_train, portion_val):
     train_test_val_dict = {}
-    folders = os.listdir(dataset_folder)
+    folders_original = os.listdir(dataset_folder)
+    folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
+    folders = [f for f in folders if 'DS_Store' not in f]
     np.random.shuffle(folders)
     num_folders = len(folders)
     stop_idx_train = int(num_folders*portion_train)
@@ -90,6 +108,11 @@ def split_into_train_val_test(dataset_folder, portion_train, portion_val):
     train_folders = folders[:stop_idx_train]
     val_folders = folders[stop_idx_train : stop_idx_val]
     test_folders = folders[stop_idx_val :]
+
+    train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
+    val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
+    test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
+
     train_test_val_dict['train'] = train_folders
     train_test_val_dict['val'] = val_folders
     train_test_val_dict['test'] = test_folders
@@ -130,9 +153,9 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
     # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
     # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
     import random
-    start_w = random.randint(0, slack_w)
+    start_w = 0 #random.randint(0, slack_w)
     end_w = start_w + w
-    start_h = random.randint(0, slack_h)
+    start_h = 0 #random.randint(0, slack_h)
     end_h = start_h + h
     base_size = max_size, max_size
     base = np.zeros(base_size, dtype=np.uint8)
@@ -144,17 +167,24 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
 
 if __name__ == '__main__':
 
-    # TODO: need this for multiple tile sizes, as well as for documents
-    # shredder("images/", 2)
-    # shredder("images/", 4)
-    # shredder("images/", 5)
-    # shredder("documents/", 2)
-    # shredder("documents/", 4)
-    # shredder("documents/", 5)
 
-    split_into_train_val_test('dataset_2', 0.75, 0.15)
+    split_into_train_val_test('images', 0.75, 0.15)
     d = load_obj('train_test_val_dict')
-    print(len(d['train']))
+    # print(len(d['train']))
+    print(d['val'])
+
+    # TODO: need this for multiple tile sizes, as well as for documents
+    for data_type in ['train', 'val', 'test']:
+        shredder("images/", 2, data_type)
+        # shredder("images/", 4)
+        # shredder("images/", 5)
+        # shredder("documents/", 2)
+        # shredder("documents/", 4)
+        # shredder("documents/", 5)
+
+
+    # import keras
+    # print(keras.__version__)
 
 
 # datagen = keras.preprocessing.ImageDataGenerator(

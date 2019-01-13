@@ -60,6 +60,7 @@ from resnet_adapted import *
 from keras.preprocessing.image import ImageDataGenerator
 from keras import optimizers
 from keras.utils import to_categorical
+import keras.backend as K
 from preprocessor import *  # TODO verify all these imports work for terminal + pycharm proj. opened from scratch
 import cv2
 from conf import Conf
@@ -96,7 +97,7 @@ def data_generator(data_type, tiles_per_dim):
     for folder in folders:
         skip_folder = False
         flip_img = False
-        if random.random() > 0.5:
+        if random.random() > 0.5 and data_type == 'train':
             flip_img = True
         if c.only_images and len(folder) < 7:
             # print(len(folder))
@@ -106,8 +107,8 @@ def data_generator(data_type, tiles_per_dim):
         np.random.shuffle(files)  # random shuffle files in folders too
         images_in_folder = []
         labels_in_folder = []
-        if len(files) != c.n_tiles_per_sample:
-            print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
+        # if len(files) != c.n_tiles_per_sample:
+        #     print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
         for f in files:
             if skip_folder:
                 continue
@@ -118,6 +119,7 @@ def data_generator(data_type, tiles_per_dim):
             labels_in_folder.append(label)
             im = cv2.imread(folder_path + '/' + f)
             try:
+                img_shape = im.shape[0]+im.shape[1]
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
             except:
                 print("failed on {}".format(folder_path + '/' + f))
@@ -193,6 +195,29 @@ def temp():
                                                    callbacks=[reduce_lr])
 
 
+
+def dice_coef(y_true, y_pred, smooth, thresh):
+    y_pred = y_pred > thresh
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+
+#
+# def my_loss(y_true, y_pred):
+#     cross_entropy_loss = keras.losses.categorical_crossentropy(y_true, y_pred)
+#     # print(y_true.shape)
+#     y_p = K.reshape(y_pred, shape=(-1, c.n_classes))
+#     sum = 0
+#     for t in range(c.n_tiles_per_sample):
+#         sum += keras.layers.Lambda(lambda x: x[t, :, :])(y_p)
+#     all_differet_loss = K.sum((1- sum)**2, 1)
+#
+#     return cross_entropy_loss #+ all_differet_loss
+
+
+
 if __name__ == '__main__':
     c = Conf()
     batch_size = 128
@@ -230,8 +255,12 @@ if __name__ == '__main__':
             # print(X_batch.shape)
             # print(y_batch.shape)
             hist = resnet.train_on_batch(X_batch, y_batch)#, batch_size, epochs=maxepoches)
+            preds = resnet.predict_on_batch(X_batch)
+
             if step % 5 == 0:
                 print(hist)
+            if step % 10 == 0:
+                print(preds)
             step += 1
 
         # Validating at end of epoch

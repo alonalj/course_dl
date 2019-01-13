@@ -3,6 +3,9 @@ from keras.layers import Dense, MaxPooling2D, AveragePooling2D, GlobalAveragePoo
 from keras.layers import Flatten, InputLayer, BatchNormalization, Activation
 from keras.models import Model
 from keras import regularizers
+from keras.regularizers import Regularizer
+from keras import backend as K
+import numpy as np
 from conf import Conf
 
 
@@ -101,7 +104,32 @@ def resnet_weights_shared_over_tiles(x_in=None, weight_decay=0.0001):
     return Model(x_in, x, name="Resnet_model")
 
 
+class L1L2(Regularizer):
+    """Regularizer for L1 and L2 regularization.
+    # Arguments
+        l1: Float; L1 regularization factor.
+        l2: Float; L2 regularization factor.
+    """
+
+    def __init__(self, l1=0., l2=0.):
+        self.l1 = keras.backend.cast_to_floatx(l1)
+        self.l2 = keras.backend.cast_to_floatx(l2)
+
+    def __call__(self, x):
+        regularization = 0.
+        if self.l1:
+            regularization += keras.backend.sum(self.l1 * keras.backend.abs(x))
+        if self.l2:
+            regularization += keras.backend.sum(self.l2 * keras.backend.square(x))
+        return regularization
+
+    def get_config(self):
+        return {'l1': float(self.l1),
+                'l2': float(self.l2)}
+
+
 def build_resnet(weight_decay=0.0001):
+    # TODO: ? another input is the shape of the image - could immediately tell if it's OoD
     n_tiles_per_sample = c.n_tiles_per_sample  # original tiles + OoD
     # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
     # the evaluation over all tiles to happen in the same pass)
@@ -115,9 +143,51 @@ def build_resnet(weight_decay=0.0001):
     # for i in range(n_tiles_per_sample):
         x_out = shared_net(x_in)
         outputs_from_sample.append(x_out)
+    # layer adds all output vectors
+
+    # sum = Input(tensor=keras.backend.constant([0]))
+    # Sum over all outputs for sample (all tiles' outputs)
+    for tile_idx in range(len(outputs_from_sample)):
+        outputs_from_sample_original = keras.layers.Lambda(lambda x: x[:, :c.n_original_tiles])(outputs_from_sample[tile_idx])
+        if tile_idx == 0:
+            sum_original_tile_preds = outputs_from_sample_original
+        else:
+            sum_original_tile_preds = keras.layers.Add()([outputs_from_sample_original, sum_original_tile_preds])   # shape(batch_size, n_original_tiles) (we summed over tiles, i.e. n_classes)
+            # if indeed we have exactly one prediction per position over all tiles then we should get sum = [1,1,..,1,1], e.g. for t=2 we get [1,1,1,1] (Note - there is no limit on OoD)
+    # ones = K.placeholder(shape=sum.shape, dtype=sum.dtype)
+    # import tensorflow as tf
+    # ones = tf.fill(K.shape(ones), 1.0)
+
+        # a = keras.layers.Lambda(lambda x: x[i, :])(sum)
+    # sum_diff_over_tiles = Input(tensor=K.constant([0]))
+    # diff = keras.layers.Subtract()([sum, sum])
+
+    # This is basically doing sum(1 - sum_original_tile_preds) - ideally would be sum(1-1)=0 if each position were
+    # associated with exactly one tile. A bad case would be all original tiles' predictions are the same:
+    # -> for t=2 we would get sum = 1-4 = -3 (instead of 1-1=0)
+    # simple example to understad computation here: if we replace (1-x) below with (5-x*0) we get a tensor of shape (batch_size, n_original_tiles) with all values = 25. Then we sum accross n_original_tiles and obtain ±100 in the case of t=2 (4 original tiles)
+    diff = keras.layers.Lambda(lambda x: (1-x)**2)(sum_original_tile_preds)  # shape= (batch_size, n_original_tiles).  Subtracting total sum of prds over tiles from 1, so if many tiles got 1 in the same idx, we have 1-(large_number)
+    for original_tile_class_idx in range(c.n_original_tiles):
+        original_tile_diff = keras.layers.Lambda(lambda x: x[:, original_tile_class_idx])(diff)
+        if original_tile_class_idx == 0:
+            sum_diff_all_tiles_in_sample = original_tile_diff
+        else:
+            sum_diff_all_tiles_in_sample = keras.layers.Add()([original_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
+
+
+    # adding the all diff loss with small weight to actual outputs so cross entropy will be harmed if not all diff
+    penalized_outputs_from_sample = []
+    penalty = keras.layers.Lambda(lambda x: 0.01 * x)(sum_diff_all_tiles_in_sample)
+    # penalty = sum_diff_all_tiles_in_sample
+    for o in outputs_from_sample:
+        o = keras.layers.Subtract()([o, penalty])
+        penalized_outputs_from_sample.append(o)
+
     print(inputs_from_sample)
-    print(outputs_from_sample)
+    print(penalized_outputs_from_sample)
+
+    # TODO: create a new layer which is the sum of the outputs, add regularization on the activation of this ()verify keras version and add to documentation in case they will want to train). Regularize sum to be X and multiplication  to be Y or similar
         # TODO: add regularization so that x_out_prev vectors concatenated are orthogonal except for -1s (might need two additional labels to represent -1 instead of just one)
-    return Model(inputs=inputs_from_sample, outputs=outputs_from_sample)
+    return Model(inputs=inputs_from_sample, outputs=penalized_outputs_from_sample)
 
 
