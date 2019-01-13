@@ -256,7 +256,7 @@ def main():
 
     if pretrained is None:
         checkpoint = ModelCheckpoint(my_model.filepath, monitor='val_loss', verbose=1,
-                                     save_best_only=False, mode='min')
+                                     save_best_only=True, mode='min')
 
         if type == 'WL' or type == 'CL':
             my_model.model.fit(X_train, y_train,
@@ -264,7 +264,7 @@ def main():
                                batch_size=128, callbacks=[checkpoint])
         elif type == 'WL-S':
             my_model.model.fit([X_train, X2_train], y_train,
-                               validation_data=([X_test, X2_test], y_test), epochs=30,
+                               validation_data=([X_test, X2_test], y_test), epochs=50,
                                batch_size=128, callbacks=[checkpoint])
         else:
             raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
