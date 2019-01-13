@@ -137,7 +137,7 @@ class TextGenModel:
 
 def main():
     pretrained = "/home/gilsho/236606/hw4/model-ep056-loss4.630-val_loss4.944-wl-4lstm256-1fc256-vocab20000-maxlen100"
-    pretrained = None
+    pretrained = "/home/gilsho/236606/hw4/model-ep030-loss1.087-val_loss1.009-cl-4lstm256-1fc256-vocab20000-maxlen100" 
 
     # Load and preprocess the dataset
     (sentences, sentiment), _ = imdb.load_data(num_words=IMDB_VOCABULARY_SIZE)
@@ -196,27 +196,53 @@ def main():
                            validation_data=(X_test, y_test), epochs=30,
                            batch_size=128, callbacks=[checkpoint])
 
+    # W-L validate
+    ##for it in range(5):
+    ##    seed = []
+    ##    seed.append(word_to_id['<START>'])
+    ##    seed.append(word_to_id['i'])
+    ##    seed.append(word_to_id['think'])
+    ##    seed.append(word_to_id['that'])
+
+    ##    for i in range(3, MAX_LEN):
+    ##        my_model.model.reset_states()
+    ##        seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
+    ##        y = my_model.model.predict(seed_padded)[0][i]
+    ##        #next_word_id = sample_multinomial(y, temperature=0.5)
+    ##        next_word_id = sample_argmax(y)
+    ##        seed.append(next_word_id)
+
+    ##    gen_sentence = ''
+    ##    for i in range(MAX_LEN):
+    ##        gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
+
+    ##    print(gen_sentence)
+
+    # C-L validate
+    
     for it in range(5):
-        seed = []
-        seed.append(word_to_id['<START>'])
-        seed.append(word_to_id['i'])
-        seed.append(word_to_id['think'])
-        seed.append(word_to_id['that'])
+        diversity = 0.3
+        seed = "i think that "
+        result = np.zeros((1,) + X_train.shape[1:])
+        result[0, 0, char2ind['<START>']] = 1
+        next_res_ind = 1
+        for s in seed:
+            result[0, next_res_ind, char2ind[s]] = 1
+            next_res_ind = next_res_ind + 1
 
-        for i in range(3, MAX_LEN):
+        print("[" + seed + "]", end='')
+        
+        next_char = seed[-1]
+        while next_char != '<EOS>' and next_res_ind < CHAR_MAX_LEN:
             my_model.model.reset_states()
-            seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
-            y = my_model.model.predict(seed_padded)[0][i]
-            #next_word_id = sample_multinomial(y, temperature=0.5)
-            next_word_id = sample_argmax(y)
-            seed.append(next_word_id)
-
-        gen_sentence = ''
-        for i in range(MAX_LEN):
-            gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
-
-        print(gen_sentence)
-
+            y = my_model.model.predict_on_batch(result)[0][next_res_ind-1]
+            #next_char_ind = sample_multinomial(y, temperature=diversity)
+            next_char_ind = sample_argmax(y)
+            next_char = characters[next_char_ind]
+            result[0, next_res_ind, next_char_ind] = 1 
+            next_res_ind = next_res_ind + 1
+            print(next_char, end='')
+        print()
 
 if __name__ == '__main__':
     main()
