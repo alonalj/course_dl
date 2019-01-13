@@ -264,7 +264,7 @@ def main():
                                batch_size=128, callbacks=[checkpoint])
         elif type == 'WL-S':
             my_model.model.fit([X_train, X2_train], y_train,
-                               validation_data=([X_test, X2_test], y_test), epochs=50,
+                               validation_data=([X_test, X2_test], y_test), epochs=1,
                                batch_size=128, callbacks=[checkpoint])
         else:
             raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
@@ -283,6 +283,32 @@ def main():
                 my_model.model.reset_states()
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
                 y = my_model.model.predict(seed_padded)[0][i]
+                if technique == 'multinomial':
+                    next_word_id = sample_multinomial(y, temperature=0.5)
+                else:
+                    next_word_id = sample_argmax(y)
+                seed.append(next_word_id)
+
+            gen_sentence = ''
+            for i in range(MAX_LEN):
+                gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
+
+            print(gen_sentence)
+
+    if type == 'WL-S':
+        for it in range(n_sentences):
+            seed = []
+            seed.append(word_to_id['<START>'])
+            seed.append(word_to_id['i'])
+            seed.append(word_to_id['think'])
+            seed.append(word_to_id['that'])
+
+            sentiment = np.zeros(MAX_LEN)
+
+            for i in range(3, MAX_LEN):
+                my_model.model.reset_states()
+                seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
+                y = my_model.model.predict([seed_padded, sentiment])[0][i]
                 if technique == 'multinomial':
                     next_word_id = sample_multinomial(y, temperature=0.5)
                 else:
