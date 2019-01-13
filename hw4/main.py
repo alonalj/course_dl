@@ -278,7 +278,7 @@ def main():
             seed.append(word_to_id['think'])
             seed.append(word_to_id['that'])
 
-            for i in range(3, MAX_LEN):
+            for i in range(len(seed)-1, MAX_LEN):
                 my_model.model.reset_states()
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
                 y = my_model.model.predict(seed_padded)[0][i]
@@ -307,7 +307,7 @@ def main():
             sentim_pos[0,0:int(MAX_LEN/2),0] = 0
             sentim = sentim_pos
 
-            for i in range(len(seed), MAX_LEN):
+            for i in range(len(seed)-1, MAX_LEN):
                 my_model.model.reset_states()
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
                 y = my_model.model.predict([seed_padded, sentim])[0][i]
