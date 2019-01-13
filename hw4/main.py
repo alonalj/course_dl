@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 from sklearn.model_selection import train_test_split
 from keras.datasets import imdb
 from keras.models import Sequential
@@ -169,7 +170,6 @@ def word_level():
 
 def main():
     pretrained = "/home/gilsho/236606/hw4/model-ep056-loss4.630-val_loss4.944-wl-4lstm256-1fc256-vocab20000-maxlen100"
-    pretrained = None
 
     # Load and preprocess the dataset
     (sentences, sentiment), _ = imdb.load_data(num_words=VOCABULARY_SIZE)
@@ -197,20 +197,20 @@ def main():
                            validation_data=(X_test, y_test), epochs=30,
                            batch_size=128, callbacks=[checkpoint])
 
-    seed = []
-    seed.append(word_to_id['<START>'])
-    seed.append(word_to_id['the'])
-    seed.append(word_to_id['movie'])
-    seed.append(word_to_id['was'])
+    for it in range(5):
+        seed = []
+        seed.append(word_to_id['<START>'])
+        seed.append(word_to_id['the'])
+        seed.append(word_to_id['movie'])
+        seed.append(word_to_id['was'])
 
-    for i in range(3, MAX_LEN):
-        my_model.model.reset_states()
-        seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
-        y = my_model.model.predict(seed_padded)[0][i]
-        next_word_id = sample(y, temperature=1.0)
-        seed.append(next_word_id)
+        for i in range(3, MAX_LEN):
+            my_model.model.reset_states()
+            seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
+            y = my_model.model.predict(seed_padded)[0][i]
+            next_word_id = sample(y, temperature=0.3)
+            seed.append(next_word_id)
 
-    for j in range(3):
         gen_sentence = ''
         for i in range(MAX_LEN):
             gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
