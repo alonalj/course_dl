@@ -177,12 +177,11 @@ class TextGenModel:
 
 
 def main():
-    pretrained = "/home/gilsho/236606/hw4/model-ep056-loss4.630-val_loss4.944-wl-4lstm256-1fc256-vocab20000-maxlen100"
-    pretrained = "/home/gilsho/236606/hw4/model-ep030-loss1.087-val_loss1.009-cl-4lstm256-1fc256-vocab20000-maxlen100"
     pretrained = None
     type = 'WL-S'
     technique = 'multinomial' # or argmax
-    n_sentences = 3
+    #technique = 'argmax' # or argmax
+    n_sentences = 20
 
     # Load and preprocess the dataset
     # -------------------------------
@@ -264,7 +263,7 @@ def main():
                                batch_size=128, callbacks=[checkpoint])
         elif type == 'WL-S':
             my_model.model.fit([X_train, X2_train], y_train,
-                               validation_data=([X_test, X2_test], y_test), epochs=1,
+                               validation_data=([X_test, X2_test], y_test), epochs=50,
                                batch_size=128, callbacks=[checkpoint])
         else:
             raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
@@ -284,7 +283,7 @@ def main():
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
                 y = my_model.model.predict(seed_padded)[0][i]
                 if technique == 'multinomial':
-                    next_word_id = sample_multinomial(y, temperature=0.5)
+                    next_word_id = sample_multinomial(y, temperature=0.7)
                 else:
                     next_word_id = sample_argmax(y)
                 seed.append(next_word_id)
@@ -299,18 +298,21 @@ def main():
         for it in range(n_sentences):
             seed = []
             seed.append(word_to_id['<START>'])
-            seed.append(word_to_id['i'])
-            seed.append(word_to_id['think'])
-            seed.append(word_to_id['that'])
+            seed.append(word_to_id['the'])
+            seed.append(word_to_id['movie'])
+            seed.append(word_to_id['was'])
+            
+            sentim_neg = np.zeros((1, MAX_LEN, 1))  # negative
+            sentim_pos = np.ones((1, MAX_LEN, 1))   # positive
+            sentim_pos[0,0:int(MAX_LEN/2),0] = 0
+            sentim = sentim_pos
 
-            sentiment = np.zeros(MAX_LEN)
-
-            for i in range(3, MAX_LEN):
+            for i in range(len(seed), MAX_LEN):
                 my_model.model.reset_states()
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
-                y = my_model.model.predict([seed_padded, sentiment])[0][i]
+                y = my_model.model.predict([seed_padded, sentim])[0][i]
                 if technique == 'multinomial':
-                    next_word_id = sample_multinomial(y, temperature=0.5)
+                    next_word_id = sample_multinomial(y, temperature=0.7)
                 else:
                     next_word_id = sample_argmax(y)
                 seed.append(next_word_id)
