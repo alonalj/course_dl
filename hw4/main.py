@@ -17,7 +17,7 @@ IMDB_VOCABULARY_SIZE = 20000
 CHAR_VOCABULARY_SIZE = 101
 MAX_SAMPLES = 40000
 MAX_LEN = 100
-CHAR_MAX_LEN = 200
+CHAR_MAX_LEN = 300
 
 
 def sample_multinomial(preds, temperature=1.0):
@@ -177,7 +177,7 @@ def main():
 
             X_train[i].append(char2ind[' '])
 
-    X_train = sequence.pad_sequences(X_train, maxlen=CHAR_MAX_LEN, truncating='post')
+    X_train = sequence.pad_sequences(X_train, maxlen=CHAR_MAX_LEN, truncating='post', padding='post')
     y_train = np.roll(X_train, -1, axis=-1)
 
     X_train = np.array([to_categorical(x, num_classes=CHAR_VOCABULARY_SIZE) for x in X_train])
