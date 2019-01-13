@@ -17,14 +17,16 @@ MAX_SAMPLES = 40000
 MAX_LEN = 100
 
 
-def sample(preds, temperature=1.0):
-    """Helper function to sample an index from a probability array"""
+def sample_multinomial(preds, temperature=1.0):
     preds = np.asarray(preds).astype('float64')
     preds = np.log(preds) / temperature
     exp_preds = np.exp(preds)
     preds = exp_preds / np.sum(exp_preds)
     probas = np.random.multinomial(1, preds, 1)
     return np.argmax(probas)
+
+def sample_argmax(preds):
+    return np.argmax(preds)
 
 
 class TextGenModel:
@@ -200,15 +202,16 @@ def main():
     for it in range(5):
         seed = []
         seed.append(word_to_id['<START>'])
-        seed.append(word_to_id['the'])
-        seed.append(word_to_id['movie'])
-        seed.append(word_to_id['was'])
+        seed.append(word_to_id['i'])
+        seed.append(word_to_id['think'])
+        seed.append(word_to_id['that'])
 
         for i in range(3, MAX_LEN):
             my_model.model.reset_states()
             seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
             y = my_model.model.predict(seed_padded)[0][i]
-            next_word_id = sample(y, temperature=0.3)
+            #next_word_id = sample_multinomial(y, temperature=0.5)
+            next_word_id = sample_argmax(y)
             seed.append(next_word_id)
 
         gen_sentence = ''
