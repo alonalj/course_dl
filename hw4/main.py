@@ -178,6 +178,7 @@ class TextGenModel:
 
 def main():
     pretrained = None
+    pretrained = "/home/gilsho/236606/hw4/_models/model-ep044-loss4.720-val_loss5.002-wl-s-4lstm256-1fc256-vocab20000-maxlen100"
     type = 'WL-S'
     technique = 'multinomial' # or argmax
     #technique = 'argmax' # or argmax
@@ -304,21 +305,28 @@ def main():
             
             sentim_neg = np.zeros((1, MAX_LEN, 1))  # negative
             sentim_pos = np.ones((1, MAX_LEN, 1))   # positive
-            sentim_pos[0,0:int(MAX_LEN/2),0] = 0
-            sentim = sentim_pos
+            #sentim_neg[0,0:int(MAX_LEN/2),0] = 1
+            #sentim = sentim_neg
 
             for i in range(len(seed)-1, MAX_LEN):
+                if i < 50:
+                    sentim = sentim_neg
+                else:
+                    sentim = sentim_pos
+
                 my_model.model.reset_states()
                 seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
                 y = my_model.model.predict([seed_padded, sentim])[0][i]
                 if technique == 'multinomial':
-                    next_word_id = sample_multinomial(y, temperature=0.7)
+                    next_word_id = sample_multinomial(y, temperature=0.3)
                 else:
                     next_word_id = sample_argmax(y)
                 seed.append(next_word_id)
 
             gen_sentence = ''
             for i in range(MAX_LEN):
+                if i == 50:
+                    gen_sentence = gen_sentence + ' [NEG2POS] '
                 gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
 
             print(gen_sentence)
