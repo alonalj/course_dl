@@ -35,6 +35,85 @@ def sample_argmax(preds):
     return np.argmax(preds)
 
 
+def generate_sentence_wl(model, word_to_id, id_to_word, technique, sentiment=None, diversity=0.7):
+    seed = []
+    seed.append(word_to_id['<START>'])
+    seed.append(word_to_id['the'])
+    seed.append(word_to_id['movie'])
+    seed.append(word_to_id['was'])
+
+    sentim_neg = np.zeros((1, MAX_LEN, 1))  # negative
+    sentim_pos = np.ones((1, MAX_LEN, 1))  # positive
+
+    for i in range(len(seed) - 1, MAX_LEN-1):
+        if sentiment == 'pos':
+            sentim = sentim_pos
+        elif sentiment == 'neg':
+            sentim = sentim_neg
+        elif sentiment == 'neg2pos':
+            if i < 50:
+                sentim = sentim_neg
+            else:
+                sentim = sentim_pos
+        elif sentiment is not None:
+            raise ValueError('Sentiment can only get "pos", "neg", or "neg2pos" values.')
+
+        model.reset_states()
+        seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
+
+        if sentiment is not None:
+            y = model.predict([seed_padded, sentim])[0][i]
+        else:
+            y = model.predict(seed_padded)[0][i]
+
+        if technique == 'multinomial':
+            next_word_id = sample_multinomial(y, temperature=diversity)
+        else:
+            next_word_id = sample_argmax(y)
+        seed.append(next_word_id)
+
+    gen_sentence = ''
+    for i in range(MAX_LEN-1):
+        if i == 50:
+            gen_sentence = gen_sentence + ' [NEG2POS] '
+        gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
+
+    return gen_sentence
+
+
+def evaluate_model(model, word_to_id, id_to_word, technique, X2_test, X_test):
+    actual, predicted = list(), list()
+    # step over the whole set
+    for key, desc_list in enumerate(X_test):
+        print('{}/{}'.format(key, len(X_test)))
+        # generate description
+
+        if X2_test[key][0][0] == 1:
+            sentiment = 'pos'
+        else:
+            sentiment = 'neg'
+
+        yhat = generate_sentence_wl(model, word_to_id, id_to_word, technique, sentiment)
+        # store actual and predicted
+
+        gen_sentence = ''
+        for i in range(MAX_LEN):
+            gen_sentence = gen_sentence + ' ' + id_to_word[desc_list[i]]
+
+        actual.append(gen_sentence.split())
+        predicted.append(yhat.split())
+
+        if key == 256:
+            break
+
+    # calculate BLEU score
+    print('BLEU-1: %f' % corpus_bleu(actual, predicted, weights=(1.0, 0, 0, 0)))
+    print('BLEU-2: %f' % corpus_bleu(actual, predicted, weights=(0.5, 0.5, 0, 0)))
+    print('BLEU-3: %f' % corpus_bleu(actual, predicted, weights=(0.3, 0.3, 0.3, 0)))
+    print('BLEU-4: %f' % corpus_bleu(actual, predicted, weights=(0.25, 0.25, 0.25, 0.25)))
+
+
+
 class TextGenModel:
     def __init__(self, type='WL', lstm_size=256, fc_size=256, do_ratio=0.3, embed_size=200,
                  pretrained=None, cl_in_shape=None):
@@ -181,8 +260,6 @@ def main():
     pretrained = None
     pretrained = "/home/gilsho/236606/hw4/_models/model-ep044-loss4.720-val_loss5.002-wl-s-4lstm256-1fc256-vocab20000-maxlen100"
     type = 'WL-S'
-    technique = 'multinomial' # or argmax
-    #technique = 'argmax' # or argmax
     n_sentences = 20
 
     # Load and preprocess the dataset
@@ -272,73 +349,21 @@ def main():
 
     # BLEU validation
     # ---------------
-    if type == 'WL-S':
-        out = my_model.model.predict([X_test, X2_test])
-        out = np.argmax(out, axis=2)
-        y_test = np.reshape(y_test, (2500,100))
-        pdb.set_trace()
+    evaluate_model(my_model.model, word_to_id, id_to_word, 'multinomial', X2_test, X_test)
+
+
 
     # Create sentences
     # ----------------
     if type == 'WL':
         for it in range(n_sentences):
-            seed = []
-            seed.append(word_to_id['<START>'])
-            seed.append(word_to_id['i'])
-            seed.append(word_to_id['think'])
-            seed.append(word_to_id['that'])
-
-            for i in range(len(seed)-1, MAX_LEN):
-                my_model.model.reset_states()
-                seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
-                y = my_model.model.predict(seed_padded)[0][i]
-                if technique == 'multinomial':
-                    next_word_id = sample_multinomial(y, temperature=0.7)
-                else:
-                    next_word_id = sample_argmax(y)
-                seed.append(next_word_id)
-
-            gen_sentence = ''
-            for i in range(MAX_LEN):
-                gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
-
-            print(gen_sentence)
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, 'multinomial')
+            print(seq)
 
     if type == 'WL-S':
         for it in range(n_sentences):
-            seed = []
-            seed.append(word_to_id['<START>'])
-            seed.append(word_to_id['the'])
-            seed.append(word_to_id['movie'])
-            seed.append(word_to_id['was'])
-            
-            sentim_neg = np.zeros((1, MAX_LEN, 1))  # negative
-            sentim_pos = np.ones((1, MAX_LEN, 1))   # positive
-            #sentim_neg[0,0:int(MAX_LEN/2),0] = 1
-            #sentim = sentim_neg
-
-            for i in range(len(seed)-1, MAX_LEN):
-                if i < 50:
-                    sentim = sentim_neg
-                else:
-                    sentim = sentim_pos
-
-                my_model.model.reset_states()
-                seed_padded = sequence.pad_sequences([seed], maxlen=MAX_LEN, truncating='post', padding='post')
-                y = my_model.model.predict([seed_padded, sentim])[0][i]
-                if technique == 'multinomial':
-                    next_word_id = sample_multinomial(y, temperature=0.3)
-                else:
-                    next_word_id = sample_argmax(y)
-                seed.append(next_word_id)
-
-            gen_sentence = ''
-            for i in range(MAX_LEN):
-                if i == 50:
-                    gen_sentence = gen_sentence + ' [NEG2POS] '
-                gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
-
-            print(gen_sentence)
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, 'multinomial', 'neg2pos')
+            print(seq)
 
     # C-L validate
     elif type == 'CL':
