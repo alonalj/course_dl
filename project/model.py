@@ -145,6 +145,7 @@ def data_generator(data_type, tiles_per_dim):
             if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
                 print(folder)
                 print(np.array(X_batch).shape)
+            # TODO: insert a 0s OoD one for each batch too
             yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)), \
                   list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
             X_batch = []
@@ -196,13 +197,13 @@ def temp():
 
 
 
-def dice_coef(y_true, y_pred, smooth, thresh):
-    y_pred = y_pred > thresh
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-
-    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+# def dice_coef(y_true, y_pred, smooth, thresh):
+#     y_pred = y_pred > thresh
+#     y_true_f = K.flatten(y_true)
+#     y_pred_f = K.flatten(y_pred)
+#     intersection = K.sum(y_true_f * y_pred_f)
+#
+#     return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
 
 #
 # def my_loss(y_true, y_pred):
@@ -260,7 +261,7 @@ if __name__ == '__main__':
             if step % 5 == 0:
                 print(hist)
             if step % 10 == 0:
-                print(preds)
+                print(np.argmax(preds, 1)-np.array(y_batch))
             step += 1
 
         # Validating at end of epoch
