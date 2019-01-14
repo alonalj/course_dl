@@ -11,6 +11,7 @@ from keras.utils import to_categorical
 from keras.models import Model
 from keras.callbacks import ModelCheckpoint
 from keras.layers.merge import concatenate, add
+from nltk.translate.bleu_score import corpus_bleu
 
 
 # load the dataset but only keep the top words, zero the rest. Introduce special tokens.
@@ -268,6 +269,14 @@ def main():
                                batch_size=128, callbacks=[checkpoint])
         else:
             raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
+
+    # BLEU validation
+    # ---------------
+    if type == 'WL-S':
+        out = my_model.model.predict([X_test, X2_test])
+        out = np.argmax(out, axis=2)
+        y_test = np.reshape(y_test, (2500,100))
+        pdb.set_trace()
 
     # Create sentences
     # ----------------
