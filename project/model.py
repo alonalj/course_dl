@@ -229,7 +229,7 @@ def run(c):
             if step % 10 == 0:
                 preds = np.array(preds)
                 y = np.array(y_batch)
-                print(preds - y)
+                # print(preds - y)
                 assert preds.shape == y.shape
             step += 1
 
@@ -259,7 +259,7 @@ def run(c):
 
         if no_improvement_counter >= no_improvement_tolerance:
             print("No improvement for 10 validation steps. Stopping.")
-            break
+            return
 
         # if val_steps_max == 5:
         #     print("Finished validating on {} batches".format(val_steps_max))
