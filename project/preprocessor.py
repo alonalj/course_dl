@@ -17,7 +17,7 @@ from conf import Conf
 import random
 
 
-def _shredder(raw_input_dir, data_type, c):
+def _shredder(raw_input_dir, data_type, c, output_dir):
     import cv2
     import os
 
@@ -26,13 +26,7 @@ def _shredder(raw_input_dir, data_type, c):
     y = []
 
     # raw_input_dir = "images/"
-    if 'doc' in c.data_split_dict:
-        output_dir = "dataset_{}_isImg_False/".format(c.tiles_per_dim)
-    else:
-        output_dir = "dataset_{}_isImg_True/".format(c.tiles_per_dim)
-    if os.path.exists(output_dir):
-        print("Already shredded for: isImg {} and n_tiles_per_dim {}".format(c.is_images, c.tiles_per_dim))
-        return
+
     files = os.listdir(raw_input_dir)
     files_dict = load_obj(c.data_split_dict)
     files = files_dict[data_type]  # augment only train files
@@ -180,18 +174,26 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
 
 
 def run_shredder(c):
+    if 'doc' in c.data_split_dict:
+        output_dir = "dataset_{}_isImg_False/".format(c.tiles_per_dim)
+    else:
+        output_dir = "dataset_{}_isImg_True/".format(c.tiles_per_dim)
+    if os.path.exists(output_dir):
+        print("Already shredded for: isImg {} and n_tiles_per_dim {}".format(c.is_images, c.tiles_per_dim))
+        return
     dict_name = c.data_split_dict
     if 'doc' in c.data_split_dict:
         split_into_train_val_test('documents', 0.75, 0.15, dict_name)
     else:
         split_into_train_val_test('images', 0.75, 0.15, dict_name)
     d = load_obj(dict_name)
-    # TODO: need this for multiple tile sizes, as well as for documents 
+    # TODO: need this for multiple tile sizes, as well as for documents
     for data_type in ['train', 'val', 'test']:
+        print("Shredding for {}".format(data_type))
         if 'doc' in c.data_split_dict:
-            _shredder("documents/", data_type, c)
+            _shredder("documents/", data_type, c, output_dir)
         else:
-            _shredder("images/", data_type, c)
+            _shredder("images/", data_type, c, output_dir)
 
 
 # if __name__ == '__main__':
