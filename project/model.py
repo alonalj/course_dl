@@ -191,7 +191,7 @@ def run(c):
 
     train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
     val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
-    n_samples_train = len(load_obj("train_test_val_dict")["train"])
+    n_samples_train = len(load_obj( c.data_split_dict)["train"])
 
     # # TODO: NOTE: batch size DOESN'T always have to be divisible by t^2 (data_generator only yields after processing a WHOLE folder, so keras will treat as a single sample )
     # for i in range(2):
