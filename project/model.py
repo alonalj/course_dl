@@ -85,11 +85,15 @@ def lr_scheduler(epoch):
     return lr
 
 
-def data_generator(data_type, tiles_per_dim):
+def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size):
     import random
-    split_dict = load_obj("train_test_val_dict")
+    split_dict = load_obj(data_split_dict)
     folders = split_dict[data_type]
-    dataset_folder = "dataset_{}".format(tiles_per_dim)
+
+    if 'doc' in data_split_dict:
+        dataset_folder = "dataset_{}_isImg_False".format(tiles_per_dim)
+    else:
+        dataset_folder = "dataset_{}_isImg_True".format(tiles_per_dim)
     # while True:
     np.random.shuffle(folders)  # shuffle folders between epochs
     X_batch = []
@@ -99,7 +103,7 @@ def data_generator(data_type, tiles_per_dim):
         flip_img = False
         if random.random() > 0.5 and data_type == 'train':
             flip_img = True
-        if c.only_images and len(folder) < 7:
+        if c.is_images and len(folder) < 7:
             # print(len(folder))
             continue
         folder_path = dataset_folder+'/'+folder
@@ -122,7 +126,7 @@ def data_generator(data_type, tiles_per_dim):
                 img_shape = im.shape[0]+im.shape[1]
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
             except:
-                print("failed on {}".format(folder_path + '/' + f))
+                print("failed on {}".format(folder_path + '/' + f))  #TODO: remove
                 skip_folder = True
                 continue
 
@@ -160,43 +164,6 @@ def data_generator(data_type, tiles_per_dim):
         yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size)),\
               list(np.array(y_batch).reshape(c.n_tiles_per_sample, -1, c.n_classes))
 
-
-def temp():
-    reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
-    sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
-
-    resnet.compile(
-        loss='categorical_crossentropy',
-        optimizer='sgd',
-        metrics=['accuracy']
-    )
-    resnet.summary()
-
-
-
-    datagen = ImageDataGenerator()
-        # featurewise_center=False,  # set input mean to 0 over the dataset
-        # samplewise_center=False,  # set each sample mean to 0
-        # featurewise_std_normalization=False,  # divide inputs by std of the dataset
-        # samplewise_std_normalization=False,  # divide each input by its std
-        # zca_whitening=False,  # apply ZCA whitening
-        # # rotation_range=15,  # randomly rotate images in the range (degrees, 0 to 180)
-        # # width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
-        # # height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
-        # horizontal_flip=True,  # randomly flip images
-        # vertical_flip=False)  # randomly flip images
-
-    datagen.fit(X_train)
-
-    resnet_cifar_10_history = resnet.fit_generator(datagen.flow(X_train, y_train,
-                                                                batch_size=batch_size),
-                                                   steps_per_epoch=X_train.shape[0] // batch_size,
-                                                   epochs=maxepoches,
-                                                   validation_data=(X_test, y_test),
-                                                   callbacks=[reduce_lr])
-
-
-
 # def dice_coef(y_true, y_pred, smooth, thresh):
 #     y_pred = y_pred > thresh
 #     y_true_f = K.flatten(y_true)
@@ -217,28 +184,23 @@ def temp():
 #
 #     return cross_entropy_loss #+ all_differet_loss
 
-
-
-if __name__ == '__main__':
-    c = Conf()
+def run(c):
     batch_size = 128
     maxepoches = 250
-    learning_rate = 0.1
+    # learning_rate = 0.1
 
-    train_generator = data_generator("train", c.tiles_per_dim)
-    val_generator = data_generator("val", c.tiles_per_dim)
+    train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
+    val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
     n_samples_train = len(load_obj("train_test_val_dict")["train"])
 
     # # TODO: NOTE: batch size DOESN'T always have to be divisible by t^2 (data_generator only yields after processing a WHOLE folder, so keras will treat as a single sample )
     # for i in range(2):
     #     print(dgen.__next__()[1])
 
-
-
     resnet = build_resnet()
 
-    reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
-    sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
+    # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
+    # sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
     # adam = optimizers.Adam()
 
     resnet.compile(
@@ -248,39 +210,59 @@ if __name__ == '__main__':
     )
     resnet.summary()
 
+    no_improvement_tolerance = 10
+    no_improvement_counter = 0
+    val_steps_max = 0
+
     for e in range(maxepoches):
         print("Epoch {}".format(e))
-        train_generator = data_generator("train", c.tiles_per_dim)
+        train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
         step = 0
         for X_batch, y_batch in train_generator:
             # print(X_batch.shape)
             # print(y_batch.shape)
-            hist = resnet.train_on_batch(X_batch, y_batch)#, batch_size, epochs=maxepoches)
+            hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
             preds = resnet.predict_on_batch(X_batch)
 
             if step % 5 == 0:
                 print(hist)
             if step % 10 == 0:
-                print(np.argmax(preds, 1)-np.array(y_batch))
+                preds = np.array(preds)
+                y = np.array(y_batch)
+                print(preds - y)
+                assert preds.shape == y.shape
             step += 1
 
         # Validating at end of epoch
-        val_steps_max = 0
         prev_total_loss = np.inf
         print("VALIDATING")
-        val_generator = data_generator("val", c.tiles_per_dim)
+        val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
             if current_total_loss < prev_total_loss:
-                resnet.save_weights('resnet_weights_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_onlyImg_{}.h5'.format(c.max_size, c.tiles_per_dim, c.n_tiles_per_sample, c.only_images))
+                resnet.save_weights(
+                    'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                                                                                                     c.tiles_per_dim,
+                                                                                                     c.n_tiles_per_sample,
+                                                                                                     c.is_images,
+                                                                                                    c.mID,
+                                                                                                      str(current_total_loss)))
+                no_improvement_counter = 0  # reset
+            else:
+                no_improvement_counter += 0
             prev_total_loss = hist_val[0]
             print(hist_val)
             val_steps_max += 1
-            # if val_steps_max == 5:
-            #     print("Finished validating on {} batches".format(val_steps_max))
-            #     break
-            # callbacks=[reduce_lr])
+
+        if no_improvement_counter >= no_improvement_tolerance:
+            print("No improvement for 10 validation steps. Stopping.")
+            break
+
+        # if val_steps_max == 5:
+        #     print("Finished validating on {} batches".format(val_steps_max))
+        #     break
+        # callbacks=[reduce_lr])
 
     # resnet_cifar_10_history = resnet.fit_generator(train_generator,
     #                                                steps_per_epoch=n_samples_train // batch_size,
@@ -289,5 +271,6 @@ if __name__ == '__main__':
     #                                                # callbacks=[reduce_lr])
 
 
-
-
+if __name__ == '__main__':
+    c = Conf()
+    run(c)
