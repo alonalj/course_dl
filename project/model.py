@@ -209,7 +209,7 @@ def run(c):
         metrics=['accuracy']
     )
     resnet.summary()
-    no_improvement_tolerance = 10
+    no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
 
@@ -233,13 +233,13 @@ def run(c):
             step += 1
 
         # Validating at end of epoch
-        prev_total_loss = np.inf
+        best_total_loss = np.inf
         print("VALIDATING")
         val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
-            if current_total_loss < prev_total_loss:
+            if current_total_loss < best_total_loss:
 
                 resnet.save_weights(
                     'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
@@ -248,11 +248,12 @@ def run(c):
                                                                                                      c.is_images,
                                                                                                     c.mID,
                                                                                                       str(current_total_loss)))
+
+                best_total_loss = current_total_loss
                 no_improvement_counter = 0  # reset
             else:
                 no_improvement_counter += 0
-            prev_total_loss = hist_val[0]
-            print(hist_val)
+            print(current_total_loss)
             val_steps_max += 1
 
         if no_improvement_counter >= no_improvement_tolerance:
