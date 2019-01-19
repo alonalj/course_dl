@@ -189,9 +189,9 @@ def run_shredder(c):
     # TODO: need this for multiple tile sizes, as well as for documents
     for data_type in ['train', 'val', 'test']:
         if 'doc' in c.data_split_dict:
-            _shredder("documents/", c.tiles_per_dim, data_type, dict_name)
+            _shredder("documents/", data_type, c)
         else:
-            _shredder("images/", c.tiles_per_dim, data_type, dict_name)
+            _shredder("images/", data_type, c)
 
 
 # if __name__ == '__main__':
