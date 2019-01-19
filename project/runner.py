@@ -7,10 +7,10 @@ from model import *
 import time
 for i in range(1):  # for majority vote
     mID = str(time.time())
-    for is_images in [False]:#, True]:
-        for tiles_per_dim in [2]:#, 4, 5]:
+    for is_images in [False, True]:
+        for tiles_per_dim in [2, 4, 5]:
             tiles_per_dim = 2
-            max_size = 56 // 2
+            max_size = 56
             if is_images:
                 data_split_dict = "train_test_val_dict_img"
             else:
