@@ -17,22 +17,24 @@ from conf import Conf
 import random
 
 
-def shredder(raw_input_dir, tiles_per_dim, data_type, dict_name):
+def _shredder(raw_input_dir, data_type, c):
     import cv2
     import os
 
     Xa = []
     Xb = []
     y = []
-    c = Conf()
 
     # raw_input_dir = "images/"
-    if 'doc' in dict_name:
-        output_dir = "dataset_{}_isImg_False/".format(tiles_per_dim)
+    if 'doc' in c.data_split_dict:
+        output_dir = "dataset_{}_isImg_False/".format(c.tiles_per_dim)
     else:
-        output_dir = "dataset_{}_isImg_True/".format(tiles_per_dim)
+        output_dir = "dataset_{}_isImg_True/".format(c.tiles_per_dim)
+    if os.path.exists(output_dir):
+        print("Already shredded for: isImg {} and n_tiles_per_dim {}".format(c.is_images, c.tiles_per_dim))
+        return
     files = os.listdir(raw_input_dir)
-    files_dict = load_obj(dict_name)
+    files_dict = load_obj(c.data_split_dict)
     files = files_dict[data_type]  # augment only train files
     list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
@@ -63,7 +65,7 @@ def shredder(raw_input_dir, tiles_per_dim, data_type, dict_name):
                     # some of the time crate empty image (we will use this in case len(OoD) < t)
                     idx = np.arange(len(crops_previous))
                     np.random.shuffle(idx)
-                    for c_idx in idx[:tiles_per_dim]:
+                    for c_idx in idx[:c.tiles_per_dim]:
                         if random.random() < 0.1:
                             null_img = np.zeros((c.max_size, c.max_size))
                             cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
@@ -82,13 +84,13 @@ def shredder(raw_input_dir, tiles_per_dim, data_type, dict_name):
 
                 height = im.shape[0]
                 width = im.shape[1]
-                frac_h = height // tiles_per_dim
-                frac_w = width // tiles_per_dim
+                frac_h = height // c.tiles_per_dim
+                frac_w = width // c.tiles_per_dim
                 i = 0
                 crops_previous = []
                 names_previous = []
-                for h in range(tiles_per_dim):
-                    for w in range(tiles_per_dim):
+                for h in range(c.tiles_per_dim):
+                    for w in range(c.tiles_per_dim):
                         crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
                         cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
                         crops_previous.append(crop)
@@ -100,12 +102,12 @@ def shredder(raw_input_dir, tiles_per_dim, data_type, dict_name):
                 if f == files[-1]:
                     idx = np.arange(len(crops_previous))
                     np.random.shuffle(idx)
-                    for c_idx in idx[:tiles_per_dim]:
+                    for c_idx in idx[:c.tiles_per_dim]:
                         cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
     files_dict[data_type] = list_of_folders
     print(files_dict)
-    save_obj(files_dict, dict_name)
+    save_obj(files_dict, c.data_split_dict)
 
 
 def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
@@ -177,28 +179,35 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
     return im_resized / 255.
 
 
-if __name__ == '__main__':
+def run_shredder(c):
+    dict_name = c.data_split_dict
+    if 'doc' in c.data_split_dict:
+        split_into_train_val_test('documents', 0.75, 0.15, dict_name)
+    else:
+        split_into_train_val_test('images', 0.75, 0.15, dict_name)
+    d = load_obj(dict_name)
+    # TODO: need this for multiple tile sizes, as well as for documents
+    for data_type in ['train', 'val', 'test']:
+        if 'doc' in c.data_split_dict:
+            _shredder("documents/", c.tiles_per_dim, data_type, dict_name)
+        else:
+            _shredder("images/", c.tiles_per_dim, data_type, dict_name)
+
+
+# if __name__ == '__main__':
     # # print(len(d['train']))
     # print(d['val'])
     # c = Conf()
     # for is_images in [True, False]:
         # c.data_split_dict = "train_test_val_dict_isImg_{}".format(str(is_images))
-    dict_name = 'train_test_val_dict_img'
-    split_into_train_val_test('images', 0.75, 0.15, dict_name)
-    d = load_obj(dict_name)
-    # TODO: need this for multiple tile sizes, as well as for documents
-    for data_type in ['train', 'val', 'test']:
-        shredder("images/", 2, data_type, dict_name)
-        shredder("images/", 4)
-        shredder("images/", 5)
 
-    dict_name = 'train_test_val_dict_doc'
-    split_into_train_val_test('documents', 0.75, 0.15, dict_name)
-    d = load_obj(dict_name)
-    for data_type in ['train', 'val', 'test']:
-        shredder("documents/", 2, data_type, dict_name)
-        shredder("documents/", 4)
-        shredder("documents/", 5)
+    # dict_name = 'train_test_val_dict_doc'
+    # split_into_train_val_test('documents', 0.75, 0.15, dict_name)
+    # d = load_obj(dict_name)
+    # for data_type in ['train', 'val', 'test']:
+    #     shredder("documents/", 2, data_type, dict_name)
+    #     # shredder("documents/", 4)
+    #     # shredder("documents/", 5)
 
 
     # import keras
