@@ -253,7 +253,7 @@ def run(c):
                 best_total_loss = current_total_loss
                 no_improvement_counter = 0  # reset
             else:
-                no_improvement_counter += 0
+                no_improvement_counter += 1
             print(current_total_loss)
             val_steps_max += 1
 
