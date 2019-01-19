@@ -178,29 +178,27 @@ def resize_image(image, max_size=None, resize_factor=None, train=True):
 
 
 if __name__ == '__main__':
-
+    # # print(len(d['train']))
+    # print(d['val'])
     # c = Conf()
     # for is_images in [True, False]:
         # c.data_split_dict = "train_test_val_dict_isImg_{}".format(str(is_images))
     dict_name = 'train_test_val_dict_img'
     split_into_train_val_test('images', 0.75, 0.15, dict_name)
     d = load_obj(dict_name)
-        # # print(len(d['train']))
-        # print(d['val'])
-    # # TODO: need this for multiple tile sizes, as well as for documents
-    # for data_type in ['train', 'val', 'test']:
-    #     shredder("images/", 2, data_type, dict_name)
-    #     # shredder("images/", 4)
-    #     # shredder("images/", 5)
-
+    # TODO: need this for multiple tile sizes, as well as for documents
+    for data_type in ['train', 'val', 'test']:
+        shredder("images/", 2, data_type, dict_name)
+        shredder("images/", 4)
+        shredder("images/", 5)
 
     dict_name = 'train_test_val_dict_doc'
     split_into_train_val_test('documents', 0.75, 0.15, dict_name)
     d = load_obj(dict_name)
     for data_type in ['train', 'val', 'test']:
         shredder("documents/", 2, data_type, dict_name)
-        # shredder("documents/", 4)
-        # shredder("documents/", 5)
+        shredder("documents/", 4)
+        shredder("documents/", 5)
 
 
     # import keras
