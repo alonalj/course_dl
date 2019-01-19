@@ -186,7 +186,7 @@ def run_shredder(c):
     else:
         split_into_train_val_test('images', 0.75, 0.15, dict_name)
     d = load_obj(dict_name)
-    # TODO: need this for multiple tile sizes, as well as for documents
+    # TODO: need this for multiple tile sizes, as well as for documents 
     for data_type in ['train', 'val', 'test']:
         if 'doc' in c.data_split_dict:
             _shredder("documents/", data_type, c)
