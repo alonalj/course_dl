@@ -8,7 +8,7 @@ import time
 for i in range(1):  # for majority vote
     mID = str(time.time())
     for is_images in [False, True]:
-        for tiles_per_dim in [2, 4, 5]:
+        for tiles_per_dim in [2]:
             tiles_per_dim = 2
             max_size = 56
             if is_images:
