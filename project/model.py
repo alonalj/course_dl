@@ -212,6 +212,7 @@ def run(c):
     no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
+    best_total_loss = np.inf
 
     for e in range(maxepoches):
         print("Epoch {}".format(e))
@@ -233,7 +234,6 @@ def run(c):
             step += 1
 
         # Validating at end of epoch
-        best_total_loss = np.inf
         print("VALIDATING")
         val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
         for X_batch_val, y_batch_val in val_generator:
@@ -249,6 +249,7 @@ def run(c):
                                                                                                     c.mID,
                                                                                                       str(current_total_loss)))
 
+                print(hist_val)
                 best_total_loss = current_total_loss
                 no_improvement_counter = 0  # reset
             else:
