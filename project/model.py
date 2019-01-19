@@ -241,13 +241,19 @@ def run(c):
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
             if current_total_loss < prev_total_loss:
-                resnet.save_weights(
-                    'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                resnet.save('resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
                                                                                                      c.n_tiles_per_sample,
                                                                                                      c.is_images,
                                                                                                     c.mID,
                                                                                                       str(current_total_loss)))
+                # resnet.save_weights(
+                #     'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                #                                                                                      c.tiles_per_dim,
+                #                                                                                      c.n_tiles_per_sample,
+                #                                                                                      c.is_images,
+                #                                                                                     c.mID,
+                #                                                                                       str(current_total_loss)))
                 no_improvement_counter = 0  # reset
             else:
                 no_improvement_counter += 0
