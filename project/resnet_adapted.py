@@ -9,7 +9,7 @@ import numpy as np
 from conf import Conf
 
 
-c = Conf()
+# c = Conf()
 
 def res_2_layer_block(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -86,7 +86,7 @@ def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, wei
 #     x = Dense(c.n_classes, activation='softmax', kernel_regularizer=regularizers.l2(weight_decay))(x)
 #     return x
 
-def resnet_weights_shared_over_tiles(x_in=None, weight_decay=0.0001):
+def resnet_weights_shared_over_tiles(c, x_in=None, weight_decay=0.0001):
     # x_in = keras.layers.ZeroPadding2D()(x_in)
     x_in = Input(shape=(c.max_size, c.max_size, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
@@ -129,14 +129,14 @@ class L1L2(Regularizer):
                 'l2': float(self.l2)}
 
 
-def build_resnet(weight_decay=0.0001):
+def build_resnet(c, weight_decay=0.0001):
     # TODO: ? another input is the shape of the image - could immediately tell if it's OoD
     n_tiles_per_sample = c.n_tiles_per_sample  # original tiles + OoD
     # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
     # the evaluation over all tiles to happen in the same pass)
     inputs_from_sample = []
     outputs_from_sample = []
-    shared_net = resnet_weights_shared_over_tiles()
+    shared_net = resnet_weights_shared_over_tiles(c)
     for i in range(n_tiles_per_sample):
         x_in = keras.layers.Input(shape=(c.max_size, c.max_size), name="in_{}".format(i))
         inputs_from_sample.append(x_in)

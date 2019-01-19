@@ -186,6 +186,8 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size):
 
 def run(c):
     batch_size = 128
+    if c.n_tiles_per_sample > 6:
+        batch_size = 64
     maxepoches = 250
     # learning_rate = 0.1
 
@@ -197,7 +199,7 @@ def run(c):
     # for i in range(2):
     #     print(dgen.__next__()[1])
 
-    resnet = build_resnet()
+    resnet = build_resnet(c)
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     # sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
