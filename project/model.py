@@ -189,9 +189,9 @@ def run(c):
     maxepoches = 250
     # learning_rate = 0.1
 
-    train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
-    val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
-    n_samples_train = len(load_obj( c.data_split_dict)["train"])
+    # train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
+    # val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
+    # n_samples_train = len(load_obj( c.data_split_dict)["train"])
 
     # # TODO: NOTE: batch size DOESN'T always have to be divisible by t^2 (data_generator only yields after processing a WHOLE folder, so keras will treat as a single sample )
     # for i in range(2):
@@ -209,7 +209,6 @@ def run(c):
         metrics=['accuracy']
     )
     resnet.summary()
-
     no_improvement_tolerance = 10
     no_improvement_counter = 0
     val_steps_max = 0
@@ -241,19 +240,14 @@ def run(c):
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
             if current_total_loss < prev_total_loss:
-                resnet.save('resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+
+                resnet.save_weights(
+                    'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
                                                                                                      c.n_tiles_per_sample,
                                                                                                      c.is_images,
                                                                                                     c.mID,
                                                                                                       str(current_total_loss)))
-                # resnet.save_weights(
-                #     'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                #                                                                                      c.tiles_per_dim,
-                #                                                                                      c.n_tiles_per_sample,
-                #                                                                                      c.is_images,
-                #                                                                                     c.mID,
-                #                                                                                       str(current_total_loss)))
                 no_improvement_counter = 0  # reset
             else:
                 no_improvement_counter += 0
