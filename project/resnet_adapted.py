@@ -192,8 +192,8 @@ def build_resnet(c, weight_decay=0.0001):
         o = Dense(c.n_classes, activation='softmax')(o)
         penalized_outputs_from_sample.append(o)
 
-    print(inputs_from_sample)
-    print(penalized_outputs_from_sample)
+    # print(inputs_from_sample)
+    # print(penalized_outputs_from_sample)
 
     return Model(inputs=inputs_from_sample, outputs=penalized_outputs_from_sample)
 
