@@ -1,6 +1,7 @@
 import numpy as np
 import pdb
 import string
+import argparse
 from sklearn.model_selection import train_test_split
 from keras.datasets import imdb
 from keras.models import Sequential
@@ -13,15 +14,14 @@ from keras.callbacks import ModelCheckpoint
 from keras.layers.merge import concatenate, add
 from nltk.translate.bleu_score import corpus_bleu
 
-
-# load the dataset but only keep the top words, zero the rest. Introduce special tokens.
 IMDB_VOCABULARY_SIZE = 20000
 CHAR_VOCABULARY_SIZE = 101
 MAX_SAMPLES = 40000
 MAX_LEN = 100
 CHAR_MAX_LEN = 300
 
-
+# Softmax sampling methods
+# ------------------------
 def sample_multinomial(preds, temperature=1.0):
     preds = np.asarray(preds).astype('float64')
     preds = np.log(preds) / temperature
@@ -34,7 +34,8 @@ def sample_multinomial(preds, temperature=1.0):
 def sample_argmax(preds):
     return np.argmax(preds)
 
-
+# Generate WL sentence
+# --------------------
 def generate_sentence_wl(model, word_to_id, id_to_word, technique, sentiment=None, diversity=0.7):
     seed = []
     seed.append(word_to_id['<START>'])
@@ -254,13 +255,58 @@ class TextGenModel:
             raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
 
 
+parser = argparse.ArgumentParser(description='HW4: 236606, Deep Learning Course, Winter 2018\n'
+                                             'Alona Levy and Gil Shomron',
+                                 formatter_class=argparse.RawTextHelpFormatter)
 
+parser.add_argument('-t', '--type', default='WL-S', type=str,
+                    help='WL-S: word-level with sentiment\n'
+                         'WL: word-level method without sentiment\n'
+                         'CL: character-level method without sentiment')
+
+parser.add_argument('--technique', default='multinomial', type=str,
+                    help='argmax; multinomial')
+
+parser.add_argument('--pretrained', default=None, type=str,
+                    help='The path to the pretrained weights')
+
+parser.add_argument('-n', default=10, type=int,
+                    help='Number of sentences to produce.')
+
+parser.add_argument('--bleu', action='store_true',
+                    help='Run BLEU check')
+
+parser.add_argument('--sentiment', default='neg2pos', type=str,
+                    help='Only relevant for WL-S model: neg2pos; neg; pos')
+
+parser.add_argument('--diversity', default=0.7, type=float,
+                    help='Only relevant for WL-S model: neg2pos; neg; pos')
 
 def main():
-    pretrained = None
-    pretrained = "/home/gilsho/236606/hw4/_models/model-ep044-loss4.720-val_loss5.002-wl-s-4lstm256-1fc256-vocab20000-maxlen100"
-    type = 'WL-S'
-    n_sentences = 20
+    args = parser.parse_args()
+
+    pretrained = args.pretrained
+    type = args.type
+    n_sentences = args.n
+
+    if type != 'WL' and type != 'CL' and type != 'WL-S':
+        raise ValueError('Type can only get WL (word-level), CL (character-level), or WL-S (word-level sentiment).')
+    if args.technique != 'multinomial' and args.technique != 'argmax':
+        raise ValueError('Technique can only get argmax or multinomial.')
+    if args.sentiment != 'neg2pos' and args.sentiment != 'neg' and args.sentiment != 'pos':
+        raise ValueError('Sentiment can only get neg2pos, neg, or pos.')
+
+    print("Parameters:")
+    print("> Model type: {}".format(type))
+    if type == 'WL-S':
+        print(">> Sentiment: {}".format(args.sentiment))
+    print("> Softmax choice: {}".format(args.technique))
+    if args.technique == 'multinomial':
+        print(">> Diversity: {}".format(args.diversity))
+    print("> Run BLEU: {}".format(args.bleu))
+    print("> Pretrained: {}".format(pretrained))
+    print("> Generate {} sentences".format(n_sentences))
+    print("")
 
     # Load and preprocess the dataset
     # -------------------------------
@@ -274,9 +320,10 @@ def main():
     word_to_id["<EOS>"] = 3
     id_to_word = {v: k for k, v in word_to_id.items()}
 
-    print("Parsing IMDB for {} model".format(type))
+    print("Parsing IMDB")
     if type == 'WL':
         X_train = sequence.pad_sequences(sentences, maxlen=MAX_LEN, truncating='post')
+        # Desired output is a skewed input
         y_train = np.roll(X_train, -1, axis=-1)
         y_train = y_train[:, :, np.newaxis]
 
@@ -285,6 +332,7 @@ def main():
     elif type == 'WL-S':
         X_train = sequence.pad_sequences(sentences, maxlen=MAX_LEN, truncating='post')
 
+        # The sentiment of the sentence is also part of the input
         X2_train = []
         for val in sentiment:
             X2_train.append(np.ones(MAX_LEN)*val)
@@ -304,6 +352,7 @@ def main():
         assert (len(characters) == CHAR_VOCABULARY_SIZE)
         char2ind = {c: i for i, c in enumerate(characters)}
 
+        # Words to characters conversion
         X_train_words = sequence.pad_sequences(sentences, maxlen=MAX_LEN, truncating='post')
         X_train = []
         for i, s in enumerate(X_train_words):
@@ -313,6 +362,7 @@ def main():
                 for c in word:
                     try:
                         X_train[i].append(char2ind[c])
+                    # Skipping unknown signs
                     except:
                         print("Skipping {} character".format(c))
 
@@ -325,14 +375,14 @@ def main():
         y_train = np.array([to_categorical(y, num_classes=CHAR_VOCABULARY_SIZE) for y in y_train])
 
         X_train, X_test, y_train, y_test = train_test_split(np.array(X_train), np.array(y_train), test_size=0.1)
-    else:
-        raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
 
     # Model and training
     # ------------------
+    print("Creating model")
     my_model = TextGenModel(type=type, pretrained=pretrained, cl_in_shape=X_train.shape[1:])
 
     if pretrained is None:
+        print("Start training")
         checkpoint = ModelCheckpoint(my_model.filepath, monitor='val_loss', verbose=1,
                                      save_best_only=True, mode='min')
 
@@ -344,28 +394,26 @@ def main():
             my_model.model.fit([X_train, X2_train], y_train,
                                validation_data=([X_test, X2_test], y_test), epochs=50,
                                batch_size=128, callbacks=[checkpoint])
-        else:
-            raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
 
     # BLEU validation
     # ---------------
-    evaluate_model(my_model.model, word_to_id, id_to_word, 'multinomial', X2_test, X_test)
-
-
+    if args.bleu:
+        print("Running BLEU")
+        evaluate_model(my_model.model, word_to_id, id_to_word, args.technique, X2_test, X_test)
 
     # Create sentences
     # ----------------
+    print("Creating sentences")
     if type == 'WL':
         for it in range(n_sentences):
-            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, 'multinomial')
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique)
             print(seq)
 
     if type == 'WL-S':
         for it in range(n_sentences):
-            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, 'multinomial', 'neg2pos')
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique, 'neg2pos')
             print(seq)
 
-    # C-L validate
     elif type == 'CL':
         for it in range(n_sentences):
             diversity = 0.3
@@ -383,7 +431,7 @@ def main():
             while next_char != '<EOS>' and next_res_ind < CHAR_MAX_LEN:
                 my_model.model.reset_states()
                 y = my_model.model.predict_on_batch(result)[0][next_res_ind-1]
-                if technique == 'multinomial':
+                if args.technique == 'multinomial':
                     next_char_ind = sample_multinomial(y, temperature=diversity)
                 else:
                     next_char_ind = sample_argmax(y)
@@ -392,9 +440,6 @@ def main():
                 next_res_ind = next_res_ind + 1
                 print(next_char, end='')
             print()
-
-    else:
-        raise ValueError('Type can only get WL (word-level) and CL (character-level) values.')
 
 
 if __name__ == '__main__':
