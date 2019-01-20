@@ -20,7 +20,7 @@ for i in range(3):  # for majority vote
             elif tiles_per_dim == 4:
                 max_size = 38 #base_max_size // 2
             else:
-                max_size = 38 #base_max_size // 2
+                max_size = 20 #base_max_size // 2
             if is_images:
                 data_split_dict = "train_test_val_dict_img_{}".format(tiles_per_dim)
             else:
