@@ -185,7 +185,7 @@ def build_resnet(c, weight_decay=0.0001):
 
     # adding the sum_diff_all_tiles_in_sample penalty with small weight to actual outputs so cross entropy will be harmed if not all diff_original
     penalized_outputs_from_sample = []
-    penalty = keras.layers.Lambda(lambda x: 0.05 * x)(sum_diff_all_tiles_in_sample)
+    penalty = keras.layers.Lambda(lambda x: 0.005 * x)(sum_diff_all_tiles_in_sample)
     # penalty = sum_diff_all_tiles_in_sample
     for o in outputs_from_sample:
         o = keras.layers.Subtract()([o, penalty])
