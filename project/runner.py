@@ -9,8 +9,8 @@ from preprocessor import *
 
 for i in range(3):  # for majority vote
     mID = str(i)+"_"+str(time.time())
-    for is_images in [False, True]:
-        for tiles_per_dim in [2, 4, 5]:
+    for is_images in [False, True]: #[True]:#, False]:
+        for tiles_per_dim in [2, 4, 5]: #[4]:#[2, 4, 5]:
             if not is_images and tiles_per_dim == 2:
                 continue
             max_size = 56 // 2

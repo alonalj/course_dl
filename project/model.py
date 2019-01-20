@@ -85,7 +85,7 @@ def lr_scheduler(epoch):
     return lr
 
 
-def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size):
+def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     import random
     split_dict = load_obj(data_split_dict)
     folders = split_dict[data_type]
@@ -131,7 +131,10 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size):
                 continue
 
             im_resized = resize_image(im, max_size=c.max_size)
-            assert im_resized.shape == (c.max_size, c.max_size)
+
+            if im_resized.shape != (c.max_size, c.max_size):
+                print("Bad shape for folder {}, file {}".format(folder, f))
+
             if flip_img:
                 im_resized = cv2.flip(im_resized, 1)
             images_in_folder.append(im_resized)
@@ -218,7 +221,7 @@ def run(c):
 
     for e in range(maxepoches):
         print("Epoch {}".format(e))
-        train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)
+        train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
         step = 0
         for X_batch, y_batch in train_generator:
             # print(X_batch.shape)
@@ -237,7 +240,7 @@ def run(c):
 
         # Validating at end of epoch
         print("VALIDATING")
-        val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size)
+        val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_total_loss = hist_val[0]
