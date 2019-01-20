@@ -20,9 +20,9 @@ if sample:
                 if tiles_per_dim == 2:
                     max_size = base_max_size
                 elif tiles_per_dim == 4:
-                    max_size = 38  # base_max_size // 2
+                    max_size = 32  # base_max_size // 2
                 else:
-                    max_size = 16  # base_max_size // 2
+                    max_size = 32  # base_max_size // 2
                 if is_images:
                     data_split_dict = "train_test_val_dict_img_{}".format(tiles_per_dim)
                 else:
