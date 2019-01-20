@@ -194,7 +194,7 @@ def run(c):
     #     batch_size = 84
     if c.n_tiles_per_sample > 20:
         batch_size = 100
-        adam = optimizers.Adam(0.0001)
+        # adam = optimizers.Adam(0.0001)
 
     maxepoches = 250
     # learning_rate = 0.1
