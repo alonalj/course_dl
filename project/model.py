@@ -265,7 +265,7 @@ def run(c):
         val_steps_max += 1
 
         if no_improvement_counter >= no_improvement_tolerance:
-            print("No improvement for 10 validation steps. Stopping.")
+            print("No improvement for {} validation steps. Stopping.".format(no_improvement_tolerance))
             return
 
         # if val_steps_max == 5:
