@@ -189,10 +189,13 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 
 def run(c):
     batch_size = 128
+    adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
         batch_size = 84
     if c.n_tiles_per_sample > 20:
         batch_size = 32
+        adam = optimizers.Adam(0.1)
+
     maxepoches = 250
     # learning_rate = 0.1
 
@@ -208,11 +211,11 @@ def run(c):
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     # sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
-    # adam = optimizers.Adam()
+
 
     resnet.compile(
         loss='categorical_crossentropy',
-        optimizer='adam',  # switch to adam later
+        optimizer=adam,  # switch to adam later
         metrics=['accuracy']
     )
     resnet.summary()
