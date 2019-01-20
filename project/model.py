@@ -192,7 +192,7 @@ def run(c):
     if c.n_tiles_per_sample > 6:
         batch_size = 84
     if c.n_tiles_per_sample > 20:
-        batch_size = 42
+        batch_size = 32
     maxepoches = 250
     # learning_rate = 0.1
 

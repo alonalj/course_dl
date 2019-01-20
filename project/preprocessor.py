@@ -30,6 +30,7 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     files = os.listdir(raw_input_dir)
     files_dict = load_obj(c.data_split_dict)
     files = files_dict[data_type]  # augment only train files
+
     list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
@@ -44,6 +45,7 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
         for c_h in crop_start_h:
             crops_previous = []
             names_previous = []
+
             for f in files:
                 # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
                 filename = f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)
