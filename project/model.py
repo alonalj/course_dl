@@ -223,44 +223,46 @@ def run(c):
         print("Epoch {}".format(e))
         train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
         step = 0
-        for X_batch, y_batch in train_generator:
-            # print(X_batch.shape)
-            # print(y_batch.shape)
-            hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
-            preds = resnet.predict_on_batch(X_batch)
-
-            if step % 5 == 0:
-                print(hist)
-            if step % 10 == 0:
-                preds = np.array(preds)
-                y = np.array(y_batch)
-                # print(preds - y)
-                assert preds.shape == y.shape
-            step += 1
+        # for X_batch, y_batch in train_generator:
+        #     # print(X_batch.shape)
+        #     # print(y_batch.shape)
+        #     hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
+        #     preds = resnet.predict_on_batch(X_batch)
+        #
+        #     if step % 5 == 0:
+        #         print(hist)
+        #     if step % 10 == 0:
+        #         preds = np.array(preds)
+        #         y = np.array(y_batch)
+        #         # print(preds - y)
+        #         assert preds.shape == y.shape
+        #     step += 1
 
         # Validating at end of epoch
         print("VALIDATING")
         val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
+        current_losses = []
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
-            current_total_loss = hist_val[0]
-            if current_total_loss < best_total_loss:
+            current_losses.append(hist_val[0])
+        current_avg_loss = np.mean(current_losses)
+        if current_avg_loss < best_total_loss:
 
-                resnet.save_weights(
-                    'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                                                                                                     c.tiles_per_dim,
-                                                                                                     c.n_tiles_per_sample,
-                                                                                                     c.is_images,
-                                                                                                    c.mID,
-                                                                                                      str(current_total_loss)))
+            resnet.save_weights(
+                'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                                                                                                 c.tiles_per_dim,
+                                                                                                 c.n_tiles_per_sample,
+                                                                                                 c.is_images,
+                                                                                                c.mID,
+                                                                                                  str(current_avg_loss)))
 
-                print(hist_val)
-                best_total_loss = current_total_loss
-                no_improvement_counter = 0  # reset
-            else:
-                no_improvement_counter += 1
-            print(current_total_loss)
-            val_steps_max += 1
+            print(hist_val)
+            best_total_loss = current_avg_loss
+            no_improvement_counter = 0  # reset
+        else:
+            no_improvement_counter += 1
+        print(current_avg_loss)
+        val_steps_max += 1
 
         if no_improvement_counter >= no_improvement_tolerance:
             print("No improvement for 10 validation steps. Stopping.")
