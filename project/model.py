@@ -253,7 +253,7 @@ def run(c):
             current_losses.append(hist_val[0])
         current_avg_loss = np.mean(current_losses)
         if current_avg_loss < best_total_loss:
-            resnet.save_weights(resnet,
+            resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                  c.tiles_per_dim,
                                                                                                  c.n_tiles_per_sample,
