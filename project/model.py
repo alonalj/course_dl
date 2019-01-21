@@ -263,7 +263,7 @@ def run(c):
     resnet.summary()
     # save_model(resnet, "test_m.h5")
 
-    no_improvement_tolerance = 4
+    no_improvement_tolerance = 100
     no_improvement_counter = 0
     val_steps_max = 0
     best_total_loss = np.inf
