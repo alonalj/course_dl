@@ -14,7 +14,7 @@ if sample:
     for i in range(1):  # for majority vote
         mID = str(i) + "_" + str(time.time())
         for is_images in [True]:
-            for tiles_per_dim in [2]:  # [4]: #
+            for tiles_per_dim in [5]:  # [4]: #
                 if not is_images and tiles_per_dim < 5:
                     continue
                 if tiles_per_dim == 2:
