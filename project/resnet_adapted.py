@@ -195,7 +195,7 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
     for o in outputs_from_sample:
         o = Dense(n_classes, activation='softmax')(o)
         o = keras.layers.Subtract()([o, penalty])
-        o = keras.activations.relu(o)  # so that cross-entropy only gets non-negatives, assumes Keras can handle Relu's 0s (which we can see it can)
+        # o = keras.activations.(o)  # so that cross-entropy only gets non-negatives, assumes Keras can handle Relu's 0s (which we can see it can)
         penalized_outputs_from_sample.append(o)
 
     # print(inputs_from_sample)
