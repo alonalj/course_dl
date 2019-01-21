@@ -27,7 +27,6 @@ pieces
 
 '''
 
-
 '''
 PLAN
 Repeat the following for docs too
@@ -77,14 +76,51 @@ def lr_scheduler(epoch):
         lr (float32): learning rate
     """
     lr = 0.1
-    if epoch>100:
+    if epoch > 100:
         lr = 0.01
-    if epoch>150:
+    if epoch > 150:
         lr = 0.001
-    if epoch>200:
+    if epoch > 200:
         lr = 1e-4
     return lr
 
+
+def get_gauss_noise(image):
+    row, col = image.shape
+    mean = 0
+    var = 0.04
+    sigma = var ** 0.5
+    gauss = np.random.normal(mean, sigma, (row, col))
+    return gauss
+
+
+def noisy(noise_typ, image, gauss=None):
+    if noise_typ == "gauss":
+        row, col = image.shape
+        gauss = gauss.reshape(row, col)
+        noisy = image + gauss
+        return noisy
+
+    elif noise_typ == "s&p":
+        row, col, ch = image.shape
+        s_vs_p = 0.5
+        amount = 0.004
+        out = np.copy(image)
+        # Salt mode
+        num_salt = np.ceil(amount * image.size * s_vs_p)
+        coords = [np.random.randint(0, i - 1, int(num_salt))
+                  for i in image.shape]
+        out[coords] = 1
+
+        # Pepper mode
+        num_pepper = np.ceil(amount * image.size * (1. - s_vs_p))
+        coords = [np.random.randint(0, i - 1, int(num_pepper))
+                  for i in image.shape]
+        out[coords] = 0
+        return out
+
+def scale_img(image):
+    image = cv2.resize(image, (0, 0), fx=0.8, fy=0.8)
 
 def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     import random
@@ -99,15 +135,18 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     np.random.shuffle(folders)  # shuffle folders between epochs
     X_batch = []
     y_batch = []
+    noise = False
     for folder in folders:
         skip_folder = False
         flip_img = False
         if random.random() > 0.5 and data_type == 'train':
             flip_img = True
+        if random.random() > 0.5 and data_type == 'train':
+            noise = True
         if c.is_images and len(folder) < 7:
             # print(len(folder))
             continue
-        folder_path = dataset_folder+'/'+folder
+        folder_path = dataset_folder + '/' + folder
         files = os.listdir(folder_path)
         np.random.shuffle(files)  # random shuffle files in folders too
         images_in_folder = []
@@ -124,14 +163,17 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             labels_in_folder.append(label)
             im = cv2.imread(folder_path + '/' + f)
             try:
-                img_shape = im.shape[0]+im.shape[1]
+                img_shape = im.shape[0] + im.shape[1]
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                im_resized = resize_image(im, max_size=c.max_size)
             except:
-                print("failed on {}".format(folder_path + '/' + f))  #TODO: remove
+                print("failed on {}".format(folder_path + '/' + f))  # TODO: remove
                 skip_folder = True
                 continue
 
-            im_resized = resize_image(im, max_size=c.max_size)
+            # if noise:
+            #     gauss = get_gauss_noise(im_resized)
+            #     im_resized = noisy("gauss",im_resized, gauss)
 
             if im_resized.shape != (c.max_size, c.max_size):
                 print("Bad shape for folder {}, file {}".format(folder, f))
@@ -164,8 +206,9 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
         if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
             print(folder)
             print(np.array(X_batch).shape)
-        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size)),\
+        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size)), \
               list(np.array(y_batch).reshape(c.n_tiles_per_sample, -1, c.n_classes))
+
 
 # def dice_coef(y_true, y_pred, smooth, thresh):
 #     y_pred = y_pred > thresh
@@ -255,11 +298,12 @@ def run(c):
         if current_avg_loss < best_total_loss:
             resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                                                                                                 c.tiles_per_dim,
-                                                                                                 c.n_tiles_per_sample,
-                                                                                                 c.is_images,
-                                                                                                c.mID,
-                                                                                                  str(current_avg_loss)))
+                                                                                                     c.tiles_per_dim,
+                                                                                                     c.n_tiles_per_sample,
+                                                                                                     c.is_images,
+                                                                                                     c.mID,
+                                                                                                     str(
+                                                                                                         current_avg_loss)))
 
             print(hist_val)
             best_total_loss = current_avg_loss
