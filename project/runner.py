@@ -7,7 +7,7 @@ from model import *
 import time
 from preprocessor import *
 
-base_max_size = 56
+base_max_size = 38
 sample = False
 
 if sample:
@@ -40,7 +40,7 @@ else:
                 if tiles_per_dim == 2:
                     max_size = base_max_size
                 elif tiles_per_dim == 4:
-                    max_size = 38 #base_max_size // 2
+                    max_size = base_max_size #base_max_size // 2
                 else:
                     max_size = 16 #base_max_size // 2
                 if is_images:

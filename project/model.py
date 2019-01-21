@@ -191,7 +191,7 @@ def run(c):
     batch_size = 128
     adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
-        batch_size = 84
+        batch_size = 100
     if c.n_tiles_per_sample > 20:
         batch_size = 100
         # adam = optimizers.Adam(0.0001)
