@@ -220,8 +220,9 @@ def run(c):
     )
     resnet.summary()
     resnet.load_weights("test.h5")
-    save_model(resnet, "test_m.h5")
-    print("SAVE MODEL COMPLETE")
+    resnet.save_weights("test".h5)
+    # save_model(resnet, "test_m.h5")
+
     no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
