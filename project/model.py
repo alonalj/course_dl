@@ -64,6 +64,7 @@ import keras.backend as K
 from preprocessor import *  # TODO verify all these imports work for terminal + pycharm proj. opened from scratch
 import cv2
 from conf import Conf
+from saving_m import save_model
 
 
 def lr_scheduler(epoch):
@@ -122,13 +123,13 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
                 label = c.n_original_tiles
             labels_in_folder.append(label)
             im = cv2.imread(folder_path + '/' + f)
-            try:
-                img_shape = im.shape[0]+im.shape[1]
-                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-            except:
-                print("failed on {}".format(folder_path + '/' + f))  #TODO: remove
-                skip_folder = True
-                continue
+            # try:
+            img_shape = im.shape[0]+im.shape[1]
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            # except:
+            #     print("failed on {}".format(folder_path + '/' + f))  #TODO: remove
+            #     skip_folder = True
+            #     continue
 
             im_resized = resize_image(im, max_size=c.max_size)
 
@@ -152,7 +153,6 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
                 print(folder)
                 print(np.array(X_batch).shape)
-            # TODO: insert a 0s OoD one for each batch too
             yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)), \
                   list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
             X_batch = []
@@ -189,7 +189,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 
 def run(c):
     batch_size = 128
-    adam = optimizers.Adam()
+    # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
         batch_size = 100
     if c.n_tiles_per_sample > 20:
@@ -207,7 +207,7 @@ def run(c):
     # for i in range(2):
     #     print(dgen.__next__()[1])
 
-    resnet = build_resnet(c)
+    resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     # sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
@@ -215,10 +215,13 @@ def run(c):
 
     resnet.compile(
         loss='categorical_crossentropy',
-        optimizer=adam,  # switch to adam later
+        optimizer="adam",  # switch to adam later
         metrics=['accuracy']
     )
     resnet.summary()
+    resnet.load_weights("test.h5")
+    save_model(resnet, "test_m.h5")
+    print("SAVE MODEL COMPLETE")
     no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
@@ -252,8 +255,7 @@ def run(c):
             current_losses.append(hist_val[0])
         current_avg_loss = np.mean(current_losses)
         if current_avg_loss < best_total_loss:
-
-            resnet.save_weights(
+            save_model(resnet,
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                  c.tiles_per_dim,
                                                                                                  c.n_tiles_per_sample,
