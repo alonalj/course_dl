@@ -7,7 +7,7 @@ from model import *
 import time
 from preprocessor import *
 
-base_max_size = 42
+base_max_size = 32
 sample = False
 
 if sample:
