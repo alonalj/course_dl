@@ -190,10 +190,10 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
         alpha = 0.005
     elif n_original_tiles > 5:
         alpha = 0.0005
-    penalty = keras.layers.Lambda(lambda x: alpha * x)(sum_diff_all_tiles_in_sample)
+    penalty = keras.layers.Lambda(lambda x: -alpha * x)(sum_diff_all_tiles_in_sample)
     # penalty = sum_diff_all_tiles_in_sample
     for o in outputs_from_sample:
-        inverse_penalized_preds = keras.layers.Lambda(lambda x: (-penalty * x)(o))
+        inverse_penalized_preds = keras.layers.Multiply()([penalty, o])
         # o = keras.layers.Subtract()([o, penalty])
         o = keras.layers.Add()([o, inverse_penalized_preds])
         o = Dense(n_classes, activation='softmax')(o)
