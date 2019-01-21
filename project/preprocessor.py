@@ -86,7 +86,10 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
                     height = im.shape[0]
                     width = im.shape[1]
                     if original_height != height and original_width != width and reshape:
-                        im = cv2.resize(im,(original_height, original_width))
+                        try:
+                            im = cv2.resize(im,(original_height, original_width))
+                        except:
+                            continue
 
                     frac_h = height // c.tiles_per_dim
                     frac_w = width // c.tiles_per_dim
