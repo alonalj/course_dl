@@ -30,7 +30,8 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     files = os.listdir(raw_input_dir)
     files_dict = load_obj(c.data_split_dict)
     files = files_dict[data_type]  # augment only train files
-
+    files = files
+    # files = [f for f in files if "n01440764_7267" in f]
     list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
@@ -150,39 +151,42 @@ def load_obj(name, directory=''):
         return pkl.load(f)
 
 
-def resize_image(image, max_size=None, resize_factor=None, train=True):
+def resize_image(image, max_size=None, resize_factor=None, simple_reshape=True):
     import cv2
     import math
-    if resize_factor and not max_size:
-        im_resized = cv2.resize(image, (image.shape[0] // resize_factor, image.shape[1] // resize_factor))  # TODO: verify indicese don't need swapping...
-    elif max_size and not resize_factor:
-        if image.shape[0] > image.shape[1]:
-            ratio = math.ceil(image.shape[0] / float(max_size))
-        else:
-            ratio = math.ceil(image.shape[1] / float(max_size))
-        im_resized = cv2.resize(image, (image.shape[0] // ratio, image.shape[1] // ratio))  # TODO: verify indicese don't need swapping...
+    if simple_reshape:
+        im_resized = cv2.resize(image, (max_size, max_size))
     else:
-        raise Exception("One, and only one, of max_size and resize_factor should be defined.")
+        if resize_factor and not max_size:
+            im_resized = cv2.resize(image, (image.shape[0] // resize_factor, image.shape[1] // resize_factor))  # TODO: verify indicese don't need swapping...
+        elif max_size and not resize_factor:
+            if image.shape[0] > image.shape[1]:
+                ratio = math.ceil(image.shape[0] / float(max_size))
+            else:
+                ratio = math.ceil(image.shape[1] / float(max_size))
+            im_resized = cv2.resize(image, (image.shape[0] // ratio, image.shape[1] // ratio))  # TODO: verify indicese don't need swapping...
+        else:
+            raise Exception("One, and only one, of max_size and resize_factor should be defined.")
 
-    # TODO: because of OoD as well as images being of different size, need to do zero pad now
-    # img = cv2.imread("img_src.jpg")
-    shape = im_resized.shape
-    w = shape[1]
-    h = shape[0]
-    slack_w = max_size - w  # padding size w
-    slack_h = max_size - h  # padding size h
-    # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
-    # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
-    import random
-    start_w = 0 #random.randint(0, slack_w)
-    end_w = start_w + w
-    start_h = 0 #random.randint(0, slack_h)
-    end_h = start_h + h
-    base_size = max_size, max_size
-    base = np.zeros(base_size, dtype=np.uint8)
-    # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
-    base[start_h:end_h, start_w:end_w] = im_resized
-    im_resized = base
+        # TODO: because of OoD as well as images being of different size, need to do zero pad now
+        # img = cv2.imread("img_src.jpg")
+        shape = im_resized.shape
+        w = shape[1]
+        h = shape[0]
+        slack_w = max_size - w  # padding size w
+        slack_h = max_size - h  # padding size h
+        # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
+        # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
+        import random
+        start_w = 0 #random.randint(0, slack_w)
+        end_w = start_w + w
+        start_h = 0 #random.randint(0, slack_h)
+        end_h = start_h + h
+        base_size = max_size, max_size
+        base = np.zeros(base_size, dtype=np.uint8)
+        # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
+        base[start_h:end_h, start_w:end_w] = im_resized
+        im_resized = base
     return im_resized / 255.
 
 

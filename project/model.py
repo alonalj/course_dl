@@ -165,7 +165,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             try:
                 img_shape = im.shape[0] + im.shape[1]
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                im_resized = resize_image(im, max_size=c.max_size)
+                im_resized = resize_image(im, max_size=c.max_size, simple_reshape=True)
             except:
                 print("failed on {}".format(folder_path + '/' + f))  # TODO: remove
                 skip_folder = True
