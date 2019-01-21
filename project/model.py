@@ -210,8 +210,7 @@ def run(c):
     resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
-    # sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
-
+    # sgd = optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
 
     resnet.compile(
         loss='categorical_crossentropy',
@@ -219,8 +218,6 @@ def run(c):
         metrics=['accuracy']
     )
     resnet.summary()
-    resnet.load_weights("test.h5")
-    resnet.save_weights("test.h5")
     # save_model(resnet, "test_m.h5")
 
     no_improvement_tolerance = 4
@@ -256,7 +253,7 @@ def run(c):
             current_losses.append(hist_val[0])
         current_avg_loss = np.mean(current_losses)
         if current_avg_loss < best_total_loss:
-            save_model(resnet,
+            resnet.save_weights(resnet,
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                  c.tiles_per_dim,
                                                                                                  c.n_tiles_per_sample,
