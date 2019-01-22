@@ -36,7 +36,7 @@ else:
     for i in range(3):  # for majority vote
         mID = str(i)+"_"+str(time.time())
         for is_images in [True]: #[True]:  #
-            for tiles_per_dim in [4]: # [4]: #
+            for tiles_per_dim in [5]: # [4]: #
                 if tiles_per_dim == 2:
                     max_size = base_max_size
                 elif tiles_per_dim == 4:
