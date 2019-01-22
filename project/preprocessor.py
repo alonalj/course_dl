@@ -38,7 +38,7 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     if data_type == 'train':
         crop_start_w = range(0, 46, 15)
         crop_start_h = range(0, 46, 15)
-        reshape_options = [True, False]
+        reshape_options = [False]
     else:
         crop_start_w = [0]
         crop_start_h = [0]
@@ -86,11 +86,11 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
 
                     height = im.shape[0]
                     width = im.shape[1]
-                    if original_height != height and original_width != width and reshape:
-                        try:
-                            im = cv2.resize(im,(original_height, original_width))
-                        except:
-                            continue
+                    # if original_height != height and original_width != width and reshape:
+                    #     try:
+                    #         im = cv2.resize(im,(original_height, original_width))
+                    #     except:
+                    #         continue
 
                     frac_h = height // c.tiles_per_dim
                     frac_w = width // c.tiles_per_dim
@@ -118,18 +118,39 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     save_obj(files_dict, c.data_split_dict)
 
 
-def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
+# def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
+#     train_test_val_dict = {}
+#     folders_original = os.listdir(dataset_folder)
+#     folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
+#     folders = [f for f in folders if 'DS_Store' not in f]
+#     np.random.shuffle(folders)
+#     num_folders = len(folders)
+#     stop_idx_train = int(num_folders*portion_train)
+#     stop_idx_val = stop_idx_train+int(num_folders*portion_val)
+#     train_folders = folders[:stop_idx_train]
+#     val_folders = folders[stop_idx_train : stop_idx_val]
+#     test_folders = folders[stop_idx_val :]
+#
+#     train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
+#     val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
+#     test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
+#
+#     train_test_val_dict['train'] = train_folders
+#     train_test_val_dict['val'] = val_folders
+#     train_test_val_dict['test'] = test_folders
+#     save_obj(train_test_val_dict, dict_name)
+
+
+def split_into_train_val_test(dataset_folder, n_test, dict_name):
     train_test_val_dict = {}
     folders_original = os.listdir(dataset_folder)
     folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
     folders = [f for f in folders if 'DS_Store' not in f]
     np.random.shuffle(folders)
     num_folders = len(folders)
-    stop_idx_train = int(num_folders*portion_train)
-    stop_idx_val = stop_idx_train+int(num_folders*portion_val)
-    train_folders = folders[:stop_idx_train]
-    val_folders = folders[stop_idx_train : stop_idx_val]
-    test_folders = folders[stop_idx_val :]
+    train_folders = folders[:-60]
+    val_folders = folders[-60 : -30]
+    test_folders = folders[-30 :]
 
     train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
     val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
@@ -200,9 +221,9 @@ def run_shredder(c):
         return
     dict_name = c.data_split_dict
     if 'doc' in c.data_split_dict:
-        split_into_train_val_test('documents', 0.75, 0.15, dict_name)
+        split_into_train_val_test('documents', 30, dict_name)
     else:
-        split_into_train_val_test('images', 0.75, 0.15, dict_name)
+        split_into_train_val_test('images', 30, dict_name)
     d = load_obj(dict_name)
     # TODO: need this for multiple tile sizes, as well as for documents
     for data_type in ['train', 'val', 'test']:

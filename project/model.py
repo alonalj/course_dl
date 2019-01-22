@@ -136,6 +136,15 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     X_batch = []
     y_batch = []
     noise = False
+    if data_type == 'train':
+        crop_start_w = range(0, 46, 15)
+        crop_start_h = range(0, 46, 15)
+    else:
+        crop_start_w = [0]
+        crop_start_h = [0]
+    c_w = random.choice(crop_start_w)
+    c_h = random.choice(crop_start_h)
+    folders = [f for f in folders if '_crw_'+str(c_w)+'_crh_'+str(c_h) in f]
     for folder in folders:
         skip_folder = False
         flip_img = False
@@ -231,12 +240,13 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 #     return cross_entropy_loss #+ all_differet_loss
 
 def run(c):
+
     batch_size = 128
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
         batch_size = 50
     if c.n_tiles_per_sample > 20:
-        batch_size = 100
+        batch_size = 80
         # adam = optimizers.Adam(0.0001)
 
     maxepoches = 250
@@ -263,9 +273,10 @@ def run(c):
     resnet.summary()
     # save_model(resnet, "test_m.h5")
 
-    no_improvement_tolerance = 100
+    no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
+    best_total_loss_val = np.inf
     best_total_loss = np.inf
 
     for e in range(maxepoches):
@@ -285,6 +296,17 @@ def run(c):
                 y = np.array(y_batch)
                 # print(preds - y)
                 assert preds.shape == y.shape
+            if step % 100 and hist[0] < best_total_loss:
+                best_total_loss = hist[0]
+                resnet.save_weights(
+                    'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                                                                                                         c.tiles_per_dim,
+                                                                                                         c.n_tiles_per_sample,
+                                                                                                         c.is_images,
+                                                                                                         c.mID,
+                                                                                                         str(
+                                                                                                             current_avg_loss)))
+
             step += 1
 
         # Validating at end of epoch
@@ -295,7 +317,7 @@ def run(c):
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_losses.append(hist_val[0])
         current_avg_loss = np.mean(current_losses)
-        if current_avg_loss < best_total_loss:
+        if current_avg_loss < best_total_loss_val:
             resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
@@ -306,7 +328,7 @@ def run(c):
                                                                                                          current_avg_loss)))
 
             print(hist_val)
-            best_total_loss = current_avg_loss
+            best_total_loss_val = current_avg_loss
             no_improvement_counter = 0  # reset
         else:
             no_improvement_counter += 1

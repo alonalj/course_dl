@@ -87,7 +87,7 @@ def build_resnet_cifar_10(weight_decay):
 resnet_img_vs_doc = build_resnet_cifar_10(1e-3)
 
 batch_size = 128
-maxepoches = 2
+maxepoches = 1
 learning_rate = 0.1
 
 
