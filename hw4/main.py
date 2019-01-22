@@ -274,7 +274,7 @@ parser.add_argument('-n', default=10, type=int,
                     help='Number of sentences to produce.')
 
 parser.add_argument('--bleu', action='store_true',
-                    help='Run BLEU check')
+                    help='Run BLEU check, only relevant for WL-S model')
 
 parser.add_argument('--sentiment', default='neg2pos', type=str,
                     help='Only relevant for WL-S model: neg2pos; neg; pos')
