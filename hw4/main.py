@@ -75,7 +75,7 @@ def generate_sentence_wl(model, word_to_id, id_to_word, technique, sentiment=Non
 
     gen_sentence = ''
     for i in range(MAX_LEN-1):
-        if i == 50:
+        if i == 50 and sentiment == 'neg2pos':
             gen_sentence = gen_sentence + ' [NEG2POS] '
         gen_sentence = gen_sentence + ' ' + id_to_word[seed[i]]
 
@@ -86,7 +86,7 @@ def evaluate_model(model, word_to_id, id_to_word, technique, X2_test, X_test):
     actual, predicted = list(), list()
     # step over the whole set
     for key, desc_list in enumerate(X_test):
-        print('{}/{}'.format(key, len(X_test)))
+        print('{}/{}'.format(key, 256))
         # generate description
 
         if X2_test[key][0][0] == 1:
@@ -398,7 +398,7 @@ def main():
     # BLEU validation
     # ---------------
     if args.bleu:
-        print("Running BLEU")
+        print("Running BLEU, stay tuned, this may take a while")
         evaluate_model(my_model.model, word_to_id, id_to_word, args.technique, X2_test, X_test)
 
     # Create sentences
@@ -406,17 +406,19 @@ def main():
     print("Creating sentences")
     if type == 'WL':
         for it in range(n_sentences):
-            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique)
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique,
+                                       diversity=args.diversity)
             print(seq)
 
     if type == 'WL-S':
         for it in range(n_sentences):
-            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique, 'neg2pos')
+            seq = generate_sentence_wl(my_model.model, word_to_id, id_to_word, args.technique,
+                                       args.sentiment, diversity=args.diversity)
             print(seq)
 
     elif type == 'CL':
         for it in range(n_sentences):
-            diversity = 0.3
+            diversity = args.diversity
             seed = "i think that "
             result = np.zeros((1,) + X_train.shape[1:])
             result[0, 0, char2ind['<START>']] = 1
