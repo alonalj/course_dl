@@ -66,6 +66,46 @@ from conf import Conf
 from saving_m import save_model
 
 
+def add_similarity_channel(processed_images, c):
+    from scipy import spatial  # TODO: add to dependencies
+    sim_layer = np.zeros((c.max_size, c.max_size))
+    # print("GG", np.array(processed_images).shape)
+    final_images = []
+    for i in range(len(processed_images)):
+        n_columns = 1
+        im = processed_images[i]
+        # print(im.shape)
+        right_edge_original = im[:, -1].flatten()
+        left_edge_original = im[:, 0].flatten()
+        top_edge_original = im[0, :].flatten()
+        bottom_edge_original = im[-1, :].flatten()
+        row = 0
+        # for m in [right_edge_original, left_edge_original, top_edge_original, bottom_edge_original]:
+        #     print(len(m))
+        for j in range(len(processed_images)):
+            if i == j:
+                continue
+            potential_neighbor = processed_images[j]
+            # print("p", potential_neighbor.shape)
+            right_edge = potential_neighbor[:,-1].flatten()
+            left_edge = potential_neighbor[:,0].flatten()
+            top_edge = potential_neighbor[0, :].flatten()
+            bottom_edge = potential_neighbor[-1, :].flatten()
+            # for m in [right_edge, left_edge, top_edge, bottom_edge]:
+            #     print(len(m))
+            cosine_sim_rl = 1-spatial.distance.cosine(np.add(right_edge_original, 0.0001), np.add(left_edge, 0.0001))
+            cosine_sim_lr = spatial.distance.cosine(np.add(left_edge_original, 0.0001), np.add(right_edge, 0.0001))
+            cosine_sim_tb = spatial.distance.cosine(np.add(top_edge_original, 0.0001), np.add(bottom_edge, 0.0001))
+            cosine_sim_bt = spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
+            sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
+            row += 1
+        final_image = np.zeros((32, 32, 2))
+        final_image[:,:,0] = processed_images[i]
+        final_image[:,:,1] = sim_layer
+        final_images.append(final_image)  # each has two channels, the second channel has the similarities
+    return final_images
+
+
 def lr_scheduler(epoch):
     """Learning Rate Schedule
     Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
@@ -152,6 +192,8 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
         c_h = 0
     folders = [f for f in folders if '_crw_'+str(c_w)+'_crh_'+str(c_h) in f]
     for folder in folders:
+        original_images = []
+        processed_images = []
         skip_folder = False
         flip_img = False
         if random.random() > 0.5 and data_type == 'train':
@@ -196,9 +238,12 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             if flip_img:
                 im_resized = cv2.flip(im_resized, 1)
             images_in_folder.append(im_resized)
+            # original_images.append(im)
 
         if np.array(images_in_folder).shape != (c.n_tiles_per_sample, c.max_size, c.max_size):
             continue
+        print(np.array(images_in_folder).shape)
+        images_in_folder = add_similarity_channel(images_in_folder, c)
 
         X_batch.append(np.array(images_in_folder))  # a folder is one single sample
         # print(labels_in_folder)
@@ -207,10 +252,10 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
         if len(y_batch) == batch_size:
             # print(np.array(X_batch).ndim)
             # print(np.array(X_batch))
-            if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
+            if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size, 2):
                 print(folder)
                 print(np.array(X_batch).shape)
-            yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size)), \
+            yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size, 2)), \
                   list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, c.n_classes))
             X_batch = []
             y_batch = []
@@ -218,10 +263,10 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     if len(y_batch) != batch_size:  # if equal, already yielded above
         # print(np.array(X_batch).shape)
         # print(np.array(X_batch))
-        if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size):
+        if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size, 2):
             print(folder)
             print(np.array(X_batch).shape)
-        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size)), \
+        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size, 2)), \
               list(np.array(y_batch).reshape(c.n_tiles_per_sample, -1, c.n_classes))
 
 

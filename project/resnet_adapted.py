@@ -88,7 +88,7 @@ def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, wei
 
 def resnet_weights_shared_over_tiles(max_size, n_classes, x_in=None, weight_decay=0.0001):
     # x_in = keras.layers.ZeroPadding2D()(x_in)
-    x_in = Input(shape=(max_size, max_size, 1))
+    x_in = Input(shape=(max_size, max_size, 2))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -138,9 +138,9 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
     outputs_from_sample = []
     shared_net = resnet_weights_shared_over_tiles(max_size, n_classes)
     for i in range(n_tiles_per_sample):
-        x_in = keras.layers.Input(shape=(max_size, max_size), name="in_{}".format(i))
+        x_in = keras.layers.Input(shape=(max_size, max_size, 2), name="in_{}".format(i))
         inputs_from_sample.append(x_in)
-        x_in = keras.layers.Reshape(target_shape=(x_in.shape[1], x_in.shape[2], 1),name="in_reshape_{}".format(i))(x_in)
+        x_in = keras.layers.Reshape(target_shape=(x_in.shape[1], x_in.shape[2], 2),name="in_reshape_{}".format(i))(x_in)
     # for i in range(n_tiles_per_sample):
         x_out = shared_net(x_in)
         outputs_from_sample.append(x_out)
