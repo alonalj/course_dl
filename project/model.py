@@ -296,17 +296,6 @@ def run(c):
                 y = np.array(y_batch)
                 # print(preds - y)
                 assert preds.shape == y.shape
-            if step % 100 and hist[0] < best_total_loss:
-                best_total_loss = hist[0]
-                resnet.save_weights(
-                    'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                                                                                                         c.tiles_per_dim,
-                                                                                                         c.n_tiles_per_sample,
-                                                                                                         c.is_images,
-                                                                                                         c.mID,
-                                                                                                         str(
-                                                                                                             best_total_loss)))
-
             step += 1
 
         # Validating at end of epoch
@@ -317,7 +306,7 @@ def run(c):
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_losses.append(hist_val[0])
         current_avg_loss = np.mean(current_losses)
-        if current_avg_loss < best_total_loss_val:
+        if current_avg_loss < best_total_loss_val and current_avg_loss < hist[0] - 5:
             resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
@@ -332,6 +321,17 @@ def run(c):
             no_improvement_counter = 0  # reset
         else:
             no_improvement_counter += 1
+        # saving train ckpt
+        best_total_loss = hist[0]
+        resnet.save_weights(
+            'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                                                                                                       c.tiles_per_dim,
+                                                                                                       c.n_tiles_per_sample,
+                                                                                                       c.is_images,
+                                                                                                       c.mID,
+                                                                                                       str(
+                                                                                                           best_total_loss)))
+
         print(current_avg_loss)
         val_steps_max += 1
 
