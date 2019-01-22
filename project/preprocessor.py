@@ -30,74 +30,88 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     files = os.listdir(raw_input_dir)
     files_dict = load_obj(c.data_split_dict)
     files = files_dict[data_type]  # augment only train files
+    files = files
+    # files = [f for f in files if "n01440764_7267" in f]
     list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
     if data_type == 'train':
         crop_start_w = range(0, 46, 15)
         crop_start_h = range(0, 46, 15)
+        reshape_options = [True, False]
     else:
         crop_start_w = [0]
         crop_start_h = [0]
+        reshape_options = [False]
 
-    for c_w in crop_start_w:
-        for c_h in crop_start_h:
-            crops_previous = []
-            names_previous = []
-            for f in files:
-                # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-                filename = f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)
-                folder_name = output_dir + filename
-                folder_output_dir = folder_name + '/'
-                list_of_folders.append(filename)
-                if not os.path.exists(output_dir):
-                    os.mkdir(output_dir)
-                os.mkdir(folder_output_dir)
-
-                # add OOD from previous crops if exist:
-                if len(crops_previous) > 0:
-                    # some of the time crate empty image (we will use this in case len(OoD) < t)
-                    idx = np.arange(len(crops_previous))
-                    np.random.shuffle(idx)
-                    for c_idx in idx[:c.tiles_per_dim]:
-                        if random.random() < 0.1:
-                            null_img = np.zeros((c.max_size, c.max_size))
-                            cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
-                        else:
-                            cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
-                else:
-                    folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
-
-                im = cv2.imread(raw_input_dir + f)
-                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-
-                # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
-
-                im = im[c_w:im.shape[0]-c_w, c_h:im.shape[1]-c_h]
-                    # cv2.imshow("cropped", cropped)
-
-                height = im.shape[0]
-                width = im.shape[1]
-                frac_h = height // c.tiles_per_dim
-                frac_w = width // c.tiles_per_dim
-                i = 0
+    for reshape in reshape_options:
+        for c_w in crop_start_w:
+            for c_h in crop_start_h:
                 crops_previous = []
                 names_previous = []
-                for h in range(c.tiles_per_dim):
-                    for w in range(c.tiles_per_dim):
-                        crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
-                        cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
-                        crops_previous.append(crop)
-                        names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
-                        i = i + 1
 
-                # take OoD from last image in files as "previous" for first img
+                for f in files:
+                    # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+                    if c_w == 0 and c_h == 0 and reshape:
+                        continue
+                    filename = f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)+'_reshape_'+str(reshape)
+                    folder_name = output_dir + filename
+                    folder_output_dir = folder_name + '/'
+                    list_of_folders.append(filename)
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    os.mkdir(folder_output_dir)
 
-                if f == files[-1]:
-                    idx = np.arange(len(crops_previous))
-                    np.random.shuffle(idx)
-                    for c_idx in idx[:c.tiles_per_dim]:
-                        cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
+                    # add OOD from previous crops if exist:
+                    if len(crops_previous) > 0:
+                        # some of the time crate empty image (we will use this in case len(OoD) < t)
+                        idx = np.arange(len(crops_previous))
+                        np.random.shuffle(idx)
+                        for c_idx in idx[:c.tiles_per_dim]:
+                            if random.random() < 0.1:
+                                null_img = np.zeros((c.max_size, c.max_size))
+                                cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
+                            else:
+                                cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+                    else:
+                        folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
+
+                    im = cv2.imread(raw_input_dir + f)
+                    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                    original_height, original_width = im.shape[0], im.shape[1]
+                    # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
+
+                    im = im[c_w:im.shape[0]-c_w, c_h:im.shape[1]-c_h]
+                        # cv2.imshow("cropped", cropped)
+
+                    height = im.shape[0]
+                    width = im.shape[1]
+                    if original_height != height and original_width != width and reshape:
+                        try:
+                            im = cv2.resize(im,(original_height, original_width))
+                        except:
+                            continue
+
+                    frac_h = height // c.tiles_per_dim
+                    frac_w = width // c.tiles_per_dim
+                    i = 0
+                    crops_previous = []
+                    names_previous = []
+                    for h in range(c.tiles_per_dim):
+                        for w in range(c.tiles_per_dim):
+                            crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
+                            cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
+                            crops_previous.append(crop)
+                            names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
+                            i = i + 1
+
+                    # take OoD from last image in files as "previous" for first img
+
+                    if f == files[-1]:
+                        idx = np.arange(len(crops_previous))
+                        np.random.shuffle(idx)
+                        for c_idx in idx[:c.tiles_per_dim]:
+                            cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
     files_dict[data_type] = list_of_folders
     print(files_dict)
@@ -137,39 +151,42 @@ def load_obj(name, directory=''):
         return pkl.load(f)
 
 
-def resize_image(image, max_size=None, resize_factor=None, train=True):
+def resize_image(image, max_size=None, resize_factor=None, simple_reshape=True):
     import cv2
     import math
-    if resize_factor and not max_size:
-        im_resized = cv2.resize(image, (image.shape[0] // resize_factor, image.shape[1] // resize_factor))  # TODO: verify indicese don't need swapping...
-    elif max_size and not resize_factor:
-        if image.shape[0] > image.shape[1]:
-            ratio = math.ceil(image.shape[0] / float(max_size))
-        else:
-            ratio = math.ceil(image.shape[1] / float(max_size))
-        im_resized = cv2.resize(image, (image.shape[0] // ratio, image.shape[1] // ratio))  # TODO: verify indicese don't need swapping...
+    if simple_reshape:
+        im_resized = cv2.resize(image, (max_size, max_size))
     else:
-        raise Exception("One, and only one, of max_size and resize_factor should be defined.")
+        if resize_factor and not max_size:
+            im_resized = cv2.resize(image, (image.shape[0] // resize_factor, image.shape[1] // resize_factor))  # TODO: verify indicese don't need swapping...
+        elif max_size and not resize_factor:
+            if image.shape[0] > image.shape[1]:
+                ratio = math.ceil(image.shape[0] / float(max_size))
+            else:
+                ratio = math.ceil(image.shape[1] / float(max_size))
+            im_resized = cv2.resize(image, (image.shape[0] // ratio, image.shape[1] // ratio))  # TODO: verify indicese don't need swapping...
+        else:
+            raise Exception("One, and only one, of max_size and resize_factor should be defined.")
 
-    # TODO: because of OoD as well as images being of different size, need to do zero pad now
-    # img = cv2.imread("img_src.jpg")
-    shape = im_resized.shape
-    w = shape[1]
-    h = shape[0]
-    slack_w = max_size - w  # padding size w
-    slack_h = max_size - h  # padding size h
-    # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
-    # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
-    import random
-    start_w = 0 #random.randint(0, slack_w)
-    end_w = start_w + w
-    start_h = 0 #random.randint(0, slack_h)
-    end_h = start_h + h
-    base_size = max_size, max_size
-    base = np.zeros(base_size, dtype=np.uint8)
-    # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
-    base[start_h:end_h, start_w:end_w] = im_resized
-    im_resized = base
+        # TODO: because of OoD as well as images being of different size, need to do zero pad now
+        # img = cv2.imread("img_src.jpg")
+        shape = im_resized.shape
+        w = shape[1]
+        h = shape[0]
+        slack_w = max_size - w  # padding size w
+        slack_h = max_size - h  # padding size h
+        # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
+        # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
+        import random
+        start_w = 0 #random.randint(0, slack_w)
+        end_w = start_w + w
+        start_h = 0 #random.randint(0, slack_h)
+        end_h = start_h + h
+        base_size = max_size, max_size
+        base = np.zeros(base_size, dtype=np.uint8)
+        # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
+        base[start_h:end_h, start_w:end_w] = im_resized
+        im_resized = base
     return im_resized / 255.
 
 
