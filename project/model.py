@@ -276,7 +276,7 @@ def run(c):
     no_improvement_tolerance = 4
     no_improvement_counter = 0
     val_steps_max = 0
-    best_total_loss_val = np.inf
+    best_avg_acc_val = 0
     best_total_loss = np.inf
 
     for e in range(maxepoches):
@@ -301,12 +301,12 @@ def run(c):
         # Validating at end of epoch
         print("VALIDATING")
         val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
-        current_losses = []
+        current_acc = []
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
-            current_losses.append(hist_val[0])
-        current_avg_loss = np.mean(current_losses)
-        if hist[0] - 15 < current_avg_loss < best_total_loss_val:
+            current_acc.append(np.mean(hist_val[-c.n_tiles_per_sample:]))
+        current_avg_acc = np.mean(current_acc)
+        if current_avg_acc > best_avg_acc_val:
             resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
@@ -314,15 +314,15 @@ def run(c):
                                                                                                      c.is_images,
                                                                                                      c.mID,
                                                                                                      str(
-                                                                                                         current_avg_loss)))
+                                                                                                         current_avg_acc)))
 
             print(hist_val)
-            best_total_loss_val = current_avg_loss
+            best_avg_acc_val = current_avg_acc
+            print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
         else:
             no_improvement_counter += 1
         # saving train ckpt
-        best_total_loss = hist[0]
         resnet.save_weights(
             'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                        c.tiles_per_dim,
@@ -330,9 +330,9 @@ def run(c):
                                                                                                        c.is_images,
                                                                                                        c.mID,
                                                                                                        str(
-                                                                                                           best_total_loss)))
+                                                                                                           hist[0])))
 
-        print(current_avg_loss)
+        print(current_avg_acc)
         val_steps_max += 1
 
         if no_improvement_counter >= no_improvement_tolerance:
