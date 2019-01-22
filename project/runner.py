@@ -8,7 +8,7 @@ import time
 from preprocessor import *
 
 base_max_size = 32
-sample = False
+sample = True
 
 if sample:
     for i in range(1):  # for majority vote
@@ -35,8 +35,8 @@ if sample:
 else:
     for i in range(3):  # for majority vote
         mID = str(i)+"_"+str(time.time())
-        for is_images in [True]: #[True]:  #
-            for tiles_per_dim in [5]: # [4]: #
+        for is_images in [False]: #[True]:  #
+            for tiles_per_dim in [2]: # [4]: #
                 if tiles_per_dim == 2:
                     max_size = base_max_size
                 elif tiles_per_dim == 4:
