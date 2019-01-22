@@ -88,7 +88,7 @@ def lr_scheduler(epoch):
 def get_gauss_noise(image):
     row, col = image.shape
     mean = 0
-    var = 0.04
+    var = 0.0007
     sigma = var ** 0.5
     gauss = np.random.normal(mean, sigma, (row, col))
     return gauss
@@ -104,7 +104,7 @@ def noisy(noise_typ, image, gauss=None):
     elif noise_typ == "s&p":
         row, col, ch = image.shape
         s_vs_p = 0.5
-        amount = 0.004
+        amount = 0.006
         out = np.copy(image)
         # Salt mode
         num_salt = np.ceil(amount * image.size * s_vs_p)
@@ -137,8 +137,12 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     y_batch = []
     noise = False
     if data_type == 'train':
-        crop_start_w = range(0, 46, 15)
-        crop_start_h = range(0, 46, 15)
+        if 'doc' not in data_split_dict:
+            crop_start_w = range(0, 46, 15)
+            crop_start_h = range(0, 46, 15)
+        else:
+            crop_start_w = range(0, 91, 30)
+            crop_start_h = range(0, 91, 30)
         c_w = random.choice(crop_start_w)
         c_h = random.choice(crop_start_h)
     else:
@@ -152,8 +156,8 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
         flip_img = False
         if random.random() > 0.5 and data_type == 'train':
             flip_img = True
-        # if random.random() > 0.5 and data_type == 'train':
-        #     noise = True
+        if random.random() > 0.6 and data_type == 'train':
+            noise = True
         if c.is_images and len(folder) < 7:
             # print(len(folder))
             continue
@@ -182,9 +186,9 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
                 skip_folder = True
                 continue
 
-            # if noise:
-            #     gauss = get_gauss_noise(im_resized)
-            #     im_resized = noisy("gauss",im_resized, gauss)
+            if noise:
+                gauss = get_gauss_noise(im_resized)
+                im_resized = noisy("gauss",im_resized, gauss)
 
             if im_resized.shape != (c.max_size, c.max_size):
                 print("Bad shape for folder {}, file {}".format(folder, f))

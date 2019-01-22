@@ -36,8 +36,14 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
     if data_type == 'train':
-        crop_start_w = range(0, 46, 15)
-        crop_start_h = range(0, 46, 15)
+        if 'image' in raw_input_dir:
+            print("shredding with crops for images")
+            crop_start_w = range(0, 46, 15)
+            crop_start_h = range(0, 46, 15)
+        else:
+            print("shredding with crops for docs")
+            crop_start_w = range(0, 91, 30)
+            crop_start_h = range(0, 91, 30)
         reshape_options = [False]
     else:
         crop_start_w = [0]
