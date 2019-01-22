@@ -242,7 +242,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 
         if np.array(images_in_folder).shape != (c.n_tiles_per_sample, c.max_size, c.max_size):
             continue
-        print(np.array(images_in_folder).shape)
+        # print(np.array(images_in_folder).shape)
         images_in_folder = add_similarity_channel(images_in_folder, c)
 
         X_batch.append(np.array(images_in_folder))  # a folder is one single sample
