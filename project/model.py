@@ -88,7 +88,7 @@ def lr_scheduler(epoch):
 def get_gauss_noise(image):
     row, col = image.shape
     mean = 0
-    var = 0.0007
+    var = 0.0004
     sigma = var ** 0.5
     gauss = np.random.normal(mean, sigma, (row, col))
     return gauss
