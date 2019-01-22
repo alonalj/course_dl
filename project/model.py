@@ -305,7 +305,7 @@ def run(c):
                                                                                                          c.is_images,
                                                                                                          c.mID,
                                                                                                          str(
-                                                                                                             current_avg_loss)))
+                                                                                                             best_total_loss)))
 
             step += 1
 
