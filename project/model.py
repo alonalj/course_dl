@@ -139,19 +139,21 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     if data_type == 'train':
         crop_start_w = range(0, 46, 15)
         crop_start_h = range(0, 46, 15)
+        c_w = random.choice(crop_start_w)
+        c_h = random.choice(crop_start_h)
     else:
         crop_start_w = [0]
         crop_start_h = [0]
-    c_w = random.choice(crop_start_w)
-    c_h = random.choice(crop_start_h)
+        c_w = 0
+        c_h = 0
     folders = [f for f in folders if '_crw_'+str(c_w)+'_crh_'+str(c_h) in f]
     for folder in folders:
         skip_folder = False
         flip_img = False
         if random.random() > 0.5 and data_type == 'train':
             flip_img = True
-        if random.random() > 0.5 and data_type == 'train':
-            noise = True
+        # if random.random() > 0.5 and data_type == 'train':
+        #     noise = True
         if c.is_images and len(folder) < 7:
             # print(len(folder))
             continue
