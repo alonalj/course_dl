@@ -254,12 +254,12 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 
 def run(c):
 
-    batch_size = 128
+    batch_size = 80
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
-        batch_size = 50
+        batch_size = 40
     if c.n_tiles_per_sample > 20:
-        batch_size = 35
+        batch_size = 32
         # adam = optimizers.Adam(0.0001)
 
     maxepoches = 250
@@ -335,15 +335,15 @@ def run(c):
             no_improvement_counter = 0  # reset
         else:
             no_improvement_counter += 1
-        # saving train ckpt
-        resnet.save_weights(
-            'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                                                                                                       c.tiles_per_dim,
-                                                                                                       c.n_tiles_per_sample,
-                                                                                                       c.is_images,
-                                                                                                       c.mID,
-                                                                                                       str(
-                                                                                                           hist[0])))
+        # # saving train ckpt
+        # resnet.save_weights(
+        #     'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+        #                                                                                                c.tiles_per_dim,
+        #                                                                                                c.n_tiles_per_sample,
+        #                                                                                                c.is_images,
+        #                                                                                                c.mID,
+        #                                                                                                str(
+        #                                                                                                    hist[0])))
 
         print(current_avg_acc)
         val_steps_max += 1
