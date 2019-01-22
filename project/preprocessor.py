@@ -17,6 +17,46 @@ from conf import Conf
 import random
 
 
+def add_similarity_channel(processed_images, c):
+    from scipy import spatial  # TODO: add to dependencies
+    sim_layer = np.zeros((c.max_size, c.max_size))
+    # print("GG", np.array(processed_images).shape)
+    final_images = []
+    for i in range(len(processed_images)):
+        n_columns = 1
+        im = processed_images[i]
+        # print(im.shape)
+        right_edge_original = im[:, -1].flatten()
+        left_edge_original = im[:, 0].flatten()
+        top_edge_original = im[0, :].flatten()
+        bottom_edge_original = im[-1, :].flatten()
+        row = 0
+        # for m in [right_edge_original, left_edge_original, top_edge_original, bottom_edge_original]:
+        #     print(len(m))
+        for j in range(len(processed_images)):
+            if i == j:
+                continue
+            potential_neighbor = processed_images[j]
+            # print("p", potential_neighbor.shape)
+            right_edge = potential_neighbor[:,-1].flatten()
+            left_edge = potential_neighbor[:,0].flatten()
+            top_edge = potential_neighbor[0, :].flatten()
+            bottom_edge = potential_neighbor[-1, :].flatten()
+            # for m in [right_edge, left_edge, top_edge, bottom_edge]:
+            #     print(len(m))
+            cosine_sim_rl = 1-spatial.distance.cosine(np.add(right_edge_original, 0.0001), np.add(left_edge, 0.0001))
+            cosine_sim_lr = spatial.distance.cosine(np.add(left_edge_original, 0.0001), np.add(right_edge, 0.0001))
+            cosine_sim_tb = spatial.distance.cosine(np.add(top_edge_original, 0.0001), np.add(bottom_edge, 0.0001))
+            cosine_sim_bt = spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
+            sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
+            row += 1
+        final_image = np.zeros((32, 32, 2))
+        final_image[:,:,0] = processed_images[i]
+        final_image[:,:,1] = sim_layer
+        final_images.append(final_image)  # each has two channels, the second channel has the similarities
+    return final_images
+
+
 def _shredder(raw_input_dir, data_type, c, output_dir):
     import cv2
     import os
