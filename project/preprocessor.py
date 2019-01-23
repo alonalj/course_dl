@@ -52,7 +52,7 @@ def add_similarity_channel(processed_images, original_images, c):
             cosine_sim_bt = spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
             sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
             row += 1
-            print(i, j, cosine_sim_lr)
+            # print(i, j, cosine_sim_lr)
         final_image = np.zeros((c.max_size, c.max_size, 2))
         final_image[:,:,0] = processed_images[i]
         final_image[:,:,1] = sim_layer
