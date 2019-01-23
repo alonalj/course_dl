@@ -15,16 +15,18 @@ import pickle as pkl
 import numpy as np
 from conf import Conf
 import random
+import cv2
 
 
-def add_similarity_channel(processed_images, c):
+def add_similarity_channel(processed_images, original_images, c):
     from scipy import spatial  # TODO: add to dependencies
     sim_layer = np.zeros((c.max_size, c.max_size))
     # print("GG", np.array(processed_images).shape)
     final_images = []
     for i in range(len(processed_images)):
         n_columns = 1
-        im = processed_images[i]
+        im = original_images[i]
+        im = cv2.resize(im, (224,224))
         # print(im.shape)
         right_edge_original = im[:, -1].flatten()
         left_edge_original = im[:, 0].flatten()
@@ -36,8 +38,8 @@ def add_similarity_channel(processed_images, c):
         for j in range(len(processed_images)):
             if i == j:
                 continue
-            potential_neighbor = processed_images[j]
-            # print("p", potential_neighbor.shape)
+            potential_neighbor = original_images[j]
+            potential_neighbor = cv2.resize(potential_neighbor, (224, 224))
             right_edge = potential_neighbor[:,-1].flatten()
             left_edge = potential_neighbor[:,0].flatten()
             top_edge = potential_neighbor[0, :].flatten()
@@ -50,6 +52,7 @@ def add_similarity_channel(processed_images, c):
             cosine_sim_bt = spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
             sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
             row += 1
+            print(i, j, cosine_sim_lr)
         final_image = np.zeros((c.max_size, c.max_size, 2))
         final_image[:,:,0] = processed_images[i]
         final_image[:,:,1] = sim_layer
@@ -58,7 +61,6 @@ def add_similarity_channel(processed_images, c):
 
 
 def _shredder(raw_input_dir, data_type, c, output_dir):
-    import cv2
     import os
 
     Xa = []
