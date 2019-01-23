@@ -200,12 +200,12 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             if flip_img:
                 im_resized = cv2.flip(im_resized, 1)
             images_in_folder.append(im_resized)
-            # original_images.append(im)
+            original_images.append(im)
 
         if np.array(images_in_folder).shape != (c.n_tiles_per_sample, c.max_size, c.max_size):
             continue
         # print(np.array(images_in_folder).shape)
-        images_in_folder = add_similarity_channel(images_in_folder, c)
+        images_in_folder = add_similarity_channel(images_in_folder, original_images, c)
 
         X_batch.append(np.array(images_in_folder))  # a folder is one single sample
         # print(labels_in_folder)
