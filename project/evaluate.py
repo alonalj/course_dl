@@ -3,12 +3,10 @@ import cv2
 from keras import optimizers
 from keras.utils import to_categorical
 
-from preprocessor import resize_image
-
 # TODO: ask if we can add conf here
 from conf import Conf
 c = Conf()
-
+from preprocessor import *
 
 def get_t(images):
     n_images = len(images)
@@ -52,6 +50,7 @@ def read_test_images_docs(file_dir):
     y_batch = []
     labels_in_folder = []
     for f in files:
+        print(f)
         if f == '.DS_Store':
             continue
         im = cv2.imread(file_dir + f)
@@ -60,12 +59,15 @@ def read_test_images_docs(file_dir):
         except:
             continue
         images.append(im)
+    return images
     print(is_image(images))
 
 
 
-def predict(images):
+# def predict(images):
+def predict(images, y_batch):
     labels = []
+    X_batch = []
     t = get_t(images)
     img_size_dst = get_image_size(t)
     c = Conf(int(t), int(img_size_dst), is_image(images))
@@ -84,17 +86,71 @@ def predict(images):
 
     # resnet.load_weights("test.h5")
     resnet.load_weights(
-        "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_True_mID_0_1548086946.3104653_L_7.1201024.h5")
-    from keras.models import load_model
-    # resnet = load_model("test_m.h5")
-    # resnet.load_weights("resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1547976802.593452_L_120.22917.h5")
+        "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_True_mID_0_1548231669.6831458_L_0.8997396.h5")
 
-    im = resize_image(im, c.max_size)  # TODO: has to be here! Only after determining doc / image
+    resized_images = []
+    original_images = []
+    for im in images:
+        original_images.append(im)
+        resized_images.append(resize_image(im, c.max_size, simple_reshape=True))  # TODO: has to be here! Only after determining doc / image
 
+    resized_images = add_similarity_channel(resized_images, original_images, c)
+
+    X_batch.append(np.array(resized_images))  # a folder is one single sample
+    # print(labels_in_folder)
+    # folder_labels = to_categorical(labels_in_folder, num_classes=c.n_classes)
+    # y_batch.append(folder_labels)
+    # if len(y_batch) == batch_size:
+        # print(np.array(X_batch).ndim)
+        # print(np.array(X_batch))
+        # if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size, 2):
+        #     print(folder)
+        #     print(np.array(X_batch).shape)
+    X_batch = list(np.array(X_batch).reshape(c.n_tiles_per_sample, 1, c.max_size, c.max_size, 2))
+
+    # X_batch.append(np.array(add_similarity_channel(resized_images, original_images, c)))
+    # # print(X_batch.shape)
+    # X_batch = list(np.array(X_batch).reshape(c.n_tiles_per_sample, 1, c.max_size, c.max_size, 2))
+    print(resnet.evaluate(X_batch, y_batch))
     # here comes your code to predict the labels of the images
     return labels
 
+
 from resnet_adapted import *
+
+
+# def calc_edge_similarity_score(images):
+#     from scipy import spatial  # TODO: add to dependencies
+#     sim_layer = np.zeros((c.max_size, c.max_size))
+#     for i in range(len(images)):
+#         n_columns = 1
+#         im = images[i] / 255.
+#         print(im.shape)
+#         right_edge_original = im[:, -n_columns:].flatten()
+#         left_edge_original = im[:, 0:n_columns].flatten()
+#         top_edge_original = im[0, :].flatten()
+#         bottom_edge_original = im[-1, :].flatten()
+#         row = 0
+#         for j in range(len(images)):
+#             if i == j:
+#                 continue
+#             potential_neighbor = images[j] / 255.
+#             right_edge = [potential_neighbor[:,0:1].flatten()]
+#             left_edge = [potential_neighbor[:,-1:].flatten()]
+#             top_edge = potential_neighbor[0, :].flatten()
+#             bottom_edge = potential_neighbor[-1, :].flatten()
+#             # print(sum(right_edge_original - left_edge))
+#             cosine_sim_rl = 1-spatial.distance.cosine(right_edge_original, left_edge)
+#             cosine_sim_lr = 1 - spatial.distance.cosine(left_edge_original, right_edge)
+#             cosine_sim_tb = 1 - spatial.distance.cosine(top_edge_original, bottom_edge)
+#             cosine_sim_bt = 1 - spatial.distance.cosine(bottom_edge_original, top_edge)
+#             sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
+#             row += 1
+#         final_image = np.zeros((32, 32, 2))
+#         final_image[:,:,0] = images[i]
+#         final_image[:,:,1] = sim_layer
+#         images[i] = final_image  # has two channels, the second channel has the similarities
+#     return images
 
 
 def evaluate(file_dir='output/'):
@@ -110,7 +166,6 @@ def evaluate(file_dir='output/'):
             continue
         im = cv2.imread(file_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        im = resize_image(im, c.max_size)  #TODO: simple?
 
         images.append(im)
         label = f.split('_')[-1].split('.')[0]
@@ -119,41 +174,38 @@ def evaluate(file_dir='output/'):
             label = c.n_original_tiles
         labels_in_folder.append(label)
 
-    counter = 0
-    for f in files:#range(c.tiles_per_dim):  # TODO - fix to match up to t OoD in folder
-        im = np.zeros((c.max_size, c.max_size))
-        label = "-1"
-        # if f == '.DS_Store':
-        #     continue
-        if counter == c.tiles_per_dim:
-            break
-        # im = cv2.imread(file_dir + f)
-        # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        im = resize_image(im, c.max_size)
-
-        images.append(im)
-
-        # label = f.split('_')[-1].split('.')[0]
-        if label == "-1":
-            # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
-            label = c.n_original_tiles
-        labels_in_folder.append(label)
-
-        counter += 1
+    # counter = 0
+    # for f in files:#range(c.tiles_per_dim):  # TODO - fix to match up to t OoD in folder
+    #     im = np.zeros((c.max_size, c.max_size))
+    #     # label = "-1"
+    #     # if f == '.DS_Store':
+    #     #     continue
+    #     if counter == c.tiles_per_dim:
+    #         break
+    #     im = cv2.imread(file_dir + f)
+    #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    #
+    #     images.append(im)
+    #
+    #     # label = f.split('_')[-1].split('.')[0]
+    #     if label == "-1":
+    #         # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
+    #         label = c.n_original_tiles
+    #     # labels_in_folder.append(label)
+    #
+    #     counter += 1
 
     folder_labels = to_categorical(labels_in_folder, num_classes=c.n_classes)
     y_batch.append(folder_labels)
     y_batch = list(np.array(y_batch).reshape(c.n_tiles_per_sample, 1, c.n_classes))
-    X_batch.append(np.array(images))
-    X_batch = list(np.array(X_batch).reshape(c.n_tiles_per_sample, 1, c.max_size, c.max_size))
-    Y = resnet.test_on_batch(X_batch, y_batch)
 
-
+    Y = predict(images, y_batch) # TODO
     # Y = predict(images) # TODO
     print(Y)
     return Y
 
 
-# evaluate()
-read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
-read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
+evaluate('dataset_2_isImg_True/n01440764_172_crw_0_crh_0_reshape_False/')
+# read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
+# read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
+# calc_edge_similarity_score(read_test_images_docs('example/'))
