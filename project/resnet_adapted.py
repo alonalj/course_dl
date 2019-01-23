@@ -184,7 +184,7 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
         OoD_tile_diff = keras.layers.Lambda(lambda x: x[:, OoD_tile_class_idx])(diff_OoD)
         sum_diff_all_tiles_in_sample = keras.layers.Add()([OoD_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
 
-    # adding the sum_diff_all_tiles_in_sample penalty with small weight to actual outputs so cross entropy will be harmed if not all diff_original
+    # adding the sum_diff_all _tiles_in_sample penalty with small weight to actual outputs so cross entropy will be harmed if not all diff_original
     penalized_outputs_from_sample = []
     if n_original_tiles < 5:
         alpha = 0.00001
