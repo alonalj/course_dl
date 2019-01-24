@@ -141,11 +141,47 @@ def predict(images, y_batch):
             idx_max = -1
         labels.append(idx_max)
     print("before ood", labels)
+
     # in case OoDs are of a different shape, we can easily label them:
+    OoD_have_diff_shape = False
     for im_idx in range(len(images)):
         im = images[im_idx]
         if im_shapes[im.shape] <= t:
             labels[im_idx] = -1
+            OoD_have_diff_shape = True
+
+    try:
+        # if OoD are not of different shape
+        # resolve clashes using confidence scores (logits values where argmax)
+        classes = list(range(c.n_classes-1))
+        classes.append(-1)
+        for cl_ix in range(len(classes)):
+            cl = classes[cl_ix]
+            indices_with_label = np.where(np.array(labels) == cl)[0]
+            if len(indices_with_label) > 1 and cl != -1:
+                # keep the one with highest confidence (logit)
+                all_logits = []
+                for idx in indices_with_label:
+                    all_logits.append(logits[idx][0][cl])
+                highest_conf_pos_in_list = indices_with_label[np.argmax(all_logits)]
+                idx_with_lower_conf = [i for i in indices_with_label if i != highest_conf_pos_in_list]
+                for ix_lower in idx_with_lower_conf:
+                    print("labels b4", labels)
+
+
+                    # # assign it the next best logit
+                    old_logits = logits[ix_lower][0]
+                    logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl] and ix >= cl and ix < c.n_classes-1]
+                    new_max_ix = np.argmax(logits_without_highest)
+                    labels[ix_lower] = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
+                    print("labels after", labels)
+    except:
+        pass
+
+
+
+
+
     print("after ood", labels)
     # here comes your code to predict the labels of the images
     return labels
@@ -188,20 +224,20 @@ def evaluate(file_dir='output/'):
     print(Y)
     return Y
 
-try:
-    files_dict = load_obj('train_test_val_dict_img_2')
-    files = files_dict['test']
-    for f in files:
-        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-        evaluate('dataset_2_isImg_True/'+f+'/')
-except:
-    files_dict = load_obj('train_test_val_dict_doc_2')
-    files = files_dict['test']
-    for f in files:
-        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-        evaluate('dataset_2_isImg_False/' + f + '/')
-    # filename = f.split('.')[0] + '_crw_' + str(c_w) + '_crh_' + str(c_h) + '_reshape_' + str(reshape)
-# evaluate('dataset_2_isImg_True/n01440764_18_crw_0_crh_0_reshape_False/')
+# try:
+#     files_dict = load_obj('train_test_val_dict_img_2')
+#     files = files_dict['test']
+#     for f in files:
+#         # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+#         evaluate('dataset_2_isImg_True/'+f+'/')
+# except:
+#     files_dict = load_obj('train_test_val_dict_doc_2')
+#     files = files_dict['test']
+#     for f in files:
+#         # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+#         evaluate('dataset_2_isImg_False/' + f + '/')
+#     # filename = f.split('.')[0] + '_crw_' + str(c_w) + '_crh_' + str(c_h) + '_reshape_' + str(reshape)
+evaluate('dataset_2_isImg_True/n01440764_18_crw_0_crh_0_reshape_False/')
 # read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
 # read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
 # calc_edge_similarity_score(read_test_images_docs('example/'))
