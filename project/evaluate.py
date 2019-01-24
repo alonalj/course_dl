@@ -224,20 +224,20 @@ def evaluate(file_dir='output/'):
     print(Y)
     return Y
 
-# try:
-#     files_dict = load_obj('train_test_val_dict_img_2')
-#     files = files_dict['test']
-#     for f in files:
-#         # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-#         evaluate('dataset_2_isImg_True/'+f+'/')
-# except:
-#     files_dict = load_obj('train_test_val_dict_doc_2')
-#     files = files_dict['test']
-#     for f in files:
-#         # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-#         evaluate('dataset_2_isImg_False/' + f + '/')
+try:
+    files_dict = load_obj('train_test_val_dict_img_2')
+    files = files_dict['test']
+    for f in files:
+        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+        evaluate('dataset_2_isImg_True/'+f+'/')
+except:
+    files_dict = load_obj('train_test_val_dict_doc_2')
+    files = files_dict['test']
+    for f in files:
+        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+        evaluate('dataset_2_isImg_False/' + f + '/')
 #     # filename = f.split('.')[0] + '_crw_' + str(c_w) + '_crh_' + str(c_h) + '_reshape_' + str(reshape)
-evaluate('dataset_2_isImg_True/n01440764_18_crw_0_crh_0_reshape_False/')
+# evaluate('dataset_2_isImg_True/n01440764_18_crw_0_crh_0_reshape_False/')
 # read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
 # read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
 # calc_edge_similarity_score(read_test_images_docs('example/'))
