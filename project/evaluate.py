@@ -87,12 +87,13 @@ def predict(images, y_batch):
         metrics=['accuracy'])
 
     if isImg:
+        print("is img")
         resnet.load_weights(
             "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_True_mID_0_1548231669.6831458_L_0.93424475.h5")
     else:
-        print("FAILED")
+        print("is doc")
         resnet.load_weights(
-            "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_True_mID_0_1548231669.6831458_L_0.8997396.h5")
+            "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_False_mID_0_1548231577.9751432_L_0.6845878.h5")
 
     resized_images = []
     original_images = []
