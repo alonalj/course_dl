@@ -338,7 +338,6 @@ def run(c):
             no_improvement_counter = 0  # reset
             logits = resnet.predict_on_batch(X_batch)
             print(logits)
-            print(logits.shape)
             logits = logits[0]
             for l in logits:
                 idx_max = l.argmax(axis=1)
