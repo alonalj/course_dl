@@ -237,6 +237,7 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     acc_after = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
     overall_acc_after += acc_after
     print("*** ACC after clashes", acc_after)
+    labels = [l if l != c.n_original_tiles else -1 for l in labels]
 
     print("final labels", labels)
 
