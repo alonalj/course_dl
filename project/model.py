@@ -337,9 +337,10 @@ def run(c):
             print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
             logits = resnet.predict_on_batch(X_batch)
+            print(logits)
+            print(logits.shape)
+            logits = logits[0]
             for l in logits:
-                print(logits)
-                print(logits.shape)
                 idx_max = l.argmax(axis=1)
                 print(idx_max)
                 print(idx_max.shape)
