@@ -336,7 +336,7 @@ def run(c):
             best_avg_acc_val = current_avg_acc
             print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
-            logits = resnet.predict_on_batch([i for i in np.array(X_batch_val)[:, 0, :, :, :].reshape((6, 1, 32, 32, 2))])
+            logits = resnet.predict_on_batch([i for i in np.array(X_batch_val)[:, 0, :, :, :].reshape((c.n_tiles_per_sample, 1, 32, 32, 2))])
             # print(logits)
             # logits = logits[0]
             for l in logits:
