@@ -5,7 +5,10 @@ from preprocessor import *
 from resnet_adapted import *
 from conf import Conf
 from resnet_img_doc_classifier import *
-c = Conf()
+
+# c = Conf()
+global overall_acc_before
+global overall_acc_after
 
 def maybe_download_weights():
     import os
@@ -255,11 +258,15 @@ def evaluate(file_dir='output/'):
 
         images.append(im)
         label = int(f.split('_')[-1].split('.')[0])
-
-        if label == "-1":
-            # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
-            label = c.n_original_tiles
         labels_in_folder.append(label)
+
+    t = get_t(images)
+    img_size_dst = get_image_size(t)
+    c = Conf(int(t), int(img_size_dst), is_image(images))
+    labels = [l if l != -1 else c.n_original_tiles for l in labels_in_folder]
+    # labels_in_folder
+        # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
+        # label = c.n_original_tiles
 
     print(labels_in_folder)
     # in case we're adding OoD null image
@@ -278,8 +285,7 @@ def evaluate(file_dir='output/'):
 
 
 all_accs = {}
-global overall_acc_before
-global overall_acc_after
+
 n_to_check = 3
 
 for t_ in [2,4,5]:
