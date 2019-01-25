@@ -61,9 +61,8 @@ def get_t(images):
 
 
 def get_image_size(t):
-    if t == 2 or t == 4:
-        return 32
-    return 16
+    # if t == 2 or t == 4:
+    return 32
 
 
 def is_image(images):
@@ -292,7 +291,7 @@ all_accs = {}
 
 n_to_check = 2
 
-for t_ in [4,5, 2]:
+for t_ in [5, 2, 4]:
 
     overall_acc_before = 0
     overall_acc_after = 0
