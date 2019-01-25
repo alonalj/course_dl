@@ -7,35 +7,44 @@ from conf import Conf
 from resnet_img_doc_classifier import *
 c = Conf()
 
-def download_resulting_weights_for_transfer_learning():
+def maybe_download_weights():
+    import os
     try:
         import urllib.request
     except:
         print("****** urllib package not installed - cannot fetch the solutions.******")
         return
     try:
-        print("Downloading our solution weight files. This may take a few minutes (315 MB total).")
         # Resulting weights for section "Fine tunning"
-        urllib.request.urlretrieve("https://drive.google.com/uc?id=1zr16MMaMdYe06D_YiPqkSVCcCCU93MS1&authuser=0&export=download",
-                                   'resnet_maxSize_32_t_5_isImg_False.h5')
-        urllib.request.urlretrieve("https://drive.google.com/uc?id=1xnJUYvlCmi86BGMcgdSC_Bhi-0vwq2ht&authuser=0&export=download",
-                                   'resnet_maxSize_32_t_5_isImg_True.h5')
-        urllib.request.urlretrieve(
-            "https://drive.google.com/uc?id=17ND6soRS86zmct1SxY8UwxO2vSm9D2FL&authuser=0&export=download",
-            'resnet_maxSize_32_t_4_isImg_False.h5')
-        urllib.request.urlretrieve(
-            "https://drive.google.com/uc?id=1fk--OsWqIp9JjLwoBcme0RgwrEAuhhnA&authuser=0&export=download",
-            'resnet_maxSize_32_t_4_isImg_True.h5')
-        urllib.request.urlretrieve(
-            "https://drive.google.com/uc?id=12fcuqkor0coPUdc5xmlE-J7NXNCJ4lzV&authuser=0&export=download",
-            'resnet_maxSize_32_t_2_isImg_False.h5')
-        urllib.request.urlretrieve(
-            "https://drive.google.com/uc?id=1QJuc_FLmjshPcJMiNLjs_ygrHoOr3VlD&authuser=0&export=download",
-            'resnet_maxSize_32_t_2_isImg_True.h5')
-        urllib.request.urlretrieve(
-            "https://drive.google.com/uc?id=1-Vdbo7QXWVkXy4UsTkoErDGaDoIaiCKw&authuser=0&export=download",
-            'is_img_or_doc.h5')
-        print("Completed weight downloads.")
+        if not os.path.exists('resnet_maxSize_32_t_5_isImg_False.h5'):
+            print("Downloading our solution weight files. This may take a few minutes (315 MB total).")
+            urllib.request.urlretrieve("https://drive.google.com/uc?id=1zr16MMaMdYe06D_YiPqkSVCcCCU93MS1&authuser=0&export=download",
+                                       'resnet_maxSize_32_t_5_isImg_False.h5')
+        if not os.path.exists('resnet_maxSize_32_t_5_isImg_True.h5'):
+            urllib.request.urlretrieve("https://drive.google.com/uc?id=1xnJUYvlCmi86BGMcgdSC_Bhi-0vwq2ht&authuser=0&export=download",
+                                       'resnet_maxSize_32_t_5_isImg_True.h5')
+        if not os.path.exists('resnet_maxSize_32_t_4_isImg_False.h5'):
+            urllib.request.urlretrieve(
+                "https://drive.google.com/uc?id=17ND6soRS86zmct1SxY8UwxO2vSm9D2FL&authuser=0&export=download",
+                'resnet_maxSize_32_t_4_isImg_False.h5')
+        if not os.path.exists('resnet_maxSize_32_t_4_isImg_True.h5'):
+            urllib.request.urlretrieve(
+                "https://drive.google.com/uc?id=1fk--OsWqIp9JjLwoBcme0RgwrEAuhhnA&authuser=0&export=download",
+                'resnet_maxSize_32_t_4_isImg_True.h5')
+        if not os.path.exists('resnet_maxSize_32_t_2_isImg_False.h5'):
+            urllib.request.urlretrieve(
+                "https://drive.google.com/uc?id=12fcuqkor0coPUdc5xmlE-J7NXNCJ4lzV&authuser=0&export=download",
+                'resnet_maxSize_32_t_2_isImg_False.h5')
+        if not os.path.exists('resnet_maxSize_32_t_2_isImg_True.h5'):
+            urllib.request.urlretrieve(
+                "https://drive.google.com/uc?id=1QJuc_FLmjshPcJMiNLjs_ygrHoOr3VlD&authuser=0&export=download",
+                'resnet_maxSize_32_t_2_isImg_True.h5')
+        if not os.path.exists('is_img_or_doc.h5'):
+            urllib.request.urlretrieve(
+                "https://drive.google.com/uc?id=1-Vdbo7QXWVkXy4UsTkoErDGaDoIaiCKw&authuser=0&export=download",
+                'is_img_or_doc.h5')
+            print("Completed weight downloads.")
+        return
     except:
         print("****** \nCannot auto-download the solution weights.\nPlease use the following link to download manually: "
               "https://drive.google.com/open?id=1aYCefWtPdV06L7dlHxDsdC_jRfWgf3j0 \n******")
@@ -103,6 +112,7 @@ def read_test_images_docs(file_dir):
 
 # def predict(images):
 def predict(images, y_batch):
+    maybe_download_weights()
     labels = []
     X_batch = []
     t = get_t(images)
