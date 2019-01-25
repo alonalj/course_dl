@@ -291,6 +291,7 @@ def run(c):
     val_steps_max = 0
     best_avg_acc_val = 0
     best_total_loss = np.inf
+    labels = []
 
     for e in range(maxepoches):
         print("Epoch {}".format(e))
@@ -318,8 +319,10 @@ def run(c):
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
             current_acc.append(np.mean(hist_val[-c.n_tiles_per_sample:]))
+        print("val labels best so far", labels)
         current_avg_acc = np.mean(current_acc)
         if current_avg_acc > best_avg_acc_val:
+            labels = []
             resnet.save_weights(
                 'resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
                                                                                                      c.tiles_per_dim,
@@ -333,6 +336,15 @@ def run(c):
             best_avg_acc_val = current_avg_acc
             print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
+            logits = resnet.predict_on_batch(X_batch)
+            for l in logits:
+                idx_max = l.argmax(axis=1)
+                idx_max = int(idx_max)
+                if idx_max == c.n_classes - 1:
+                    # OoD
+                    idx_max = -1
+                labels.append(idx_max)
+            print("val labels best", labels)
         else:
             no_improvement_counter += 1
         # # saving train ckpt
