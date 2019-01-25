@@ -291,9 +291,9 @@ def evaluate(file_dir='output/', overall_acc_before=0, overall_acc_after=0):
 
 all_accs = {}
 
-n_to_check = 15
+n_to_check = 30
 
-for t_ in [5, 2, 4]:
+for t_ in [2]:
 
     overall_acc_before = 0
     overall_acc_after = 0
