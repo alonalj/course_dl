@@ -201,37 +201,37 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     acc_before = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
     print("*** ACC before clashes", acc_before)
     overall_acc_before += acc_before
-    try:
-        # if OoD are not of different shape
-        # resolve clashes using confidence scores (logits values where argmax)
-        classes = list(range(c.n_classes-1))
-        classes.append(-1)
-        for cl_ix in range(len(classes)):
-            cl = classes[cl_ix]
-            indices_with_label = np.where(np.array(labels) == cl)[0]
-            if len(indices_with_label) > 1 and cl != -1:
-                # keep the one with highest confidence (logit)
-                all_logits = []
-                for idx in indices_with_label:
-                    all_logits.append(logits[idx][0][cl])
-                highest_conf_pos_in_list = indices_with_label[np.argmax(all_logits)]
-                idx_with_lower_conf = [i for i in indices_with_label if i != highest_conf_pos_in_list]
-                for ix_lower in idx_with_lower_conf:
-                    print("labels b4", labels)
-
-
-                    # # assign it the next best logit
-                    old_logits = logits[ix_lower][0]
-                    # logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl] and ix >= cl and ix < c.n_classes-1]
-                    logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl]]
-                    new_max_ix = np.argmax(logits_without_highest)
-                    new_label = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
-                    # if new_label == c.n_classes:
-                    #     new_label = -1
-                    labels[ix_lower] = new_label
-                    print("labels after", labels)
-    except:
-        pass
+    # try:
+    #     # if OoD are not of different shape
+    #     # resolve clashes using confidence scores (logits values where argmax)
+    #     classes = list(range(c.n_classes-1))
+    #     classes.append(-1)
+    #     for cl_ix in range(len(classes)):
+    #         cl = classes[cl_ix]
+    #         indices_with_label = np.where(np.array(labels) == cl)[0]
+    #         if len(indices_with_label) > 1 and cl != -1:
+    #             # keep the one with highest confidence (logit)
+    #             all_logits = []
+    #             for idx in indices_with_label:
+    #                 all_logits.append(logits[idx][0][cl])
+    #             highest_conf_pos_in_list = indices_with_label[np.argmax(all_logits)]
+    #             idx_with_lower_conf = [i for i in indices_with_label if i != highest_conf_pos_in_list]
+    #             for ix_lower in idx_with_lower_conf:
+    #                 print("labels b4", labels)
+    #
+    #
+    #                 # # assign it the next best logit
+    #                 old_logits = logits[ix_lower][0]
+    #                 # logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl] and ix >= cl and ix < c.n_classes-1]
+    #                 logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl]]
+    #                 new_max_ix = np.argmax(logits_without_highest)
+    #                 new_label = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
+    #                 # if new_label == c.n_classes:
+    #                 #     new_label = -1
+    #                 labels[ix_lower] = new_label
+    #                 print("labels after", labels)
+    # except:
+    #     pass
 
     acc_after = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
     overall_acc_after += acc_after
