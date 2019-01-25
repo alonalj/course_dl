@@ -8,6 +8,47 @@ from resnet_img_doc_classifier import *
 c = Conf()
 
 
+def download_resulting_weights_for_transfer_learning():
+    try:
+        import urllib.request
+    except:
+        print("****** urllib package not installed - cannot fetch the solutions.******")
+        return
+    try:
+        print("Downloading our solution weight files. This may take around 1 minute.")
+        # Resulting weights for section "Fine tunning"
+        urllib.request.urlretrieve("https://drive.google.com/uc?id=1zr16MMaMdYe06D_YiPqkSVCcCCU93MS1&authuser=0&export=download",
+                                   'resnet_maxSize_32_t_5_isImg_False.h5')
+        print("Downloaded 1 of 7")
+        urllib.request.urlretrieve("https://drive.google.com/uc?id=1xnJUYvlCmi86BGMcgdSC_Bhi-0vwq2ht&authuser=0&export=download",
+                                   'resnet_maxSize_32_t_5_isImg_True.h5')
+        print("Downloaded 2 of 7")
+        urllib.request.urlretrieve(
+            "https://drive.google.com/uc?id=17ND6soRS86zmct1SxY8UwxO2vSm9D2FL&authuser=0&export=download",
+            'resnet_maxSize_32_t_4_isImg_False.h5')
+        print("Downloaded 3 of 7")
+        urllib.request.urlretrieve(
+            "https://drive.google.com/uc?id=1fk--OsWqIp9JjLwoBcme0RgwrEAuhhnA&authuser=0&export=download",
+            'resnet_maxSize_32_t_4_isImg_True.h5')
+        print("Downloaded 4 of 7")
+        urllib.request.urlretrieve(
+            "https://drive.google.com/uc?id=12fcuqkor0coPUdc5xmlE-J7NXNCJ4lzV&authuser=0&export=download",
+            'resnet_maxSize_32_t_2_isImg_False.h5')
+        print("Downloaded 5 of 7")
+        urllib.request.urlretrieve(
+            "https://drive.google.com/uc?id=1QJuc_FLmjshPcJMiNLjs_ygrHoOr3VlD&authuser=0&export=download",
+            'resnet_maxSize_32_t_2_isImg_True.h5')
+        print("Downloaded 6 of 7")
+        urllib.request.urlretrieve(
+            "https://drive.google.com/uc?id=1-Vdbo7QXWVkXy4UsTkoErDGaDoIaiCKw&authuser=0&export=download",
+            'is_img_or_doc.h5')
+        print("Completed downloading.")
+    except:
+        print("****** \nCannot auto-download the solution weights.\nPlease use the following link to download manually: "
+              "https://drive.google.com/open?id=1aYCefWtPdV06L7dlHxDsdC_jRfWgf3j0 \n******")
+        return
+
+
 def get_t(images):
     n_images = len(images)
     if n_images <= 2**2+2:
@@ -89,11 +130,11 @@ def predict(images, y_batch):
     if isImg:
         print("is img")
         resnet.load_weights(
-            "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_True_mID_0_1548231669.6831458_L_0.93424475.h5")
+            "resnet_maxSize_{}_t_{}_isImg_True.h5".format(c.max_size, t))
     else:
         print("is doc")
         resnet.load_weights(
-            "resnet_maxSize_32_tilesPerDim_2_nTilesPerSample_6_isImg_False_mID_0_1548231577.9751432_L_0.6845878.h5")
+            "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, t))
 
     resized_images = []
     original_images = []
@@ -150,6 +191,12 @@ def predict(images, y_batch):
             labels[im_idx] = -1
             OoD_have_diff_shape = True
 
+    labels = labels[:len(images)]
+
+    gt = [np.argmax(i) if np.argmax(i) != c.n_classes - 1 else -1 for i in y_batch]
+    acc_before = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
+    print("*** ACC before clashes", acc_before)
+    overall_acc_before += acc_before
     try:
         # if OoD are not of different shape
         # resolve clashes using confidence scores (logits values where argmax)
@@ -178,11 +225,13 @@ def predict(images, y_batch):
     except:
         pass
 
-
-
+    acc_after = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
+    overall_acc_after += acc_after
+    print("*** ACC after clashes", overall_acc_after)
 
 
     print("after ood", labels)
+
     # here comes your code to predict the labels of the images
     return labels
 
@@ -224,20 +273,34 @@ def evaluate(file_dir='output/'):
     print(Y)
     return Y
 
-try:
-    files_dict = load_obj('train_test_val_dict_img_2')
-    files = files_dict['test']
-    for f in files:
-        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-        evaluate('dataset_2_isImg_True/'+f+'/')
-except:
-    files_dict = load_obj('train_test_val_dict_doc_2')
-    files = files_dict['test']
-    for f in files:
-        # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-        evaluate('dataset_2_isImg_False/' + f + '/')
-#     # filename = f.split('.')[0] + '_crw_' + str(c_w) + '_crh_' + str(c_h) + '_reshape_' + str(reshape)
-# evaluate('dataset_2_isImg_True/n01440764_18_crw_0_crh_0_reshape_False/')
-# read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
-# read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
-# calc_edge_similarity_score(read_test_images_docs('example/'))
+
+all_accs = {}
+global overall_acc_before
+global overall_acc_after
+n_to_check = 3
+
+for t_ in [2,4,5]:
+
+    overall_acc_before = 0
+    overall_acc_after = 0
+    try:
+        print("Starting {}". format(t_))
+        files_dict = load_obj('train_test_val_dict_img_{}'.format(t_))
+        files = files_dict['test']
+        for f in files[:n_to_check]:
+            # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+            evaluate('dataset_2_isImg_True/'+f+'/')
+    except:
+        files_dict = load_obj('train_test_val_dict_doc_{}'.format(t_))
+        files = files_dict['test']
+        for f in files[:n_to_check]:
+            # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
+            evaluate('dataset_2_isImg_False/' + f + '/')
+
+    all_accs[t_] = (overall_acc_before / float(n_to_check), overall_acc_after / float(n_to_check))
+print("ACCS B4 vs AFTER", all_accs)
+    #     # filename = f.split('.')[0] + '_crw_' + str(c_w) + '_crh_' + str(c_h) + '_reshape_' + str(reshape)
+    # evaluate('dataset_2_isImg_True/n01440764_172_crw_0_crh_0_reshape_False/')
+    # read_test_images_docs('dataset_5_isImg_False/73_5_crw_0_crh_15_reshape_True/')
+    # read_test_images_docs('dataset_5_isImg_True/n01440764_7267_crw_0_crh_45_reshape_False/')
+    # calc_edge_similarity_score(read_test_images_docs('example/'))
