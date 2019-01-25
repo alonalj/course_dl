@@ -263,7 +263,7 @@ def evaluate(file_dir='output/'):
     t = get_t(images)
     img_size_dst = get_image_size(t)
     c = Conf(int(t), int(img_size_dst), is_image(images))
-    labels = [l if l != -1 else c.n_original_tiles for l in labels_in_folder]
+    labels_in_folder = [l if l != -1 else c.n_original_tiles for l in labels_in_folder]
     # labels_in_folder
         # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
         # label = c.n_original_tiles
