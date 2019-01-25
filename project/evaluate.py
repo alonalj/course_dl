@@ -6,9 +6,6 @@ from resnet_adapted import *
 from conf import Conf
 from resnet_img_doc_classifier import *
 
-# c = Conf()
-global overall_acc_before
-global overall_acc_after
 
 def maybe_download_weights():
     import os
@@ -286,9 +283,9 @@ def evaluate(file_dir='output/', overall_acc_before=0, overall_acc_after=0):
 
 all_accs = {}
 
-n_to_check = 3
+n_to_check = 2
 
-for t_ in [2,4,5]:
+for t_ in [4,5, 2]:
 
     overall_acc_before = 0
     overall_acc_after = 0
@@ -298,13 +295,13 @@ for t_ in [2,4,5]:
         files = files_dict['test']
         for f in files[:n_to_check]:
             # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-            _, overall_acc_before, overall_acc_after = evaluate('dataset_2_isImg_True/'+f+'/', overall_acc_before, overall_acc_after)
+            _, overall_acc_before, overall_acc_after = evaluate('dataset_{}_isImg_True/'+f+'/'.format(t_), overall_acc_before, overall_acc_after)
     except:
         files_dict = load_obj('train_test_val_dict_doc_{}'.format(t_))
         files = files_dict['test']
         for f in files[:n_to_check]:
             # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-            _, overall_acc_before, overall_acc_after = evaluate('dataset_2_isImg_False/' + f + '/', overall_acc_before, overall_acc_after)
+            _, overall_acc_before, overall_acc_after = evaluate('dataset_{}_isImg_False/' + f + '/'.format(t_), overall_acc_before, overall_acc_after)
 
     all_accs[t_] = (overall_acc_before / float(n_to_check), overall_acc_after / float(n_to_check))
 print("ACCS B4 vs AFTER", all_accs)
