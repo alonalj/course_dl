@@ -114,7 +114,7 @@ def read_test_images_docs(file_dir):
 
 
 # def predict(images):
-def predict(images, y_batch):
+def predict(images, y_batch, overall_acc_before, overall_acc_after):
     maybe_download_weights()
     labels = []
     X_batch = []
@@ -239,10 +239,10 @@ def predict(images, y_batch):
     print("after ood", labels)
 
     # here comes your code to predict the labels of the images
-    return labels
+    return labels, overall_acc_before, overall_acc_after
 
 
-def evaluate(file_dir='output/'):
+def evaluate(file_dir='output/', overall_acc_before=0, overall_acc_after=0):
     files = os.listdir(file_dir)
     # files.remove('.DS_Store')
     files.sort()
@@ -278,10 +278,10 @@ def evaluate(file_dir='output/'):
     y_batch.append(folder_labels)
     y_batch = list(np.array(y_batch).reshape(c.n_tiles_per_sample, 1, c.n_classes))
 
-    Y = predict(images, y_batch) # TODO
+    Y, overall_acc_before, overall_acc_after = predict(images, y_batch, overall_acc_before, overall_acc_after) # TODO
     # Y = predict(images) # TODO
     print(Y)
-    return Y
+    return Y, overall_acc_before, overall_acc_after
 
 
 all_accs = {}
@@ -298,13 +298,13 @@ for t_ in [2,4,5]:
         files = files_dict['test']
         for f in files[:n_to_check]:
             # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-            evaluate('dataset_2_isImg_True/'+f+'/')
+            _, overall_acc_before, overall_acc_after = evaluate('dataset_2_isImg_True/'+f+'/', overall_acc_before, overall_acc_after)
     except:
         files_dict = load_obj('train_test_val_dict_doc_{}'.format(t_))
         files = files_dict['test']
         for f in files[:n_to_check]:
             # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-            evaluate('dataset_2_isImg_False/' + f + '/')
+            _, overall_acc_before, overall_acc_after = evaluate('dataset_2_isImg_False/' + f + '/', overall_acc_before, overall_acc_after)
 
     all_accs[t_] = (overall_acc_before / float(n_to_check), overall_acc_after / float(n_to_check))
 print("ACCS B4 vs AFTER", all_accs)
