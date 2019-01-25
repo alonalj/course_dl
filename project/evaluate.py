@@ -237,7 +237,9 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     overall_acc_after += acc_after
     print("*** ACC after clashes", acc_after)
     labels = [l if l != c.n_original_tiles else -1 for l in labels]
-
+    if len(labels) == c.n_original_tiles and sum(labels) == -1*c.n_original_tiles:
+        # choose some other random label as there are no OoDs
+        labels = [0 for 0 in labels]
     print("final labels", labels)
 
 
