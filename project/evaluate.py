@@ -14,7 +14,7 @@ def download_resulting_weights_for_transfer_learning():
         print("****** urllib package not installed - cannot fetch the solutions.******")
         return
     try:
-        print("Downloading our solution weight files. This may take a few minutes.")
+        print("Downloading our solution weight files. This may take a few minutes (315 MB total).")
         # Resulting weights for section "Fine tunning"
         urllib.request.urlretrieve("https://drive.google.com/uc?id=1zr16MMaMdYe06D_YiPqkSVCcCCU93MS1&authuser=0&export=download",
                                    'resnet_maxSize_32_t_5_isImg_False.h5')
