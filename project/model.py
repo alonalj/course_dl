@@ -338,7 +338,11 @@ def run(c):
             no_improvement_counter = 0  # reset
             logits = resnet.predict_on_batch(X_batch)
             for l in logits:
+                print(logits)
+                print(logits.shape)
                 idx_max = l.argmax(axis=1)
+                print(idx_max)
+                print(idx_max.shape)
                 idx_max = int(idx_max)
                 if idx_max == c.n_classes - 1:
                     # OoD
