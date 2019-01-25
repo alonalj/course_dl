@@ -297,20 +297,20 @@ def run(c):
         print("Epoch {}".format(e))
         train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
         step = 0
-        for X_batch, y_batch in train_generator:
-            # print(X_batch.shape)
-            # print(y_batch.shape)
-            hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
-            preds = resnet.predict_on_batch(X_batch)
-
-            if step % 5 == 0:
-                print(hist)
-            if step % 10 == 0:
-                preds = np.array(preds)
-                y = np.array(y_batch)
-                # print(preds - y)
-                assert preds.shape == y.shape
-            step += 1
+        # for X_batch, y_batch in train_generator:
+        #     # print(X_batch.shape)
+        #     # print(y_batch.shape)
+        #     hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
+        #     preds = resnet.predict_on_batch(X_batch)
+        #
+        #     if step % 5 == 0:
+        #         print(hist)
+        #     if step % 10 == 0:
+        #         preds = np.array(preds)
+        #         y = np.array(y_batch)
+        #         # print(preds - y)
+        #         assert preds.shape == y.shape
+        #     step += 1
 
         # Validating at end of epoch
         print("VALIDATING")
@@ -336,13 +336,11 @@ def run(c):
             best_avg_acc_val = current_avg_acc
             print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
-            logits = resnet.predict_on_batch(X_batch)
-            print(logits)
-            logits = logits[0]
+            logits = resnet.predict_on_batch([i for i in np.array(X_batch_val)[:, 0, :, :, :].reshape((6, 1, 32, 32, 2))])
+            # print(logits)
+            # logits = logits[0]
             for l in logits:
                 idx_max = l.argmax(axis=1)
-                print(idx_max)
-                print(idx_max.shape)
                 idx_max = int(idx_max)
                 if idx_max == c.n_classes - 1:
                     # OoD
