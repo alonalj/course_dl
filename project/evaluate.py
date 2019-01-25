@@ -180,9 +180,9 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     for l in logits:
         idx_max = l.argmax(axis=1)
         idx_max = int(idx_max)
-        if idx_max == c.n_classes - 1:
-            # OoD
-            idx_max = -1
+        # if idx_max == c.n_classes - 1:
+        #     # OoD
+        #     idx_max = -1
         labels.append(idx_max)
     print("before ood", labels)
 
@@ -191,8 +191,9 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     for im_idx in range(len(images)):
         im = images[im_idx]
         if im_shapes[im.shape] <= t:
-            labels[im_idx] = -1
+            labels[im_idx] = c.n_original_tiles
             OoD_have_diff_shape = True
+    print("after ood", labels)
 
     labels = labels[:len(images)]
 
@@ -225,8 +226,8 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
                     logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl]]
                     new_max_ix = np.argmax(logits_without_highest)
                     new_label = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
-                    if new_label == c.n_classes:
-                        new_label = -1
+                    # if new_label == c.n_classes:
+                    #     new_label = -1
                     labels[ix_lower] = new_label
                     print("labels after", labels)
     except:
@@ -236,8 +237,9 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
     overall_acc_after += acc_after
     print("*** ACC after clashes", acc_after)
 
+    labels = [l if l != c.n_original_tiles else -1 for l in labels]
+    print("final pred", labels)
 
-    print("after ood", labels)
 
     # here comes your code to predict the labels of the images
     return labels, overall_acc_before, overall_acc_after
