@@ -297,20 +297,20 @@ def run(c):
         print("Epoch {}".format(e))
         train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
         step = 0
-        # for X_batch, y_batch in train_generator:
-        #     # print(X_batch.shape)
-        #     # print(y_batch.shape)
-        #     hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
-        #     preds = resnet.predict_on_batch(X_batch)
-        #
-        #     if step % 5 == 0:
-        #         print(hist)
-        #     if step % 10 == 0:
-        #         preds = np.array(preds)
-        #         y = np.array(y_batch)
-        #         # print(preds - y)
-        #         assert preds.shape == y.shape
-        #     step += 1
+        for X_batch, y_batch in train_generator:
+            # print(X_batch.shape)
+            # print(y_batch.shape)
+            hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
+            preds = resnet.predict_on_batch(X_batch)
+
+            if step % 5 == 0:
+                print(hist)
+            if step % 10 == 0:
+                preds = np.array(preds)
+                y = np.array(y_batch)
+                # print(preds - y)
+                assert preds.shape == y.shape
+            step += 1
 
         # Validating at end of epoch
         print("VALIDATING")
