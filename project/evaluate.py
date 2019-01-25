@@ -7,7 +7,6 @@ from conf import Conf
 from resnet_img_doc_classifier import *
 c = Conf()
 
-
 def download_resulting_weights_for_transfer_learning():
     try:
         import urllib.request
@@ -15,7 +14,7 @@ def download_resulting_weights_for_transfer_learning():
         print("****** urllib package not installed - cannot fetch the solutions.******")
         return
     try:
-        print("Downloading our solution weight files. This may take around 1 minute.")
+        print("Downloading our solution weight files. This may take around 1-3 minutes.")
         # Resulting weights for section "Fine tunning"
         urllib.request.urlretrieve("https://drive.google.com/uc?id=1zr16MMaMdYe06D_YiPqkSVCcCCU93MS1&authuser=0&export=download",
                                    'resnet_maxSize_32_t_5_isImg_False.h5')
@@ -38,7 +37,7 @@ def download_resulting_weights_for_transfer_learning():
         urllib.request.urlretrieve(
             "https://drive.google.com/uc?id=1QJuc_FLmjshPcJMiNLjs_ygrHoOr3VlD&authuser=0&export=download",
             'resnet_maxSize_32_t_2_isImg_True.h5')
-        print("Downloaded 6 of 7")
+        print("Downloaded 6 of 7. Next one is slightly larger.")
         urllib.request.urlretrieve(
             "https://drive.google.com/uc?id=1-Vdbo7QXWVkXy4UsTkoErDGaDoIaiCKw&authuser=0&export=download",
             'is_img_or_doc.h5')
