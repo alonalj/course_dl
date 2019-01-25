@@ -221,16 +221,20 @@ def predict(images, y_batch, overall_acc_before, overall_acc_after):
 
                     # # assign it the next best logit
                     old_logits = logits[ix_lower][0]
-                    logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl] and ix >= cl and ix < c.n_classes-1]
+                    # logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl] and ix >= cl and ix < c.n_classes-1]
+                    logits_without_highest = [old_logits[ix] for ix in range(len(old_logits)) if old_logits[ix] != old_logits[cl]]
                     new_max_ix = np.argmax(logits_without_highest)
-                    labels[ix_lower] = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
+                    new_label = np.where(old_logits == logits_without_highest[new_max_ix])[0][0]
+                    if new_label == c.n_classes:
+                        new_label = -1
+                    labels[ix_lower] = new_label
                     print("labels after", labels)
     except:
         pass
 
     acc_after = sum([1 if gt[i] == labels[i] else 0 for i in range(len(labels))]) / float(len(y_batch))
     overall_acc_after += acc_after
-    print("*** ACC after clashes", overall_acc_after)
+    print("*** ACC after clashes", acc_after)
 
 
     print("after ood", labels)
