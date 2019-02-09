@@ -2,7 +2,8 @@ import os
 import cv2
 from keras.utils import to_categorical
 from preprocessor import *
-from resnet_adapted import *
+from resnet_order_classifier import *
+from resnet_ood import *
 from resnet_img_doc_classifier import *
 
 
@@ -115,7 +116,8 @@ def predict(images):
     c = Conf(int(t), int(img_size_dst), is_image(images))
     isImg = is_image(images)
 
-    resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
+    # resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
+    resnet = build_resnet_ood(c.max_size, c.n_tiles_per_sample, 2, c.n_original_tiles, c.tiles_per_dim)
 
     resnet.compile(
         loss='categorical_crossentropy',
@@ -124,8 +126,8 @@ def predict(images):
 
     if isImg:
         print("is img")
-        resnet.load_weights(
-            "resnet_maxSize_{}_t_{}_isImg_True.h5".format(c.max_size, t))
+        resnet.load_weights("resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
+        # #     "resnet_maxSize_{}_t_{}_isImg_True.h5".format(c.max_size, t))
     else:
         print("is doc")
         resnet.load_weights(
@@ -183,9 +185,9 @@ def predict(images):
 def evaluate(file_dir='example/'):
     files = os.listdir(file_dir)
     files.sort()
+    print(files)  #TODO: remove
     images = []
     for f in files:
-        print(f)  #TODO: remove
         im = cv2.imread(file_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         images.append(im)
@@ -197,4 +199,4 @@ def evaluate(file_dir='example/'):
 
 
 # # TODO: remove
-# evaluate('dataset_2_isImg_True/n01440764_172_crw_0_crh_0_reshape_False/')
+evaluate('dataset_4_isImg_True/n01440764_96_crw_45_crh_0_reshape_False/')

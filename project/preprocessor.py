@@ -169,7 +169,14 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
                                     null_img = np.zeros((c.max_size, c.max_size))
                                     cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
                                 else:
-                                    cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+                                    if random.random() < 0.5:  # sometimes place at the top, sometimes at the bottom
+                                        name = names_previous[c_idx]
+                                        name_split = name.split('_')
+                                        name_split[1] = '0'  # reducing image id to 0 so when sorted will appear first
+                                        name = name_split[0]+'_' + name_split[1] + '_' + name_split[2]+'_'+name_split[3]
+                                        cv2.imwrite(folder_output_dir + name, crops_previous[c_idx])
+                                    else:
+                                        cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
                         else:
                             folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
 

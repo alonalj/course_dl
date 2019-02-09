@@ -2,7 +2,7 @@ import os
 import cv2
 from keras.utils import to_categorical
 from preprocessor import *
-from resnet_adapted import *
+from resnet_order_classifier import *
 from conf import Conf
 from resnet_img_doc_classifier import *
 
