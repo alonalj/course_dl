@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
     # datagen.fit(X_train)
 
-    # keras.callbacks.ModelCheckpoint('is_img_or_doc.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+    # keras.callbacks.ModelCheckpoint('is_img_or_doc_ORIGINAL.h5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
 
 
     resnet_img_vs_doc_hist = resnet_img_vs_doc.fit_generator(datagen_img_vs_doc.flow_from_directory('img_vs_doc', target_size=(32, 32), color_mode='grayscale',
@@ -150,4 +150,4 @@ if __name__ == '__main__':
                                                              validation_data=datagen_img_vs_doc.flow_from_directory('img_vs_doc_val', target_size=(32, 32), color_mode='grayscale'))
                                                             # callbacks=[reduce_lr])
 
-    resnet_img_vs_doc.save_weights('is_img_or_doc.h5')
+    resnet_img_vs_doc.save_weights('is_img_or_doc_ORIGINAL.h5')

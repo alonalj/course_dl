@@ -18,16 +18,50 @@ import random
 import cv2
 
 
+def get_shapes(images):
+    shape_to_count_dict = {}
+    shape_majority_count = 0
+    for im in images:
+        current_shape = im.shape
+        if current_shape in shape_to_count_dict.keys():
+            shape_to_count_dict[current_shape] += 1
+        else:
+            shape_to_count_dict[current_shape] = 1
+    for k in shape_to_count_dict.keys():
+        if shape_majority_count < shape_to_count_dict[k]:
+            shape_majority = k
+            shape_majority_count = shape_to_count_dict[k]
+    # print(shape_to_count_dict, shape_majority)
+    return shape_to_count_dict, shape_majority
+
+
+def reshape_ood_images_to_majority_shape(images, shape_majority):
+    for i in range(len(images)):
+        im = images[i]
+        if im.shape != shape_majority:
+            im = cv2.resize(im, (shape_majority[1], shape_majority[0]))
+            images[i] = im
+    return images
+
+
 def add_similarity_channel(processed_images, original_images, c):
     from scipy import spatial  # TODO: add to dependencies
     sim_layer = np.zeros((c.max_size, c.max_size))
+    indices_identified_as_ood = []
     # print("GG", np.array(processed_images).shape)
     final_images = []
+    ood_possible_by_shape = False
+    img_shape_to_count_dict, shape_majority = get_shapes(original_images)
+    mean_similarity_to_neighbors = []
+    all_grayscale_tones = []
+    original_images = reshape_ood_images_to_majority_shape(original_images, shape_majority)
+    processed_images = reshape_ood_images_to_majority_shape(processed_images, shape_majority)
+
     for i in range(len(processed_images)):
-        n_columns = 1
         im = original_images[i]
-        im = cv2.resize(im, (224,224))
-        # print(im.shape)
+        mean_grayscale_value = np.mean(im)
+        sum_similarity_to_neighbors = 0
+
         right_edge_original = im[:, -1].flatten()
         left_edge_original = im[:, 0].flatten()
         top_edge_original = im[0, :].flatten()
@@ -39,7 +73,10 @@ def add_similarity_channel(processed_images, original_images, c):
             if i == j:
                 continue
             potential_neighbor = original_images[j]
-            potential_neighbor = cv2.resize(potential_neighbor, (224, 224))
+            # if potential_neighbor.shape != shape_majority:
+            #     sim_layer[row, 0:4] = 0,0,0,0
+
+            # potential_neighbor = cv2.resize(potential_neighbor, (224, 224))
             right_edge = potential_neighbor[:,-1].flatten()
             left_edge = potential_neighbor[:,0].flatten()
             top_edge = potential_neighbor[0, :].flatten()
@@ -47,16 +84,25 @@ def add_similarity_channel(processed_images, original_images, c):
             # for m in [right_edge, left_edge, top_edge, bottom_edge]:
             #     print(len(m))
             cosine_sim_rl = 1-spatial.distance.cosine(np.add(right_edge_original, 0.0001), np.add(left_edge, 0.0001))
-            cosine_sim_lr = spatial.distance.cosine(np.add(left_edge_original, 0.0001), np.add(right_edge, 0.0001))
-            cosine_sim_tb = spatial.distance.cosine(np.add(top_edge_original, 0.0001), np.add(bottom_edge, 0.0001))
-            cosine_sim_bt = spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
+            cosine_sim_lr = 1-spatial.distance.cosine(np.add(left_edge_original, 0.0001), np.add(right_edge, 0.0001))
+            cosine_sim_tb = 1-spatial.distance.cosine(np.add(top_edge_original, 0.0001), np.add(bottom_edge, 0.0001))
+            cosine_sim_bt = 1-spatial.distance.cosine(np.add(bottom_edge_original, 0.0001), np.add(top_edge, 0.0001))
             sim_layer[row,0:4] = cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
+            sum_similarity_to_neighbors += np.max(sim_layer[row, 0:4])
             row += 1
             # print(i, j, cosine_sim_lr)
         final_image = np.zeros((c.max_size, c.max_size, 2))
-        final_image[:,:,0] = processed_images[i]
+        final_image[:,:,0] = cv2.resize(processed_images[i], (c.max_size,c.max_size))
         final_image[:,:,1] = sim_layer
         final_images.append(final_image)  # each has two channels, the second channel has the similarities
+        sum_similarity_to_neighbors = sum_similarity_to_neighbors / float(len(processed_images))
+        mean_similarity_to_neighbors.append(sum_similarity_to_neighbors)
+        all_grayscale_tones.append(mean_grayscale_value)
+
+    # zipped = zip(final_images, all_grayscale_tones)
+    # zipped = sorted(zipped, key=lambda x: x[1], reverse=True)  # sorting by grayscale tone
+    # zipped = [item[0] for item in zipped]
+
     return final_images
 
 
@@ -66,6 +112,8 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     Xa = []
     Xb = []
     y = []
+
+    add_t_OoDs = True
 
     # raw_input_dir = "images/"
 
@@ -110,19 +158,20 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
                         os.mkdir(output_dir)
                     os.mkdir(folder_output_dir)
 
-                    # add OOD from previous crops if exist:
-                    if len(crops_previous) > 0:
-                        # some of the time crate empty image (we will use this in case len(OoD) < t)
-                        idx = np.arange(len(crops_previous))
-                        np.random.shuffle(idx)
-                        for c_idx in idx[:c.tiles_per_dim]:
-                            if random.random() < 0.1:
-                                null_img = np.zeros((c.max_size, c.max_size))
-                                cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
-                            else:
-                                cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
-                    else:
-                        folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
+                    if add_t_OoDs:
+                        # add OOD from previous crops if exist:
+                        if len(crops_previous) > 0:
+                            # some of the time crate empty image (we will use this in case len(OoD) < t)
+                            idx = np.arange(len(crops_previous))
+                            np.random.shuffle(idx)
+                            for c_idx in idx[:c.tiles_per_dim]:
+                                if random.random() < 0.1:
+                                    null_img = np.zeros((c.max_size, c.max_size))
+                                    cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
+                                else:
+                                    cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+                        else:
+                            folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
 
                     im = cv2.imread(raw_input_dir + f)
                     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
@@ -153,13 +202,13 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
                             names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
                             i = i + 1
 
-                    # take OoD from last image in files as "previous" for first img
-
-                    if f == files[-1]:
-                        idx = np.arange(len(crops_previous))
-                        np.random.shuffle(idx)
-                        for c_idx in idx[:c.tiles_per_dim]:
-                            cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
+                    if add_t_OoDs:
+                        # take OoD from last image in files as "previous" for first img
+                        if f == files[-1]:
+                            idx = np.arange(len(crops_previous))
+                            np.random.shuffle(idx)
+                            for c_idx in idx[:c.tiles_per_dim]:
+                                cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
 
     files_dict[data_type] = list_of_folders
     print(files_dict)
@@ -284,40 +333,3 @@ def run_shredder(c):
             _shredder("documents/", data_type, c, output_dir)
         else:
             _shredder("images/", data_type, c, output_dir)
-
-
-# if __name__ == '__main__':
-    # # print(len(d['train']))
-    # print(d['val'])
-    # c = Conf()
-    # for is_images in [True, False]:
-        # c.data_split_dict = "train_test_val_dict_isImg_{}".format(str(is_images))
-
-    # dict_name = 'train_test_val_dict_doc'
-    # split_into_train_val_test('documents', 0.75, 0.15, dict_name)
-    # d = load_obj(dict_name)
-    # for data_type in ['train', 'val', 'test']:
-    #     shredder("documents/", 2, data_type, dict_name)
-    #     # shredder("documents/", 4)
-    #     # shredder("documents/", 5)
-
-
-    # import keras
-    # print(keras.__version__)
-
-
-# datagen = keras.preprocessing.ImageDataGenerator(
-#     featurewise_center=True,
-#     featurewise_std_normalization=True,
-#     rotation_range=20,
-#     width_shift_range=0.2,
-#     height_shift_range=0.2,
-#     horizontal_flip=True)
-#
-# # compute quantities required for featurewise normalization
-# # (std, mean, and principal components if ZCA whitening is applied)
-# train_generator = datagen.flow_from_directory(
-#         'dataset',
-#         target_size=(150, 150),
-#         batch_size=32,
-#         class_mode='binary')

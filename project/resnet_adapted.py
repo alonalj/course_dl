@@ -146,62 +146,60 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
         outputs_from_sample.append(x_out)
     # layer adds all output vectors
 
-    # Summing over predictions of each tile in folder, so that we later penalize if predictions for a given position
-    # index don't sum to 1
-    # Making sure each position of the t^2 options is associated with exactly one tile
-    # (creating a penalty by summing over all outputs for sample (all tiles' outputs)) over the relevant t^2 classes
-    for tile_idx in range(len(outputs_from_sample)):
-        outputs_from_sample_original = keras.layers.Lambda(lambda x: x[:, :n_original_tiles])(outputs_from_sample[tile_idx])
-        outputs_from_sample_OoD = keras.layers.Lambda(lambda x: x[:, n_original_tiles:])(
-            outputs_from_sample[tile_idx])
-        if tile_idx == 0:
-            sum_original_tile_preds = outputs_from_sample_original
-            sum_OoD_tile_preds = outputs_from_sample_OoD
-        else:
-            sum_original_tile_preds = keras.layers.Add()([outputs_from_sample_original, sum_original_tile_preds])   # shape(batch_size, n_original_tiles) (we summed over tiles, i.e. n_classes)
-            sum_OoD_tile_preds = keras.layers.Add()([outputs_from_sample_OoD,
-                                                     sum_OoD_tile_preds])
-            # if indeed we have exactly one prediction per position over all tiles then we should get sum = [1,1,..,1,1], e.g. for t=2 we get [1,1,1,1] (Note - there is no limit on OoD)
+    # # Summing over predictions of each tile in folder, so that we later penalize if predictions for a given position
+    # # index don't sum to 1
+    # # Making sure each position of the t^2 options is associated with exactly one tile
+    # # (creating a penalty by summing over all outputs for sample (all tiles' outputs)) over the relevant t^2 classes
+    # for tile_idx in range(len(outputs_from_sample)):
+    #     outputs_from_sample_original = keras.layers.Lambda(lambda x: x[:, :n_original_tiles])(outputs_from_sample[tile_idx])
+    #     outputs_from_sample_OoD = keras.layers.Lambda(lambda x: x[:, n_original_tiles:])(
+    #         outputs_from_sample[tile_idx])
+    #     if tile_idx == 0:
+    #         sum_original_tile_preds = outputs_from_sample_original
+    #         sum_OoD_tile_preds = outputs_from_sample_OoD
+    #     else:
+    #         sum_original_tile_preds = keras.layers.Add()([outputs_from_sample_original, sum_original_tile_preds])   # shape(batch_size, n_original_tiles) (we summed over tiles, i.e. n_classes)
+    #         sum_OoD_tile_preds = keras.layers.Add()([outputs_from_sample_OoD,
+    #                                                  sum_OoD_tile_preds])
+    #         # if indeed we have exactly one prediction per position over all tiles then we should get sum = [1,1,..,1,1], e.g. for t=2 we get [1,1,1,1] (Note - there is no limit on OoD)
+    #
+    #
+    # # This is basically doing sum(1 - sum_original_tile_preds) - ideally would be sum(1-1)=0 if each position were
+    # # associated with exactly one tile. A bad case would be all original tiles' predictions are the same:
+    # # -> for t=2 we would get sum = 1-4 = -3 (instead of 1-1=0)
+    # # simple example to understad computation here: if we replace (1-x) below with (5-x*0) we get a tensor of shape (batch_size, n_original_tiles) with all values = 25. Then we sum accross n_original_tiles and obtain ±100 in the case of t=2 (4 original tiles)
+    # diff_original = keras.layers.Lambda(lambda x: (1-x)**2)(sum_original_tile_preds)  # shape= (batch_size, n_original_tiles).  Subtracting total sum of prds over tiles from 1, so if many tiles got 1 in the same idx, we have 1-(large_number)
+    # for original_tile_class_idx in range(n_original_tiles):
+    #     original_tile_diff = keras.layers.Lambda(lambda x: x[:, original_tile_class_idx])(diff_original)
+    #     if original_tile_class_idx == 0:
+    #         sum_diff_all_tiles_in_sample = original_tile_diff
+    #     else:
+    #         sum_diff_all_tiles_in_sample = keras.layers.Add()([original_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
+    # # t=2, if all get same pred (idx=3) then: (1-x)**2 = [1,1,1-4,1]**2 = 1+1+9+1 = 12 --> sum_diff_all_tiles_in_sample = 12*4 = 28 -->
+    # # multiply by coefficient, say 0.01 (below) we get 0.28. --> Subtract this penalty from all predictions (resnet out):
+    # # we get [-0.28, -0.28, 1-0.28, -0.28, -0.28] (all got prediction of 3rd place). This goes to cross-entropy.
+    #
+    # diff_OoD = keras.layers.Lambda(lambda x: (tiles_per_dim - x) ** 2)(sum_OoD_tile_preds) # e.g. fot t=2 should be 0 if only two tiles have this prediction
+    # for OoD_tile_class_idx in range(1):  # always one class for OoD   #range(c.n_classes-c.n_original_tiles):
+    #     OoD_tile_diff = keras.layers.Lambda(lambda x: x[:, OoD_tile_class_idx])(diff_OoD)
+    #     sum_diff_all_tiles_in_sample = keras.layers.Add()([OoD_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
+    #
+    # # adding the sum_diff_all _tiles_in_sample penalty with small weight to actual outputs so cross entropy will be harmed if not all diff_original
+    # penalized_outputs_from_sample = []
+    # if n_original_tiles < 5:
+    #     alpha = 0.00001
+    # elif n_original_tiles > 5:
+    #     alpha = 0.00001
+    # penalty = keras.layers.Lambda(lambda x: -alpha * x)(sum_diff_all_tiles_in_sample)
+    # # penalty = sum_diff_all_tiles_in_sample
+    # for o in outputs_from_sample:
+    #     inverse_penalized_preds = keras.layers.Multiply()([penalty, o])
+    #     # o = keras.layers.Subtract()([o, penalty])
+    #     o = keras.layers.Add()([o, inverse_penalized_preds])
+    #     o = Dense(n_classes, activation='softmax')(o)
+    #     penalized_outputs_from_sample.append(o)
 
 
-    # This is basically doing sum(1 - sum_original_tile_preds) - ideally would be sum(1-1)=0 if each position were
-    # associated with exactly one tile. A bad case would be all original tiles' predictions are the same:
-    # -> for t=2 we would get sum = 1-4 = -3 (instead of 1-1=0)
-    # simple example to understad computation here: if we replace (1-x) below with (5-x*0) we get a tensor of shape (batch_size, n_original_tiles) with all values = 25. Then we sum accross n_original_tiles and obtain ±100 in the case of t=2 (4 original tiles)
-    diff_original = keras.layers.Lambda(lambda x: (1-x)**2)(sum_original_tile_preds)  # shape= (batch_size, n_original_tiles).  Subtracting total sum of prds over tiles from 1, so if many tiles got 1 in the same idx, we have 1-(large_number)
-    for original_tile_class_idx in range(n_original_tiles):
-        original_tile_diff = keras.layers.Lambda(lambda x: x[:, original_tile_class_idx])(diff_original)
-        if original_tile_class_idx == 0:
-            sum_diff_all_tiles_in_sample = original_tile_diff
-        else:
-            sum_diff_all_tiles_in_sample = keras.layers.Add()([original_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
-    # t=2, if all get same pred (idx=3) then: (1-x)**2 = [1,1,1-4,1]**2 = 1+1+9+1 = 12 --> sum_diff_all_tiles_in_sample = 12*4 = 28 -->
-    # multiply by coefficient, say 0.01 (below) we get 0.28. --> Subtract this penalty from all predictions (resnet out):
-    # we get [-0.28, -0.28, 1-0.28, -0.28, -0.28] (all got prediction of 3rd place). This goes to cross-entropy.
-
-    diff_OoD = keras.layers.Lambda(lambda x: (tiles_per_dim - x) ** 2)(sum_OoD_tile_preds) # e.g. fot t=2 should be 0 if only two tiles have this prediction
-    for OoD_tile_class_idx in range(1):  # always one class for OoD   #range(c.n_classes-c.n_original_tiles):
-        OoD_tile_diff = keras.layers.Lambda(lambda x: x[:, OoD_tile_class_idx])(diff_OoD)
-        sum_diff_all_tiles_in_sample = keras.layers.Add()([OoD_tile_diff, sum_diff_all_tiles_in_sample])  # shape=(batch_size, 1)
-
-    # adding the sum_diff_all _tiles_in_sample penalty with small weight to actual outputs so cross entropy will be harmed if not all diff_original
-    penalized_outputs_from_sample = []
-    if n_original_tiles < 5:
-        alpha = 0.00001
-    elif n_original_tiles > 5:
-        alpha = 0.00001
-    penalty = keras.layers.Lambda(lambda x: -alpha * x)(sum_diff_all_tiles_in_sample)
-    # penalty = sum_diff_all_tiles_in_sample
-    for o in outputs_from_sample:
-        inverse_penalized_preds = keras.layers.Multiply()([penalty, o])
-        # o = keras.layers.Subtract()([o, penalty])
-        o = keras.layers.Add()([o, inverse_penalized_preds])
-        o = Dense(n_classes, activation='softmax')(o)
-        penalized_outputs_from_sample.append(o)
-
-    # print(inputs_from_sample)
-    # print(penalized_outputs_from_sample)
-
-    return Model(inputs=inputs_from_sample, outputs=penalized_outputs_from_sample)
+    return Model(inputs=inputs_from_sample, outputs=outputs_from_sample)
 
 

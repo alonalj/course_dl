@@ -167,7 +167,8 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             continue
         folder_path = dataset_folder + '/' + folder
         files = os.listdir(folder_path)
-        np.random.shuffle(files)  # random shuffle files in folders too
+        files.sort()
+        # np.random.shuffle(files)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
         images_in_folder = []
         labels_in_folder = []
         # if len(files) != c.n_tiles_per_sample:

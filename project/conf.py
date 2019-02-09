@@ -9,3 +9,4 @@ class Conf:
         self.is_images = is_images
         self.mID = mID
         self.data_split_dict = data_split_dict
+        self.is_sample = True
