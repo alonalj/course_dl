@@ -66,8 +66,6 @@ from conf import Conf
 from saving_m import save_model
 
 
-
-
 def lr_scheduler(epoch):
     """Learning Rate Schedule
     Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
