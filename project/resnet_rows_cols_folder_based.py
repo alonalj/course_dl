@@ -11,7 +11,6 @@ from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
-SHAPE = 112
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -70,8 +69,8 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
                                          adjust_skip_dim=(i == 0 and adjust_first), weight_decay=weight_decay)
     return x
 
-def build_resnet_rows_col(weight_decay, TILES_PER_DIM):
-    x_in = Input(shape=(SHAPE, SHAPE, 1))
+def build_resnet_rows_col(weight_decay, TILES_PER_DIM, SHAPE):
+    x_in = Input(shape=(SHAPE, SHAPE, 2))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -115,8 +114,9 @@ def run(c, rows_or_cols):
     rows_or_cols = rows_or_cols
     print("STARTING {}".format(rows_or_cols))
     tiles_per_dim = c.tiles_per_dim
+    max_size = c.max_size
 
-    resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
+    resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim, max_size)
 
     batch_size = 50
     steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
@@ -134,7 +134,7 @@ def run(c, rows_or_cols):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc = ImageDataGenerator()#preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
         # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
         # featurewise_std_normalization=False,  # divide inputs by std of the dataset
@@ -154,7 +154,7 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(SHAPE, SHAPE),
+                                               target_size=(max_size, max_size, 2),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
@@ -163,7 +163,7 @@ def run(c, rows_or_cols):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(SHAPE, SHAPE),
+                                               target_size=(max_size, max_size, 2),
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
