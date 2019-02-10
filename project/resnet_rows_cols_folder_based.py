@@ -150,7 +150,7 @@ def run(c, rows_or_cols):
 
     ckpt = keras.callbacks.ModelCheckpoint('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-    early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.5,patience=10)
+    early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
