@@ -83,7 +83,7 @@ def build_resnet_rows_col(weight_decay, TILES_PER_DIM):
     x = res_tower_2_layer_img_vs_doc(x, 512, 2, True, weight_decay=weight_decay)
 
     x = GlobalAveragePooling2D()(x)
-    x = Dense(TILES_PER_DIM, activation='softmax')(x)
+    x = Dense(TILES_PER_DIM**2, activation='softmax')(x)
     return Model(inputs=x_in, outputs=x)
 
 
@@ -118,7 +118,7 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
 
-    batch_size = 100
+    batch_size = 50
     steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
     maxepoches = 1
     learning_rate = 0.0001
@@ -159,7 +159,7 @@ def run(c, rows_or_cols):
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=200,
-        validation_steps=30,
+        validation_steps=10,
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),

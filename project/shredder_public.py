@@ -201,8 +201,8 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
     files_train = files[:int(len(files)*0.8)]
 
     for f in os.listdir(IM_DIR):
-        label = f.split('_')[-1].split('.')[0]
-        label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
+        label = int(f.split('_')[-1].split('.')[0])
+        # label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
         label = str(label)
         if not os.path.exists(OUTPUT_DIR_TRAIN+label):
             os.mkdir(OUTPUT_DIR_TRAIN+label)
