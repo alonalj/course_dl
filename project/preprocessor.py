@@ -91,8 +91,10 @@ def add_similarity_channel(processed_images, original_images, c):
             sum_similarity_to_neighbors += np.max(sim_layer[row, 0:4])
             row += 1
             # print(i, j, cosine_sim_lr)
-        final_image = np.zeros((c.max_size, c.max_size, 2))
+        final_image = np.zeros((c.max_size, c.max_size, 3)) # TODO: might need to change 3
         final_image[:,:,0] = cv2.resize(processed_images[i], (c.max_size,c.max_size))
+        if np.max(final_image) > 1:
+            sim_layer = 255 * sim_layer
         final_image[:,:,1] = sim_layer
         final_images.append(final_image)  # each has two channels, the second channel has the similarities
         sum_similarity_to_neighbors = sum_similarity_to_neighbors / float(len(processed_images))
@@ -373,12 +375,14 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
             for w in range(tiles_per_dim):
 
                 crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
-                all_crops.append(crop / 255.)
-                i=i+1
+                all_crops.append(crop)
+
 
         all_crops = add_similarity_channel(all_crops, all_crops, c)
+        i = 0
         for crop in all_crops:
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
+            i+=1
 
 def shred_for_img_vs_doc():
     Xa = []

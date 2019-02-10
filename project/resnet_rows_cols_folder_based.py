@@ -70,7 +70,7 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
     return x
 
 def build_resnet_rows_col(weight_decay, TILES_PER_DIM, SHAPE):
-    x_in = Input(shape=(SHAPE, SHAPE, 2))
+    x_in = Input(shape=(SHAPE, SHAPE, 3))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -134,7 +134,7 @@ def run(c, rows_or_cols):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc = ImageDataGenerator()#preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
         # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
         # featurewise_std_normalization=False,  # divide inputs by std of the dataset
@@ -154,8 +154,8 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(max_size, max_size, 2),
-                                               color_mode='grayscale',
+                                               target_size=(max_size, max_size),
+                                               # color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=200,
@@ -163,8 +163,8 @@ def run(c, rows_or_cols):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(max_size, max_size, 2),
-                                               color_mode='grayscale'),
+                                               target_size=(max_size, max_size)),
+                                               # color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
     resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
