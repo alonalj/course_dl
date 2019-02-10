@@ -106,37 +106,6 @@ def get_rows_cols_model(c):
         optimizer="adam",
         metrics=['accuracy'])
     return resnet
-    # if isImg:
-    #     print("is img")
-    #     resnet.load_weights(
-    #         # "resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
-    #         "model_rows_4.h5".format(c.max_size, c.tiles_per_dim))
-    # else:
-    #     print("is doc")
-    #     resnet.load_weights(
-    #         "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, c.tiles_per_dim))
-
-
-
-def read_test_images_docs(file_dir):
-    files = os.listdir(file_dir)
-    # files.remove('.DS_Store')
-    files.sort()
-    images = []
-    X_batch = []
-    y_batch = []
-    labels_in_folder = []
-    for f in files:
-        print(f)
-        if f == '.DS_Store':
-            continue
-        im = cv2.imread(file_dir + f)
-        try:
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        except:
-            continue
-        images.append(im)
-    return images
 
 
 def predict(images):
@@ -228,10 +197,17 @@ def predict(images):
 
     return labels
 
-def row_col_tuple_to_position(tiles_per_dim):
-    if tiles_per_dim == 2:
 
-        return
+def row_col_tuple_to_position(tiles_per_dim, row_col_tuple):
+    dictionary = {}
+    count = 0
+    for i in range(tiles_per_dim):
+        for j in range(tiles_per_dim):
+            dictionary[(i,j)] = count
+            count += 1
+    print(dictionary)
+    return dictionary[row_col_tuple]
+
 
 def evaluate(file_dir='example/'):
     files = os.listdir(file_dir)
@@ -252,3 +228,4 @@ def evaluate(file_dir='example/'):
 # # TODO: remove
 evaluate('example/')
 # evaluate('dataset_4_isImg_True/n01440764_96_crw_45_crh_0_reshape_False/')
+# row_col_tuple_to_position(5, (2,2))
