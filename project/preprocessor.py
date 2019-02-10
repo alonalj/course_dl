@@ -223,28 +223,29 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     print(files_dict)
     save_obj(files_dict, c.data_split_dict)
 
-
-def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
-    train_test_val_dict = {}
-    folders_original = os.listdir(dataset_folder)
-    folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
-    folders = [f for f in folders if 'DS_Store' not in f]
-    np.random.shuffle(folders)
-    num_folders = len(folders)
-    stop_idx_train = int(num_folders*portion_train)
-    stop_idx_val = stop_idx_train+int(num_folders*portion_val)
-    train_folders = folders[:stop_idx_train]
-    val_folders = folders[stop_idx_train : stop_idx_val]
-    test_folders = folders[stop_idx_val :]
-
-    train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
-    val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
-    test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
-
-    train_test_val_dict['train'] = train_folders
-    train_test_val_dict['val'] = val_folders
-    train_test_val_dict['test'] = test_folders
-    save_obj(train_test_val_dict, dict_name)
+#
+# def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
+#     # call the main split for all files
+#     train_test_val_dict = {}
+#     folders_original = os.listdir(dataset_folder)
+#     folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
+#     folders = [f for f in folders if 'DS_Store' not in f]
+#     np.random.shuffle(folders)
+#     num_folders = len(folders)
+#     stop_idx_train = int(num_folders*portion_train)
+#     stop_idx_val = stop_idx_train+int(num_folders*portion_val)
+#     train_folders = folders[:stop_idx_train]
+#     val_folders = folders[stop_idx_train : stop_idx_val]
+#     test_folders = folders[stop_idx_val :]
+#
+#     train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
+#     val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
+#     test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
+#
+#     train_test_val_dict['train'] = train_folders
+#     train_test_val_dict['val'] = val_folders
+#     train_test_val_dict['test'] = test_folders
+#     save_obj(train_test_val_dict, dict_name)
 
 
 # def split_into_train_val_test(dataset_folder, n_test, dict_name):
@@ -489,6 +490,32 @@ def get_row_col_label(label, t, is_rows):
     return label
 
 
+def split_train_val_test(is_img, ratio_train=0.8, ratio_val=0.1, ratio_test=0.1):
+    try:
+        files_train = load_obj("files_train_img_{}".format(is_img))
+        files_val = load_obj("files_val_img_{}".format(is_img))
+        files_test = load_obj("files_test_img_{}".format(is_img))
+        print("already split files into train val test, loading..")
+    except:
+        print("splitting into train val test")
+        if is_img:
+            files = os.listdir('images/')
+        else:
+            files = os.listdir('documents/')
+        files = np.array(files)
+        np.random.shuffle(files)
+        files_train = files[:int(len(files) * ratio_train)]
+        files_val = files[int(len(files) * ratio_train):int(len(files) * ratio_train)+int(len(files) * ratio_val)]
+        files_test = [f for f in files if (f not in files_train) and (f not in files_val)]
+        save_obj(files_train, "files_train_img_{}".format(is_img))
+        save_obj(files_val, "files_val_img_{}".format(is_img))
+        save_obj(files_val, "files_test_img_{}".format(is_img))
+        assert len([f for f in files_test if f in files_train]) == 0
+        assert len([f for f in files_test if f in files_val]) == 0
+        assert len([f for f in files_val if f in files_train]) == 0
+    return files_train, files_val, files_test
+
+
 def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
     import shutil
 
@@ -498,31 +525,86 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
 
 
     OUTPUT_DIR_TRAIN = rows_or_cols + "_" + str(tiles_per_dim) + "/"
-    OUTPUT_DIR_TEST = rows_or_cols + "_" + str(tiles_per_dim) + "_val/"
+    OUTPUT_DIR_VAL = rows_or_cols + "_" + str(tiles_per_dim) + "_val/"
+    OUTPUT_DIR_TEST = rows_or_cols + "_" + str(tiles_per_dim) + "_test/"
+
     if not os.path.exists(OUTPUT_DIR_TRAIN):
         os.mkdir(OUTPUT_DIR_TRAIN)
-        os.mkdir(OUTPUT_DIR_TEST)
+        os.mkdir(OUTPUT_DIR_VAL)
     else:
         print("folders already created.")
         return
 
+    files_train, files_val, files_test = split_train_val_test(isImg)
+
     # for rows_or_cols in ["rows", "cols"]:
     IM_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, isImg)
     files = np.array(os.listdir(IM_DIR))
-    np.random.shuffle(files)
-    files_train = files[:int(len(files)*0.8)]
 
     for f in os.listdir(IM_DIR):
         label = int(f.split('_')[-1].split('.')[0])
+        pre_shredder_file_name = f.split('.')
         label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
         label = str(label)
         if not os.path.exists(OUTPUT_DIR_TRAIN+label):
             os.mkdir(OUTPUT_DIR_TRAIN+label)
-            os.mkdir(OUTPUT_DIR_TEST+label)
-        if f in files_train:
+            os.mkdir(OUTPUT_DIR_VAL+label)
+        if pre_shredder_file_name in files_train:
             OUTPUT_DIR = OUTPUT_DIR_TRAIN
+        elif pre_shredder_file_name in files_val:
+            OUTPUT_DIR = OUTPUT_DIR_VAL
         else:
             OUTPUT_DIR = OUTPUT_DIR_TEST
 
         shutil.copy(IM_DIR+f,OUTPUT_DIR+label+"/")
 
+def create_ood_non_ood_pairs(isImg):
+    '''
+    Creates two folders (two classes):
+    0 - contains pairs that are from the same image
+    1 - contains pairs that are not from the same image
+    (The model will take as input two images, and will produce either 0 or 1)
+    At prediction time, we will take the majority vote over the paris
+    (e.g. if for image i all pairs (i,j) where j != i produced 1, then i is OoD)
+    '''
+    import shutil
+
+    Xa = []
+    Xb = []
+    y = []
+
+    OUTPUT_DIR_TRAIN = "ood_isImg_{}" + "/"
+    OUTPUT_DIR_VAL = rows_or_cols + "_" + str(tiles_per_dim) + "_val/"
+    OUTPUT_DIR_TEST = rows_or_cols + "_" + str(tiles_per_dim) + "_test/"
+
+    if not os.path.exists(OUTPUT_DIR_TRAIN):
+        os.mkdir(OUTPUT_DIR_TRAIN)
+        os.mkdir(OUTPUT_DIR_VAL)
+    else:
+        print("folders already created.")
+        return
+
+    files_train, files_val, files_test = split_train_val_test(isImg)
+
+    # for rows_or_cols in ["rows", "cols"]:
+    IM_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, isImg)
+    files = np.array(os.listdir(IM_DIR))
+
+    for f in os.listdir(IM_DIR):
+        label = int(f.split('_')[-1].split('.')[0])
+        pre_shredder_file_name = f.split('.')
+        label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
+        label = str(label)
+        if not os.path.exists(OUTPUT_DIR_TRAIN+label):
+            os.mkdir(OUTPUT_DIR_TRAIN+label)
+            os.mkdir(OUTPUT_DIR_VAL+label)
+        if pre_shredder_file_name in files_train:
+            OUTPUT_DIR = OUTPUT_DIR_TRAIN
+        elif pre_shredder_file_name in files_val:
+            OUTPUT_DIR = OUTPUT_DIR_VAL
+        else:
+            OUTPUT_DIR = OUTPUT_DIR_TEST
+
+        shutil.copy(IM_DIR+f,OUTPUT_DIR+label+"/")
+
+# split_train_val_test(True)

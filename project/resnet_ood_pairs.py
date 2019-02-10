@@ -1,0 +1,157 @@
+import keras
+from keras.layers import Dense, MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, Conv2D, Dropout, Concatenate, \
+    Input
+from keras.layers import Flatten, InputLayer, BatchNormalization, Activation
+from keras.models import Model
+from keras import regularizers
+from keras.regularizers import Regularizer
+from keras import backend as K
+import numpy as np
+from conf import Conf
+
+
+# c = Conf()
+
+def res_2_layer_block(x_in, dim, downsample=False, weight_decay=0.0001):
+    x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+
+    x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x)
+    x = BatchNormalization()(x)
+
+    if downsample:
+        x_in = Conv2D(dim, kernel_size=(1, 1), padding='same', strides=(2, 2),
+                      kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+
+    x = keras.layers.add([x, x_in])
+    x = Activation('relu')(x)
+
+    return x
+
+
+def res_tower_2_layer(x, dim, num_layers, downsample_first=True, weight_decay=0.0001):
+    for i in range(num_layers):
+        x = res_2_layer_block(x, dim, downsample=(i == 0 and downsample_first), weight_decay=weight_decay)
+    return x
+
+
+def res_3_layer_block(x_in, dim_reduce, dim_out, downsample=False, adjust_skip_dim=False, weight_decay=0.0001):
+    x = Conv2D(dim_reduce, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+
+    x = Conv2D(dim_reduce, kernel_size=(3, 3), padding='same', strides=(1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+
+    x = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x)
+    x = BatchNormalization()(x)
+
+    if downsample or adjust_skip_dim:
+        x_in = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
+                      kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+
+    x = keras.layers.add([x, x_in])
+    x = Activation('relu')(x)
+
+    return x
+
+
+def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, weight_decay=0.0001):
+    for i in range(num_layers):
+        x = res_3_layer_block(x, int(dim / 4), dim, downsample=(i == 0 and downsample_first),
+                              adjust_skip_dim=(i == 0 and adjust_first), weight_decay=weight_decay)
+    return x
+
+
+# def pass_single_image(x_in, weight_decay=0.0001):
+#     x = Conv2D(64, kernel_size=(7, 7), padding='same', strides=(2, 2),
+#                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+#     x = BatchNormalization()(x)
+#     x = Activation('relu')(x)
+#
+#     x = MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
+#
+#     x = res_tower(x, 256, 3, False, True)
+#     x = res_tower(x, 512, 8, True)
+#     x = res_tower(x, 1024, 36, True)
+#     x = res_tower(x, 2048, 3, True)
+#
+#     x = GlobalAveragePooling2D()(x)
+#     x = Dense(c.n_classes, activation='softmax', kernel_regularizer=regularizers.l2(weight_decay))(x)
+#     return x
+
+def resnet_weights_shared_over_tiles(max_size, n_classes, x_in=None, weight_decay=0.0001):
+    # x_in = keras.layers.ZeroPadding2D()(x_in)
+    x_in = Input(shape=(max_size, max_size, 2))
+    x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
+               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+
+    x = res_tower_2_layer(x, 64, 2, False, weight_decay=weight_decay)
+    x = res_tower_2_layer(x, 128, 2, True, weight_decay=weight_decay)
+    x = res_tower_2_layer(x, 256, 2, True, weight_decay=weight_decay)
+    x = res_tower_2_layer(x, 512, 2, True, weight_decay=weight_decay)
+
+    x = GlobalAveragePooling2D()(x)
+
+    return Model(x_in, x, name="Resnet_model")
+
+
+class L1L2(Regularizer):
+    """Regularizer for L1 and L2 regularization.
+    # Arguments
+        l1: Float; L1 regularization factor.
+        l2: Float; L2 regularization factor.
+    """
+
+    def __init__(self, l1=0., l2=0.):
+        self.l1 = keras.backend.cast_to_floatx(l1)
+        self.l2 = keras.backend.cast_to_floatx(l2)
+
+    def __call__(self, x):
+        regularization = 0.
+        if self.l1:
+            regularization += keras.backend.sum(self.l1 * keras.backend.abs(x))
+        if self.l2:
+            regularization += keras.backend.sum(self.l2 * keras.backend.square(x))
+        return regularization
+
+    def get_config(self):
+        return {'l1': float(self.l1),
+                'l2': float(self.l2)}
+
+
+def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tiles_per_dim, nweight_decay=0.0001):
+    # TODO: ? another input is the shape of the image - could immediately tell if it's OoD
+    n_tiles_per_sample = n_tiles_per_sample  # original tiles + OoD
+    # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
+    # the evaluation over all tiles to happen in the same pass)
+    inputs_from_sample = []
+    outputs_from_sample = []
+    shared_net = resnet_weights_shared_over_tiles(max_size, n_classes)
+
+    x_in_1 = keras.layers.Input(shape=(max_size, max_size, 2), name="in_1")
+    x_in_1 = keras.layers.Reshape(target_shape=(x_in_1.shape[1], x_in_1.shape[2], 2), name="in_reshape_1")(x_in_1)
+    # for i in range(n_tiles_per_sample):
+    x_out_1 = shared_net(x_in_1)
+
+    x_in_2 = keras.layers.Input(shape=(max_size, max_size, 2), name="in_2")
+    x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 2), name="in_reshape_2")(x_in_2)
+    # for i in range(n_tiles_per_sample):
+    x_out_2 = shared_net(x_in_2)
+
+    concat = keras.layers.Concatenate()([x_out_1, x_out_2])
+    x = Dense(2)(concat)
+    x = Dense(2, activation='softmax')(x)
+
+    return Model(inputs=inputs_from_sample, outputs=x)
+
+

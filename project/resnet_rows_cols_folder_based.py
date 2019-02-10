@@ -125,7 +125,7 @@ def run(c, rows_or_cols):
     maxepoches = 1
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=5, min_lr=0.00005)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=50, min_lr=0.00001)
 
     sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
 
@@ -160,13 +160,13 @@ def run(c, rows_or_cols):
                                                # color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
-        epochs=200,
+        epochs=1000,
         validation_steps=30,
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
                                                target_size=(SHAPE, SHAPE)),
                                                # color_mode='grayscale'),
-        callbacks=[reduce_lr, ckpt, early_stop])
+        callbacks=[reduce_lr, ckpt])#, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))

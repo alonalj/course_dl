@@ -219,7 +219,6 @@ def evaluate(file_dir='example/'):
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         images.append(im)
 
-
     Y = predict(images)
     print(Y)  # TODO - remove!
     return Y
