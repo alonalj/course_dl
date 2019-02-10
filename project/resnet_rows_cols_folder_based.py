@@ -8,7 +8,7 @@ from keras.regularizers import Regularizer
 from keras import backend as K
 import numpy as np
 from keras_preprocessing.image import ImageDataGenerator
-
+import os
 from conf import Conf
 
 SHAPE = 112
@@ -118,7 +118,8 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
 
-    batch_size = 16
+    batch_size = 100
+    steps_per_epoch = len(os.listdir('{}_{}_val'.format(rows_or_cols, tiles_per_dim))) // batch_size
     maxepoches = 1
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
@@ -156,9 +157,9 @@ def run(c, rows_or_cols):
                                                target_size=(SHAPE, SHAPE),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
-        steps_per_epoch= 18,
+        steps_per_epoch=steps_per_epoch,
         epochs=200,
-        validation_steps = 10,
+        validation_steps=30,
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
