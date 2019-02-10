@@ -105,7 +105,7 @@ def get_rows_cols_model(c):
         loss='categorical_crossentropy',
         optimizer="adam",
         metrics=['accuracy'])
-
+    return resnet
     # if isImg:
     #     print("is img")
     #     resnet.load_weights(
@@ -115,7 +115,7 @@ def get_rows_cols_model(c):
     #     print("is doc")
     #     resnet.load_weights(
     #         "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, c.tiles_per_dim))
-    return resnet
+
 
 
 def read_test_images_docs(file_dir):
@@ -191,8 +191,10 @@ def predict(images):
     for i in ood_images_idx:
         img_ix_to_label_rows[i] = -1
 
+    rows_cols_model = get_rows_cols_model(conf_row_col, isImg)
+
     # rows
-    row_model = get_rows_cols_model(conf_row_col, isImg)
+    row_model = rows_cols_model.load_weights('model_{}_{}_isImg_{}.h5'.format("rows", conf_row_col.tiles_per_dim, is_image))
     images_for_row_col_prediction = [images[i] for i in real_images_idx]
     logits_row = row_model.predict_on_batch(images_for_row_col_prediction)
     # greedily start placing those with higher row certainty
@@ -205,7 +207,7 @@ def predict(images):
             img_ix_to_label_rows[ix] = row
 
     # cols
-    col_model = get_col_model(conf_row_col, isImg)
+    col_model = rows_cols_model.load_weights('model_{}_{}_isImg_{}.h5'.format("cols", conf_row_col.tiles_per_dim, is_image))
     logits_col = col_model.predict_on_batch(images_for_row_col_prediction)
     # greedily start placing those with higher col certainty
     for col in range(conf_row_col.tiles_per_dim):
@@ -215,14 +217,14 @@ def predict(images):
         most_likely_ix_in_col = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
         for ix in most_likely_ix_in_col:
             img_ix_to_label_cols[ix] = col
-    print("final labels mapping cols", img_ix_to_label_cols)
+    # print("final labels mapping cols", img_ix_to_label_cols)
 
     for i in range(len(images)):
         image_row_col_tuple = (img_ix_to_label_rows[i], img_ix_to_label_cols[i])
         label = row_col_tuple_to_position(conf_row_col.tiles_per_dim, image_row_col_tuple)
         labels.append(label)
 
-    print(labels)
+    # print(labels)
 
     return labels
 
