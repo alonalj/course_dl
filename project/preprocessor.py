@@ -531,6 +531,7 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
     if not os.path.exists(OUTPUT_DIR_TRAIN):
         os.mkdir(OUTPUT_DIR_TRAIN)
         os.mkdir(OUTPUT_DIR_VAL)
+        os.mkdir(OUTPUT_DIR_TEST)
     else:
         print("folders already created.")
         return
@@ -543,12 +544,14 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
 
     for f in os.listdir(IM_DIR):
         label = int(f.split('_')[-1].split('.')[0])
-        pre_shredder_file_name = f.split('.')
+        pre_shredder_file_name = f.split('.')[0]
+        pre_shredder_file_name = pre_shredder_file_name+'.JPEG'
         label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
         label = str(label)
         if not os.path.exists(OUTPUT_DIR_TRAIN+label):
             os.mkdir(OUTPUT_DIR_TRAIN+label)
             os.mkdir(OUTPUT_DIR_VAL+label)
+            os.mkdir(OUTPUT_DIR_TEST + label)
         if pre_shredder_file_name in files_train:
             OUTPUT_DIR = OUTPUT_DIR_TRAIN
         elif pre_shredder_file_name in files_val:
