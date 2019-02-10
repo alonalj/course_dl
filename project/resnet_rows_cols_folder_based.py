@@ -70,7 +70,8 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
                                          adjust_skip_dim=(i == 0 and adjust_first), weight_decay=weight_decay)
     return x
 
-def build_resnet_rows_col(weight_decay, TILES_PER_DIM):
+
+def build_resnet_rows_col(TILES_PER_DIM, weight_decay=1e-3):
     x_in = Input(shape=(SHAPE, SHAPE, 3))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
@@ -115,9 +116,9 @@ def run(c, rows_or_cols):
     rows_or_cols = rows_or_cols
     print("STARTING {}".format(rows_or_cols))
     tiles_per_dim = c.tiles_per_dim
-    is_image = c.is_image
+    is_image = c.is_images
 
-    resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
+    resnet_rows_cols = build_resnet_rows_col(tiles_per_dim)
 
     batch_size = 100
     steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size

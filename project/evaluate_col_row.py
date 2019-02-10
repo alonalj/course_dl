@@ -2,7 +2,7 @@ import os
 import cv2
 from keras.utils import to_categorical
 from preprocessor import *
-from resnet_order_classifier import *
+from resnet_rows_cols_folder_based import *
 from resnet_ood import *
 from resnet_img_doc_classifier import *
 
@@ -98,24 +98,23 @@ def get_ood_model(c, is_image):
     return resnet_ood
 
 
-def get_row_model(c, isImg):
-    resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
-    # resnet = build_resnet_ood(c.max_size, c.n_tiles_per_sample, 2, c.n_original_tiles, c.tiles_per_dim)
+def get_rows_cols_model(c):
+    resnet = build_resnet_rows_col(c.tiles_per_dim)
 
     resnet.compile(
         loss='categorical_crossentropy',
         optimizer="adam",
         metrics=['accuracy'])
 
-    if isImg:
-        print("is img")
-        resnet.load_weights(
-            # "resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
-            "model_rows_4.h5".format(c.max_size, c.tiles_per_dim))
-    else:
-        print("is doc")
-        resnet.load_weights(
-            "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, c.tiles_per_dim))
+    # if isImg:
+    #     print("is img")
+    #     resnet.load_weights(
+    #         # "resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
+    #         "model_rows_4.h5".format(c.max_size, c.tiles_per_dim))
+    # else:
+    #     print("is doc")
+    #     resnet.load_weights(
+    #         "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, c.tiles_per_dim))
     return resnet
 
 
@@ -145,13 +144,15 @@ def predict(images):
     labels = []
     X_batch = []
     t = get_t(images)
-    img_ix_to_label = {}
+    img_ix_to_label_rows = {}
+    img_ix_to_label_cols = {}
 
     isImg = is_image(images)
 
     conf_ood = Conf(int(t), 32, isImg)
     conf_row_col = Conf(int(t), 112, isImg)
 
+    # OOD classification
     resnet_ood = get_ood_model(conf_ood, isImg)
 
     resized_images_for_ood = []
@@ -183,40 +184,52 @@ def predict(images):
     logits_ood = resnet_ood.predict_on_batch(X_batch)[:len(images)]
     print(logits_ood)
     logits_ood_with_idx = zip(logits_ood, range(len(logits_ood)))
-    logits_ood_with_idx = sorted(logits_ood_with_idx, key=lambda item: item[0])
+    logits_ood_with_idx = sorted(logits_ood_with_idx, key=lambda item: item[0][0]) # TODO: first class is?
     ood_images_idx = [item[1] for item in logits_ood_with_idx[:n_expected_oods]]
     real_images_idx = [item[1] for item in logits_ood_with_idx[n_expected_oods:]]
     print("ood images idx", ood_images_idx)
     for i in ood_images_idx:
-        img_ix_to_label[i] = -1
+        img_ix_to_label_rows[i] = -1
 
-    row_model = get_row_model(conf_row_col, isImg)
+    # rows
+    row_model = get_rows_cols_model(conf_row_col, isImg)
     images_for_row_col_prediction = [images[i] for i in real_images_idx]
     logits_row = row_model.predict_on_batch(images_for_row_col_prediction)
-
     # greedily start placing those with higher row certainty
-    logits_ood_with_idx = zip(logits_ood, range(len(logits_ood)))
-    logits_ood_with_idx = sorted(logits_ood_with_idx, key=lambda item: item[0])
-    for l in logits_row:
-        idx_max = l.argmax(axis=1)
-        idx_max = int(idx_max)
-        if idx_max == 1:
-            # OoD
-            idx_max = -1
-        labels.append(idx_max)
-    print(labels)
-    none_ood_images = []
-    for l_ix in len(range(labels)):
-        if labels[l_ix] != -1:
-            none_ood_images.append(resized_images_for_ood[l_ix])
+    for row in range(conf_row_col.tiles_per_dim):
+        relevant_row_logits = [l[row] for l in logits_row]
+        logits_non_ood_with_idx = zip(relevant_row_logits, real_images_idx)
+        logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
+        most_likely_ix_in_row = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
+        for ix in most_likely_ix_in_row:
+            img_ix_to_label_rows[ix] = row
 
-    labels = [l if l != conf_row_col.n_original_tiles else -1 for l in labels]
-    if len(labels) == conf_row_col.n_original_tiles and sum(labels) == -1*conf_row_col.n_original_tiles:
-        # choose some other random label as there are no OoDs
-        labels = [0 for i in labels]
+    # cols
+    col_model = get_col_model(conf_row_col, isImg)
+    logits_col = col_model.predict_on_batch(images_for_row_col_prediction)
+    # greedily start placing those with higher col certainty
+    for col in range(conf_row_col.tiles_per_dim):
+        relevant_col_logits = [l[col] for l in logits_col]
+        logits_non_ood_with_idx = zip(relevant_col_logits, real_images_idx)
+        logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
+        most_likely_ix_in_col = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
+        for ix in most_likely_ix_in_col:
+            img_ix_to_label_cols[ix] = col
+    print("final labels mapping cols", img_ix_to_label_cols)
+
+    for i in range(len(images)):
+        image_row_col_tuple = (img_ix_to_label_rows[i], img_ix_to_label_cols[i])
+        label = row_col_tuple_to_position(conf_row_col.tiles_per_dim, image_row_col_tuple)
+        labels.append(label)
+
+    print(labels)
 
     return labels
 
+def row_col_tuple_to_position(tiles_per_dim):
+    if tiles_per_dim == 2:
+
+        return
 
 def evaluate(file_dir='example/'):
     files = os.listdir(file_dir)
