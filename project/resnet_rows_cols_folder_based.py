@@ -119,7 +119,7 @@ def run(c, rows_or_cols):
     resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
 
     batch_size = 100
-    steps_per_epoch = len(os.listdir('{}_{}_val'.format(rows_or_cols, tiles_per_dim))) // batch_size
+    steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
     maxepoches = 1
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
