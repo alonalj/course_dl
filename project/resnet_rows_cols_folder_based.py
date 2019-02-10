@@ -11,6 +11,7 @@ from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
+SHAPE = 112
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -69,7 +70,7 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
                                          adjust_skip_dim=(i == 0 and adjust_first), weight_decay=weight_decay)
     return x
 
-def build_resnet_rows_col(weight_decay, TILES_PER_DIM, SHAPE):
+def build_resnet_rows_col(weight_decay, TILES_PER_DIM):
     x_in = Input(shape=(SHAPE, SHAPE, 3))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
@@ -82,7 +83,7 @@ def build_resnet_rows_col(weight_decay, TILES_PER_DIM, SHAPE):
     x = res_tower_2_layer_img_vs_doc(x, 512, 2, True, weight_decay=weight_decay)
 
     x = GlobalAveragePooling2D()(x)
-    x = Dense(TILES_PER_DIM**2, activation='softmax')(x)
+    x = Dense(TILES_PER_DIM, activation='softmax')(x)
     return Model(inputs=x_in, outputs=x)
 
 
@@ -114,11 +115,11 @@ def run(c, rows_or_cols):
     rows_or_cols = rows_or_cols
     print("STARTING {}".format(rows_or_cols))
     tiles_per_dim = c.tiles_per_dim
-    max_size = c.max_size
+    is_image = c.is_image
 
-    resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim, max_size)
+    resnet_rows_cols = build_resnet_rows_col(1e-3, tiles_per_dim)
 
-    batch_size = 50
+    batch_size = 100
     steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
     maxepoches = 1
     learning_rate = 0.0001
@@ -148,23 +149,23 @@ def run(c, rows_or_cols):
 
     # datagen.fit(X_train)
 
-    ckpt = keras.callbacks.ModelCheckpoint('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim), monitor='val_loss',
-                                    verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+    ckpt = keras.callbacks.ModelCheckpoint('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_loss',
+                                    verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(max_size, max_size),
+                                               target_size=(SHAPE, SHAPE),
                                                # color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=200,
-        validation_steps=10,
+        validation_steps=30,
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(max_size, max_size)),
+                                               target_size=(SHAPE, SHAPE)),
                                                # color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
-    resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
+    # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))

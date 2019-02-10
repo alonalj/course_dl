@@ -100,8 +100,8 @@ def resnet_weights_shared_over_tiles(max_size, n_classes, x_in=None, weight_deca
     x = res_tower_2_layer(x, 512, 2, True, weight_decay=weight_decay)
 
     x = GlobalAveragePooling2D()(x)
-    # x = Dense(c.n_classes, activation='softmax')(x)
-    x = Dense(2)(x)  # 2 for OOD
+    x = Dense(2, activation='softmax')(x)
+    # x = Dense(2)(x)  # 2 for OOD
     return Model(x_in, x, name="Resnet_model")
 
 

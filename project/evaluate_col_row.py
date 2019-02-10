@@ -86,18 +86,19 @@ def is_image(images):
     return False
 
 
-def get_ood_model(images, c):
+def get_ood_model(c, is_image):
     resnet_ood = build_resnet_ood(c.max_size, c.n_tiles_per_sample, 2, c.n_original_tiles, c.tiles_per_dim)
     resnet_ood.compile(
         loss='categorical_crossentropy',
         optimizer='adam',
         metrics=['accuracy']
     )
-    resnet_ood.load_weights('ood_resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8117778.h5')
+    if is_image:
+        resnet_ood.load_weights('ood_resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8117778.h5')
     return resnet_ood
 
 
-def get_position_model():
+def get_row_model(c, isImg):
     resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
     # resnet = build_resnet_ood(c.max_size, c.n_tiles_per_sample, 2, c.n_original_tiles, c.tiles_per_dim)
 
@@ -109,12 +110,13 @@ def get_position_model():
     if isImg:
         print("is img")
         resnet.load_weights(
-            "resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
-        # #     "resnet_maxSize_{}_t_{}_isImg_True.h5".format(c.max_size, t))
+            # "resnet_maxSize_32_tilesPerDim_4_nTilesPerSample_20_isImg_True_mID_0_1549712345.601242_L_0.8088889.h5")
+            "model_rows_4.h5".format(c.max_size, c.tiles_per_dim))
     else:
         print("is doc")
         resnet.load_weights(
-            "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, t))
+            "resnet_maxSize_{}_t_{}_isImg_False.h5".format(c.max_size, c.tiles_per_dim))
+    return resnet
 
 
 def read_test_images_docs(file_dir):
@@ -143,52 +145,73 @@ def predict(images):
     labels = []
     X_batch = []
     t = get_t(images)
-    img_size_dst = get_image_size(t)
-    c = Conf(int(t), int(img_size_dst), is_image(images))
+    img_ix_to_label = {}
+
     isImg = is_image(images)
 
-    resnet_ood = get_ood_model(c, isImg)
+    conf_ood = Conf(int(t), 32, isImg)
+    conf_row_col = Conf(int(t), 112, isImg)
 
-    resized_images = []
-    original_images = []
-    im_shapes = {}
+    resnet_ood = get_ood_model(conf_ood, isImg)
+
+    resized_images_for_ood = []
+    resized_images_for_col_row = []
+    original_images_for_ood = []
+    original_images_for_col_row = []
     add_n_null_images = 0
-    if len(images) < c.n_tiles_per_sample:
-        add_n_null_images = c.n_tiles_per_sample - len(images)
+    n_expected_oods = len(images) - conf_ood.n_original_tiles
+    if len(images) < conf_ood.n_tiles_per_sample:
+        add_n_null_images = conf_ood.n_tiles_per_sample - len(images)
     for im in images:
-        original_images.append(im)
-        if im.shape not in im_shapes:
-            im_shapes[im.shape] = 1
-        else:
-            im_shapes[im.shape] += 1
-        resized_images.append(resize_image(im, c.max_size, simple_reshape=True))  # TODO: has to be here! Only after determining doc / image
+        original_images_for_ood.append(im)
+        original_images_for_col_row.append(im)
+
+        resized_images_for_ood.append(resize_image(im, conf_ood.max_size,
+                                                   simple_reshape=True))  # TODO: has to be here! Only after determining doc / image
+        resized_images_for_col_row.append(resize_image(im, conf_ood.max_size,
+                                                       simple_reshape=True))
 
     # adding additional OoD images (null image) to reach t OoDs per sampled folder
     for n_null in range(add_n_null_images):
-        resized_images.append(np.zeros((c.max_size, c.max_size)))
-        original_images.append(np.zeros((c.max_size, c.max_size)))
-    resized_images = add_similarity_channel(resized_images, original_images, c)
+        resized_images_for_ood.append(np.zeros((conf_ood.max_size, conf_ood.max_size)))
+        original_images_for_ood.append(np.zeros((conf_ood.max_size, conf_ood.max_size)))
+    resized_images_for_ood = add_similarity_channel(resized_images_for_ood, original_images_for_ood, conf_ood)
 
-    X_batch.append(np.array(resized_images))  # a folder is one single sample
-    X_batch = list(np.array(X_batch).reshape(c.n_tiles_per_sample, 1, c.max_size, c.max_size, 2))
+    X_batch.append(np.array(resized_images_for_ood))  # a folder is one single sample
+    X_batch = list(np.array(X_batch).reshape(conf_ood.n_tiles_per_sample, 1, conf_ood.max_size, conf_ood.max_size, 2))
 
-    logits = resnet_ood.predict_on_batch(X_batch)[:len(images)]
-    for l in logits:
+    logits_ood = resnet_ood.predict_on_batch(X_batch)[:len(images)]
+    print(logits_ood)
+    logits_ood_with_idx = zip(logits_ood, range(len(logits_ood)))
+    logits_ood_with_idx = sorted(logits_ood_with_idx, key=lambda item: item[0])
+    ood_images_idx = [item[1] for item in logits_ood_with_idx[:n_expected_oods]]
+    real_images_idx = [item[1] for item in logits_ood_with_idx[n_expected_oods:]]
+    print("ood images idx", ood_images_idx)
+    for i in ood_images_idx:
+        img_ix_to_label[i] = -1
+
+    row_model = get_row_model(conf_row_col, isImg)
+    images_for_row_col_prediction = [images[i] for i in real_images_idx]
+    logits_row = row_model.predict_on_batch(images_for_row_col_prediction)
+
+    # greedily start placing those with higher row certainty
+    logits_ood_with_idx = zip(logits_ood, range(len(logits_ood)))
+    logits_ood_with_idx = sorted(logits_ood_with_idx, key=lambda item: item[0])
+    for l in logits_row:
         idx_max = l.argmax(axis=1)
         idx_max = int(idx_max)
         if idx_max == 1:
             # OoD
             idx_max = -1
         labels.append(idx_max)
-
+    print(labels)
     none_ood_images = []
     for l_ix in len(range(labels)):
         if labels[l_ix] != -1:
-            none_ood_images.append(resized_images[l_ix])
+            none_ood_images.append(resized_images_for_ood[l_ix])
 
-
-    labels = [l if l != c.n_original_tiles else -1 for l in labels]
-    if len(labels) == c.n_original_tiles and sum(labels) == -1*c.n_original_tiles:
+    labels = [l if l != conf_row_col.n_original_tiles else -1 for l in labels]
+    if len(labels) == conf_row_col.n_original_tiles and sum(labels) == -1*conf_row_col.n_original_tiles:
         # choose some other random label as there are no OoDs
         labels = [0 for i in labels]
 
@@ -212,4 +235,5 @@ def evaluate(file_dir='example/'):
 
 
 # # TODO: remove
-evaluate('dataset_4_isImg_True/n01440764_96_crw_45_crh_0_reshape_False/')
+evaluate('example/')
+# evaluate('dataset_4_isImg_True/n01440764_96_crw_45_crh_0_reshape_False/')

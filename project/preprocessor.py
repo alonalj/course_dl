@@ -44,7 +44,7 @@ def reshape_ood_images_to_majority_shape(images, shape_majority):
     return images
 
 
-def add_similarity_channel(processed_images, original_images, c):
+def add_similarity_channel(processed_images, original_images, c, n_channels=2):
     from scipy import spatial  # TODO: add to dependencies
     sim_layer = np.zeros((c.max_size, c.max_size))
     indices_identified_as_ood = []
@@ -91,7 +91,7 @@ def add_similarity_channel(processed_images, original_images, c):
             sum_similarity_to_neighbors += np.max(sim_layer[row, 0:4])
             row += 1
             # print(i, j, cosine_sim_lr)
-        final_image = np.zeros((c.max_size, c.max_size, 3)) # TODO: might need to change 3
+        final_image = np.zeros((c.max_size, c.max_size, n_channels))
         final_image[:,:,0] = cv2.resize(processed_images[i], (c.max_size,c.max_size))
         if np.max(final_image) > 1:
             sim_layer = 255 * sim_layer
@@ -377,8 +377,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
                 crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
                 all_crops.append(crop)
 
-
-        all_crops = add_similarity_channel(all_crops, all_crops, c)
+        all_crops = add_similarity_channel(all_crops, all_crops, c, n_channels=3)
         i = 0
         for crop in all_crops:
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
@@ -515,7 +514,7 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
 
     for f in os.listdir(IM_DIR):
         label = int(f.split('_')[-1].split('.')[0])
-        # label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
+        label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
         label = str(label)
         if not os.path.exists(OUTPUT_DIR_TRAIN+label):
             os.mkdir(OUTPUT_DIR_TRAIN+label)
