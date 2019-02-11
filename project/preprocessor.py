@@ -384,6 +384,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
             i+=1
 
+
 def shred_for_img_vs_doc():
     Xa = []
     Xb = []
@@ -544,8 +545,13 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
 
     for f in os.listdir(IM_DIR):
         label = int(f.split('_')[-1].split('.')[0])
-        pre_shredder_file_name = f.split('.')[0]
-        pre_shredder_file_name = pre_shredder_file_name+'.JPEG'
+        if isImg:
+            pre_shredder_file_name = f.split('.')[0]
+            pre_shredder_file_name = pre_shredder_file_name + '.JPEG'
+        else:
+            pre_shredder_file_name = f.split('_')[0] + '_' + f.split('_')[1]
+            pre_shredder_file_name = pre_shredder_file_name + '.jpg'
+
         label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
         label = str(label)
         if not os.path.exists(OUTPUT_DIR_TRAIN+label):
