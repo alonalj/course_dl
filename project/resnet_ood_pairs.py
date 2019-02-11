@@ -129,6 +129,33 @@ class L1L2(Regularizer):
                 'l2': float(self.l2)}
 
 
+# def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tiles_per_dim, nweight_decay=0.0001):
+#     # TODO: ? another input is the shape of the image - could immediately tell if it's OoD
+#     n_tiles_per_sample = n_tiles_per_sample  # original tiles + OoD
+#     # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
+#     # the evaluation over all tiles to happen in the same pass)
+#
+#     shared_net = resnet_weights_shared_over_tiles(max_size, n_classes)
+#
+#     x_in_1 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_1")
+#     # x_in_1 = keras.layers.Reshape(target_shape=(x_in_1.shape[1], x_in_1.shape[2], 1), name="in_reshape_1")(x_in_1)
+#     # for i in range(n_tiles_per_sample):
+#     x_out_1 = shared_net(x_in_1)
+#
+#     x_in_2 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_2")
+#     # x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 1), name="in_reshape_2")(x_in_2)
+#     # for i in range(n_tiles_per_sample):
+#     x_out_2 = shared_net(x_in_2)
+#
+#     concat = keras.layers.concatenate([x_out_1, x_out_2])
+#     x = Dense(200, activation='relu')(concat)
+#     x = Dense(100, activation='relu')(x)
+#     x = Dense(10, activation='relu')(x)
+#     x = Dense(2, activation='softmax')(x)
+#
+#     return Model(inputs=[x_in_1, x_in_2], outputs=x)
+
+
 def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tiles_per_dim, nweight_decay=0.0001):
     # TODO: ? another input is the shape of the image - could immediately tell if it's OoD
     n_tiles_per_sample = n_tiles_per_sample  # original tiles + OoD
@@ -142,17 +169,15 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
     # for i in range(n_tiles_per_sample):
     x_out_1 = shared_net(x_in_1)
 
-    x_in_2 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_2")
-    # x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 1), name="in_reshape_2")(x_in_2)
-    # for i in range(n_tiles_per_sample):
-    x_out_2 = shared_net(x_in_2)
+    # x_in_2 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_2")
+    # # x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 1), name="in_reshape_2")(x_in_2)
+    # # for i in range(n_tiles_per_sample):
+    # x_out_2 = shared_net(x_in_2)
 
-    concat = keras.layers.concatenate([x_out_1, x_out_2])
-    x = Dense(200, activation='relu')(concat)
+    # concat = keras.layers.concatenate([x_out_1, x_out_2])
+    x = Dense(200, activation='relu')(x_out_1)
     x = Dense(100, activation='relu')(x)
     x = Dense(10, activation='relu')(x)
     x = Dense(2, activation='softmax')(x)
 
-    return Model(inputs=[x_in_1, x_in_2], outputs=x)
-
-
+    return Model(inputs=[x_in_1], outputs=x)

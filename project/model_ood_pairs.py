@@ -145,16 +145,20 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             folders_in_class = glob.glob(path+'/'+class_folder+'/*')
             np.random.shuffle(folders_in_class)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
             for folder in folders_in_class[:batch_size//2]: # because of random shuffle above, will be different between yields
-                images = []
+                combined_images = []
                 labels = []
                 labels.append(label)
                 files_in_folder = glob.glob(folder+'/*')
+                combined_images = []
                 for f in files_in_folder:
                     im = cv2.imread(f)
                     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
                     im = resize_image(im, max_size=c.max_size, simple_reshape=True)
-                    images.append(im / 255.)
-                X_batch.append(np.array(images))  # a folder is one single sample
+                    combined_images.append(im / 255.)
+                combined_images = np.concatenate(combined_images, axis=1)
+                combined_images.resize(c.max_size, c.max_size)
+                combined_images = [combined_images]
+                X_batch.append(np.array(combined_images))  # a folder is one single sample
                 # print(labels_in_folder)
                 folder_labels = to_categorical(labels, num_classes=2)
                 y_batch.append(folder_labels)
@@ -178,14 +182,14 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             #     print(folder)
             #     print(np.array(X_batch).shape)
             # print(list(np.array(y_batch).reshape(1, batch_size, 2)))
-            images, labels = list(np.array(X_batch).reshape(2, batch_size, c.max_size, c.max_size, 1)), list(np.array(y_batch).reshape(1, batch_size, 2))
+            combined_images, labels = list(np.array(X_batch).reshape(1, batch_size, c.max_size, c.max_size, 1)), list(np.array(y_batch).reshape(1, batch_size, 2))
             # print(labels)
-            yield images, labels
+            yield combined_images, labels
 
 
 def run(c):
 
-    batch_size = 128
+    batch_size = 10#128
     c.max_size = 64
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
@@ -237,63 +241,64 @@ def run(c):
 
             if step % 5 == 0:
                 print("hist", hist)
-            if step % 10 == 0:
+            if step % 100 == 0:
+                step += 1
                 preds = np.array(preds)
                 y = np.array(y_batch)
                 # print(preds)
                 # print(preds - y)
                 # assert preds.shape == y.shape
-            step += 1
-
-        # Validating at end of epoch
-        print("VALIDATING")
-        val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
-        current_acc = []
-        for X_batch_val, y_batch_val in val_generator:
-            hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
-            current_acc.append(hist_val[-1])
-        current_avg_acc = np.mean(current_acc)
-        if current_avg_acc > best_avg_acc_val:
-            resnet.save_weights(
-                'ood_resnet_maxSize_isImg_{}_L_{}.h5'.format(c.max_size,   current_avg_acc))
 
 
-            print("val hist", hist_val)
-            best_avg_acc_val = current_avg_acc
-            print("best avg acc val: {}".format(best_avg_acc_val))
-            no_improvement_counter = 0  # reset
-        else:
-            no_improvement_counter += 1
-        # # saving train ckpt
-        # resnet.save_weights(
-        #     'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-        #                                                                                                c.tiles_per_dim,
-        #                                                                                                c.n_tiles_per_sample,
-        #                                                                                                c.is_images,
-        #                                                                                                c.mID,
-        #                                                                                                str(
-        #                                                                                                    hist[0])))
+                # Validating at end of epoch
+                print("VALIDATING")
+                val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
+                current_acc = []
+                for X_batch_val, y_batch_val in val_generator:
+                    hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
+                    current_acc.append(hist_val[-1])
+                current_avg_acc = np.mean(current_acc)
+                if current_avg_acc > best_avg_acc_val:
+                    resnet.save_weights(
+                        'ood_resnet_maxSize_isImg_{}_L_{}.h5'.format(c.max_size,   current_avg_acc))
 
-        print("acc", current_avg_acc)
-        val_steps_max += 1
 
-        if no_improvement_counter >= no_improvement_tolerance:
-            print("No improvement for {} validation steps. Stopping.".format(no_improvement_tolerance))
-            return
+                    print("val hist", hist_val)
+                    best_avg_acc_val = current_avg_acc
+                    print("best avg acc val: {}".format(best_avg_acc_val))
+                    no_improvement_counter = 0  # reset
+                else:
+                    no_improvement_counter += 1
+                # # saving train ckpt
+                # resnet.save_weights(
+                #     'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+                #                                                                                                c.tiles_per_dim,
+                #                                                                                                c.n_tiles_per_sample,
+                #                                                                                                c.is_images,
+                #                                                                                                c.mID,
+                #                                                                                                str(
+                #                                                                                                    hist[0])))
 
-        # if val_steps_max == 5:
-        #     print("Finished validating on {} batches".format(val_steps_max))
-        #     break
-        # callbacks=[reduce_lr])
+                print("acc", current_avg_acc)
+                val_steps_max += 1
 
-    # resnet_cifar_10_history = resnet.fit_generator(train_generator,
-    #                                                steps_per_epoch=n_samples_train // batch_size,
-    #                                                epochs=maxepoches,
-    #                                                validation_data=val_generator, validation_steps=1)#,
-    #                                                # callbacks=[reduce_lr])
+                if no_improvement_counter >= no_improvement_tolerance:
+                    print("No improvement for {} validation steps. Stopping.".format(no_improvement_tolerance))
+                    return
+
+                # if val_steps_max == 5:
+                #     print("Finished validating on {} batches".format(val_steps_max))
+                #     break
+                # callbacks=[reduce_lr])
+
+            # resnet_cifar_10_history = resnet.fit_generator(train_generator,
+            #                                                steps_per_epoch=n_samples_train // batch_size,
+            #                                                epochs=maxepoches,
+            #                                                validation_data=val_generator, validation_steps=1)#,
+            #                                                # callbacks=[reduce_lr])
 
 
 if __name__ == '__main__':
     c = Conf()
-    c.is_images = False
+    c.is_images = True
     run(c)
