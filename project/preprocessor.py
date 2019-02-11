@@ -660,6 +660,7 @@ def create_ood_non_ood_pairs(isImg):
             os.mkdir(OUTPUT_DIR_VAL + label)
             os.mkdir(OUTPUT_DIR_TEST + label)
     for tiles_per_dim in [2,4,5]:
+        print(tiles_per_dim)
         for dataset in ["train", "val", "test"]:
             if dataset == "train":
                 dataset_files = files_train
@@ -673,7 +674,7 @@ def create_ood_non_ood_pairs(isImg):
 
             files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))
             np.random.shuffle(files_for_t)
-            files_for_t = files_for_t[:300]
+            files_for_t = files_for_t[:700]
             files_for_t = [f.split('/')[-1] for f in files_for_t]
 
             if isImg:
