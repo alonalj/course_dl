@@ -190,7 +190,7 @@ def run(c):
         batch_size = 32
         # adam = optimizers.Adam(0.0001)
 
-    maxepoches = 250
+    maxepoches = 800
     # learning_rate = 0.1
 
     # train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size)

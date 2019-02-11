@@ -678,8 +678,8 @@ def create_ood_non_ood_pairs(isImg):
                 files_for_t = [f for f in files_for_t if f.split('.')[0] + '.JPEG' in dataset_files]
                 image_ids = [f.split('_')[1] for f in files_for_t]
             else:#TODO: check
-                files_for_t = [f for f in files_for_t if f.split('.')[0] + '.jpg' in dataset_files]
-                image_ids = [f.split('_')[0] for f in files_for_t]
+                files_for_t = [f for f in files_for_t if files_for_t[0].split('_')[0]+"_"+files_for_t[0].split('_')[1] + '.jpg' in dataset_files]
+                image_ids = [f.split('_')[0]+'_'+f.split('_')[1] for f in files_for_t]
 
             for im_id in image_ids:
                 tiles_in_distribution = []
@@ -688,6 +688,8 @@ def create_ood_non_ood_pairs(isImg):
                 for f in files_for_t:
                     if isImg:
                         f_im_id = f.split('_')[1]
+                    else:
+                        f_im_id = f.split('_')[0]+'_'+f.split('_')[1]
                     if im_id == f_im_id:  # tiles are from same image
                         tiles_in_distribution.append(f)
                     else:
