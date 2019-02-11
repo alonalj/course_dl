@@ -189,7 +189,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
 
 def run(c):
 
-    batch_size = 10#128
+    batch_size = 128
     c.max_size = 64
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
