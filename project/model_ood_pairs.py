@@ -251,13 +251,8 @@ def run(c):
         current_avg_acc = np.mean(current_acc)
         if current_avg_acc > best_avg_acc_val:
             resnet.save_weights(
-                'ood_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                                                                                                     c.tiles_per_dim,
-                                                                                                     c.n_tiles_per_sample,
-                                                                                                     c.is_images,
-                                                                                                     c.mID,
-                                                                                                     str(
-                                                                                                         current_avg_acc)))
+                'ood_resnet_maxSize_isImg_{}_L_{}.h5'.format(c.max_size,   current_avg_acc))
+
 
             print("val hist", hist_val)
             best_avg_acc_val = current_avg_acc
