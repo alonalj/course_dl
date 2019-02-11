@@ -664,7 +664,7 @@ def create_ood_non_ood_pairs(c):
                 dataset_files = files_test
                 OUTPUT_DIR = OUTPUT_DIR_TEST
 
-            files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))
+            files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))[:5000]
             np.random.shuffle(files_for_t)
             files_for_t = files_for_t
             files_for_t = [f.split('/')[-1] for f in files_for_t]
