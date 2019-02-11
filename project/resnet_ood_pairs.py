@@ -148,6 +148,8 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
     x_out_2 = shared_net(x_in_2)
 
     concat = keras.layers.concatenate([x_out_1, x_out_2])
+    x = Dense(200, activation='relu')(concat)
+    x = Dense(100, activation='relu')(concat)
     x = Dense(10, activation='relu')(concat)
     x = Dense(2, activation='softmax')(x)
 
