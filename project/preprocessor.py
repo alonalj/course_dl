@@ -673,7 +673,7 @@ def create_ood_non_ood_pairs(isImg):
 
             files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))
             np.random.shuffle(files_for_t)
-            files_for_t[:300]
+            files_for_t = files_for_t[:300]
             files_for_t = [f.split('/')[-1] for f in files_for_t]
 
             if isImg:
