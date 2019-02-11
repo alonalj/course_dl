@@ -127,61 +127,65 @@ def scale_img(image):
 def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     import random
     import glob
-    X_batch = []
-    y_batch = []
-    path = "ood_isImg_True"
+
+
+    path = "ood_isImg_{}".format(c.is_images)
     if data_type == "val":
         path = path+'_val'
     if data_type == "test":
         path = path + '_test'
     folders_two_class = os.listdir(path)
-    for class_folder in folders_two_class:
-        label = class_folder
-        original_images = []
-        folders_in_class = glob.glob(path+'/'+class_folder+'/*')
-        np.random.shuffle(folders_in_class)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
-        for folder in folders_in_class[:batch_size//2]: # because of random shuffle above, will be different between yields
-            images = []
-            labels = []
-            labels.append(label)
-            files_in_folder = glob.glob(folder+'/*')
-            for f in files_in_folder:
-                im = cv2.imread(f)
-                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                im = resize_image(im, max_size=c.max_size, simple_reshape=True)
-                images.append(im / 255.)
-            X_batch.append(np.array(images))  # a folder is one single sample
-            # print(labels_in_folder)
-            folder_labels = to_categorical(labels, num_classes=2)
-            y_batch.append(folder_labels)
+    train_len = len(glob.glob(path+'/0'+'/*'))
+    for i in range(train_len // batch_size):
+        X_batch = []
+        y_batch = []
+        for class_folder in folders_two_class:
+            label = class_folder
+            original_images = []
+            folders_in_class = glob.glob(path+'/'+class_folder+'/*')
+            np.random.shuffle(folders_in_class)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
+            for folder in folders_in_class[:batch_size//2]: # because of random shuffle above, will be different between yields
+                images = []
+                labels = []
+                labels.append(label)
+                files_in_folder = glob.glob(folder+'/*')
+                for f in files_in_folder:
+                    im = cv2.imread(f)
+                    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                    im = resize_image(im, max_size=c.max_size, simple_reshape=True)
+                    images.append(im / 255.)
+                X_batch.append(np.array(images))  # a folder is one single sample
+                # print(labels_in_folder)
+                folder_labels = to_categorical(labels, num_classes=2)
+                y_batch.append(folder_labels)
 
-            # if noise:
-            #     gauss = get_gauss_noise(im_resized)
-            #     im_resized = noisy("gauss",im_resized, gauss)
+                # if noise:
+                #     gauss = get_gauss_noise(im_resized)
+                #     im_resized = noisy("gauss",im_resized, gauss)
 
-            # if im_resized.shape != (c.max_size, c.max_size):
-            #     print("Bad shape for folder {}, file {}".format(folder, f))
+                # if im_resized.shape != (c.max_size, c.max_size):
+                #     print("Bad shape for folder {}, file {}".format(folder, f))
 
-            # if flip_img:
-            #     im_resized = cv2.flip(im_resized, 1)
+                # if flip_img:
+                #     im_resized = cv2.flip(im_resized, 1)
 
-    if len(y_batch) == batch_size:
-        zipped = list(zip(X_batch, y_batch))
-        random.shuffle(zipped)
-        X_batch, y_batch = zip(*zipped)
+        if len(y_batch) == batch_size:
+            zipped = list(zip(X_batch, y_batch))
+            random.shuffle(zipped)
+            X_batch, y_batch = zip(*zipped)
 
-        # if np.array(X_batch).shape[1:] != (2, c.max_size, c.max_size, 2):
-        #     print(folder)
-        #     print(np.array(X_batch).shape)
-        # print(list(np.array(y_batch).reshape(1, batch_size, 2)))
-        images, labels = list(np.array(X_batch).reshape(2, batch_size, c.max_size, c.max_size, 1)), list(np.array(y_batch).reshape(1, batch_size, 2))
-        # print(labels)
-        yield images, labels
+            # if np.array(X_batch).shape[1:] != (2, c.max_size, c.max_size, 2):
+            #     print(folder)
+            #     print(np.array(X_batch).shape)
+            # print(list(np.array(y_batch).reshape(1, batch_size, 2)))
+            images, labels = list(np.array(X_batch).reshape(2, batch_size, c.max_size, c.max_size, 1)), list(np.array(y_batch).reshape(1, batch_size, 2))
+            # print(labels)
+            yield images, labels
 
 
 def run(c):
 
-    batch_size = 10
+    batch_size = 128
     c.max_size = 64
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
@@ -291,4 +295,5 @@ def run(c):
 
 if __name__ == '__main__':
     c = Conf()
+    c.is_images = False
     run(c)
