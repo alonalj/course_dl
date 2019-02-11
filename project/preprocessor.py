@@ -384,6 +384,46 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
             i+=1
 
+def shred_for_ood_pairs(isImg):
+    Xa = []
+    Xb = []
+    y = []
+
+    if isImg:
+        IM_DIR = "images/"
+    else:
+        IM_DIR = "documents/"
+
+    OUTPUT_DIR = "dataset_for_ood_pairs_isImg_{}/".format(IM_DIR == "images/")
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR)
+    else:
+        print("Already shredded")
+        return
+
+    files = os.listdir(IM_DIR)
+    for f in files:
+        for tiles_per_dim in [2,4,5]:
+            all_crops = []
+            im = cv2.imread(IM_DIR+f)
+            im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
+            height = im.shape[0]
+            width = im.shape[1]
+            frac_h = height//tiles_per_dim
+            frac_w = width//tiles_per_dim
+            i=0
+            for h in range(tiles_per_dim):
+                for w in range(tiles_per_dim):
+
+                    crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
+                    all_crops.append(crop)
+
+            # all_crops = add_similarity_channel(all_crops, all_crops, c, n_channels=3)
+            i = 0
+            for crop in all_crops:
+                cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}_t_{}.jpg".format(str(i).zfill(2), tiles_per_dim), crop)
+                i+=1
+
 
 def shred_for_img_vs_doc():
     Xa = []
@@ -567,7 +607,18 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
 
         shutil.copy(IM_DIR+f,OUTPUT_DIR+label+"/")
 
+
 def create_ood_non_ood_pairs(isImg):
+    def get_image_id(f, isImg):
+        if isImg:
+            return f[0].split('/')[1].split('.')[0].split('_')[1]
+        else:
+            return None #TODO
+    def get_tile_id(f, isImg):
+        if isImg:
+            return None
+        else:
+            return None
     '''
     Creates two folders (two classes):
     0 - contains pairs that are from the same image
@@ -577,18 +628,21 @@ def create_ood_non_ood_pairs(isImg):
     (e.g. if for image i all pairs (i,j) where j != i produced 1, then i is OoD)
     '''
     import shutil
+    import glob
 
     Xa = []
     Xb = []
     y = []
 
-    OUTPUT_DIR_TRAIN = "ood_isImg_{}" + "/"
-    OUTPUT_DIR_VAL = rows_or_cols + "_" + str(tiles_per_dim) + "_val/"
-    OUTPUT_DIR_TEST = rows_or_cols + "_" + str(tiles_per_dim) + "_test/"
+    base_name = "ood_isImg_{}".format(isImg)
+    OUTPUT_DIR_TRAIN = base_name + "/"
+    OUTPUT_DIR_VAL = base_name + "_val/"
+    OUTPUT_DIR_TEST = base_name + "_test/"
 
     if not os.path.exists(OUTPUT_DIR_TRAIN):
         os.mkdir(OUTPUT_DIR_TRAIN)
         os.mkdir(OUTPUT_DIR_VAL)
+        os.mkdir(OUTPUT_DIR_TEST)
     else:
         print("folders already created.")
         return
@@ -596,24 +650,72 @@ def create_ood_non_ood_pairs(isImg):
     files_train, files_val, files_test = split_train_val_test(isImg)
 
     # for rows_or_cols in ["rows", "cols"]:
-    IM_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, isImg)
-    files = np.array(os.listdir(IM_DIR))
+    IM_DIR = "dataset_for_ood_pairs_isImg_{}/".format(isImg)
 
-    for f in os.listdir(IM_DIR):
-        label = int(f.split('_')[-1].split('.')[0])
-        pre_shredder_file_name = f.split('.')
-        label = get_row_col_label(label, tiles_per_dim, rows_or_cols == "rows")
+    folder_counter = 0
+    for label in [0,1]:
         label = str(label)
-        if not os.path.exists(OUTPUT_DIR_TRAIN+label):
-            os.mkdir(OUTPUT_DIR_TRAIN+label)
-            os.mkdir(OUTPUT_DIR_VAL+label)
-        if pre_shredder_file_name in files_train:
-            OUTPUT_DIR = OUTPUT_DIR_TRAIN
-        elif pre_shredder_file_name in files_val:
-            OUTPUT_DIR = OUTPUT_DIR_VAL
-        else:
-            OUTPUT_DIR = OUTPUT_DIR_TEST
+        if not os.path.exists(OUTPUT_DIR_TRAIN + label):
+            os.mkdir(OUTPUT_DIR_TRAIN + label)
+            os.mkdir(OUTPUT_DIR_VAL + label)
+            os.mkdir(OUTPUT_DIR_TEST + label)
+    for tiles_per_dim in [2,4,5]:
+        for dataset in ["train", "val", "test"]:
+            if dataset == "train":
+                dataset_files = files_train
+                OUTPUT_DIR = OUTPUT_DIR_TRAIN
+            elif dataset == "val":
+                dataset_files = files_val
+                OUTPUT_DIR = OUTPUT_DIR_VAL
+            else:
+                dataset_files = files_test
+                OUTPUT_DIR = OUTPUT_DIR_TEST
 
-        shutil.copy(IM_DIR+f,OUTPUT_DIR+label+"/")
+            files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))
+            files_for_t = [f.split('/')[-1] for f in files_for_t]
+
+            if isImg:
+                files_for_t = [f for f in files_for_t if f.split('.')[0] + '.JPEG' in dataset_files]
+                image_ids = [f.split('_')[1] for f in files_for_t]
+            else:#TODO: check
+                files_for_t = [f for f in files_for_t if f.split('.')[0] + '.jpg' in dataset_files]
+                image_ids = [f.split('_')[0] for f in files_for_t]
+
+            for im_id in image_ids:
+                tiles_in_distribution = []
+                tiles_ood = []
+                # get files in distribution and out of distribution given an image id (in = all tiles belonging to img)
+                for f in files_for_t:
+                    if isImg:
+                        f_im_id = f.split('_')[1]
+                    if im_id == f_im_id:  # tiles are from same image
+                        tiles_in_distribution.append(f)
+                    else:
+                        tiles_ood.append(f)
+
+                # create pairs in distribution and ood with even number in each class
+                # 1. in distribution:
+                count_pairs_per_class = 0
+                label = str(0)
+                for i in range(len(tiles_in_distribution)):
+                    for j in range(i+1,len(tiles_in_distribution)):
+                        f1 = tiles_in_distribution[i]
+                        f2 = tiles_in_distribution[j]
+                        os.makedirs(OUTPUT_DIR +label+ '/'+ str(folder_counter))
+                        shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) +"/")
+                        shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter)+"/")
+                        count_pairs_per_class += 1
+                        folder_counter += 1
+                # 2. ood:
+                label = str(1)
+                for i in range(count_pairs_per_class):
+                    f1 = random.choice(tiles_ood)
+                    f2 = random.choice(tiles_in_distribution)
+                    os.makedirs(OUTPUT_DIR + label +"/" + str(folder_counter))
+                    shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) +"/")
+                    shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter) +"/")
+                    folder_counter += 1
 
 # split_train_val_test(True)
+# shred_for_ood_pairs(True)
+create_ood_non_ood_pairs(True)
