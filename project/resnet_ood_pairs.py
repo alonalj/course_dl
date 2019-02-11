@@ -89,7 +89,7 @@ def res_tower(x, dim, num_layers, downsample_first=True, adjust_first=False, wei
 
 def resnet_weights_shared_over_tiles(max_size, n_classes, x_in=None, weight_decay=0.0001):
     # x_in = keras.layers.ZeroPadding2D()(x_in)
-    x_in = Input(shape=(max_size, max_size, 2))
+    x_in = Input(shape=(max_size, max_size, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -134,24 +134,23 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes, n_original_tiles, tile
     n_tiles_per_sample = n_tiles_per_sample  # original tiles + OoD
     # passing all tiles from each batch into the conv (a batch contains multiple folders, from each folder we want
     # the evaluation over all tiles to happen in the same pass)
-    inputs_from_sample = []
-    outputs_from_sample = []
+
     shared_net = resnet_weights_shared_over_tiles(max_size, n_classes)
 
-    x_in_1 = keras.layers.Input(shape=(max_size, max_size, 2), name="in_1")
-    x_in_1 = keras.layers.Reshape(target_shape=(x_in_1.shape[1], x_in_1.shape[2], 2), name="in_reshape_1")(x_in_1)
+    x_in_1 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_1")
+    # x_in_1 = keras.layers.Reshape(target_shape=(x_in_1.shape[1], x_in_1.shape[2], 1), name="in_reshape_1")(x_in_1)
     # for i in range(n_tiles_per_sample):
     x_out_1 = shared_net(x_in_1)
 
-    x_in_2 = keras.layers.Input(shape=(max_size, max_size, 2), name="in_2")
-    x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 2), name="in_reshape_2")(x_in_2)
+    x_in_2 = keras.layers.Input(shape=(max_size, max_size, 1), name="in_2")
+    # x_in_2 = keras.layers.Reshape(target_shape=(x_in_2.shape[1], x_in_2.shape[2], 1), name="in_reshape_2")(x_in_2)
     # for i in range(n_tiles_per_sample):
     x_out_2 = shared_net(x_in_2)
 
-    concat = keras.layers.Concatenate()([x_out_1, x_out_2])
-    x = Dense(2)(concat)
+    concat = keras.layers.concatenate([x_out_1, x_out_2])
+    x = Dense(10, activation='relu')(concat)
     x = Dense(2, activation='softmax')(x)
 
-    return Model(inputs=inputs_from_sample, outputs=x)
+    return Model(inputs=[x_in_1, x_in_2], outputs=x)
 
 

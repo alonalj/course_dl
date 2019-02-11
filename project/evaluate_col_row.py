@@ -163,20 +163,30 @@ def predict(images):
     rows_cols_model = get_rows_cols_model(conf_row_col, isImg)
 
     # rows
-    row_model = rows_cols_model.load_weights('model_{}_{}_isImg_{}.h5'.format("rows", conf_row_col.tiles_per_dim, is_image))
+    row_model = rows_cols_model.load_weights('model_rows_{}_isImg_{}.h5'.format(conf_row_col.tiles_per_dim, is_image))
     images_for_row_col_prediction = [images[i] for i in real_images_idx]
     logits_row = row_model.predict_on_batch(images_for_row_col_prediction)
+    row_to_logits_img_ix_tuple = {}
+    for i in conf_row_col.tiles_per_dim:
+        row_to_logits_img_ix_tuple[i] = []
+    for im_ix in range(len(logits_row)):
+        for row_ix in range(len(logits_row[im_ix])):
+            score = logits_row[im_ix][row_ix]
+            row_to_logits_img_ix_tuple[row_ix].append((score,im_ix))
+    row_to_logits_img_ix_tuple = sorted(row_to_logits_img_ix_tuple, key=lambda x: x[0], reverse=True)
+
     # greedily start placing those with higher row certainty
-    for row in range(conf_row_col.tiles_per_dim):
-        relevant_row_logits = [l[row] for l in logits_row]
-        logits_non_ood_with_idx = zip(relevant_row_logits, real_images_idx)
-        logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
-        most_likely_ix_in_row = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
-        for ix in most_likely_ix_in_row:
-            img_ix_to_label_rows[ix] = row
+
+    # for row in range(conf_row_col.tiles_per_dim):
+    #     relevant_row_logits = [l[row] for l in logits_row]
+    #     logits_non_ood_with_idx = zip(relevant_row_logits, real_images_idx)
+    #     logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
+    #     most_likely_ix_in_row = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
+    #     for ix in most_likely_ix_in_row:
+    #         img_ix_to_label_rows[ix] = row
 
     # cols
-    col_model = rows_cols_model.load_weights('model_{}_{}_isImg_{}.h5'.format("cols", conf_row_col.tiles_per_dim, is_image))
+    col_model = rows_cols_model.load_weights('model_cols_{}_isImg_{}.h5'.format(conf_row_col.tiles_per_dim, is_image))
     logits_col = col_model.predict_on_batch(images_for_row_col_prediction)
     # greedily start placing those with higher col certainty
     for col in range(conf_row_col.tiles_per_dim):

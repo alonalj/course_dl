@@ -119,143 +119,70 @@ def noisy(noise_typ, image, gauss=None):
         out[coords] = 0
         return out
 
+
 def scale_img(image):
     image = cv2.resize(image, (0, 0), fx=0.8, fy=0.8)
 
+
 def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
     import random
-    split_dict = load_obj(data_split_dict)
-    folders = split_dict[data_type]
-
-    if 'doc' in data_split_dict:
-        dataset_folder = "dataset_{}_isImg_False".format(tiles_per_dim)
-    else:
-        dataset_folder = "dataset_{}_isImg_True".format(tiles_per_dim)
-    # while True:
-    np.random.shuffle(folders)  # shuffle folders between epochs
+    import glob
     X_batch = []
     y_batch = []
-    noise = False
-    if data_type == 'train':
-        if 'doc' not in data_split_dict:
-            crop_start_w = range(0, 46, 15)
-            crop_start_h = range(0, 46, 15)
-        else:
-            crop_start_w = range(0, 91, 30)
-            crop_start_h = range(0, 91, 30)
-        c_w = random.choice(crop_start_w)
-        c_h = random.choice(crop_start_h)
-    else:
-        crop_start_w = [0]
-        crop_start_h = [0]
-        c_w = 0
-        c_h = 0
-    folders = [f for f in folders if '_crw_'+str(c_w)+'_crh_'+str(c_h) in f]
-    for folder in folders:
+    path = "ood_isImg_True"
+    if data_type == "val":
+        path = path+'_val'
+    if data_type == "test":
+        path = path + '_test'
+    folders_two_class = os.listdir(path)
+    for class_folder in folders_two_class:
+        label = class_folder
         original_images = []
-        processed_images = []
-        skip_folder = False
-        flip_img = False
-        if random.random() > 0.5 and data_type == 'train':
-            flip_img = True
-        if random.random() > 0.6 and data_type == 'train':
-            noise = True
-        if c.is_images and len(folder) < 7:
-            # print(len(folder))
-            continue
-        folder_path = dataset_folder + '/' + folder
-        files = os.listdir(folder_path)
-        files.sort()  # TODO: flip a coin sometimes to sort in reverse
-        # np.random.shuffle(files)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
-        images_in_folder = []
-        labels_in_folder = []
-        # if len(files) != c.n_tiles_per_sample:
-        #     print("Less than {} tiles in folder {}. Due to it being the first one of its type in preprocessor".format(c.n_tiles_per_sample, folder))
-        for f in files:
-            if skip_folder:
-                continue
-            label = f.split('_')[-1].split('.')[0]
-            if label == "-1":
-                # change to n_original (e.g. for t=2 OoD tiles would get label 4 as labels 0,1,2,3 are original)
-                label = 1 # OOD
-            else:
-                label = 0 # not OOD
-            labels_in_folder.append(label)
-            im = cv2.imread(folder_path + '/' + f)
-            try:
-                img_shape = im.shape[0] + im.shape[1]
+        folders_in_class = glob.glob(path+'/'+class_folder+'/*')
+        np.random.shuffle(folders_in_class)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
+        for folder in folders_in_class[:batch_size//2]: # because of random shuffle above, will be different between yields
+            images = []
+            labels = []
+            labels.append(label)
+            files_in_folder = glob.glob(folder+'/*')
+            for f in files_in_folder:
+                im = cv2.imread(f)
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                im_resized = resize_image(im, max_size=c.max_size, simple_reshape=True)
-            except:
-                print("failed on {}".format(folder_path + '/' + f))  # TODO: remove
-                skip_folder = True
-                continue
+                im = resize_image(im, max_size=c.max_size, simple_reshape=True)
+                images.append(im / 255.)
+            X_batch.append(np.array(images))  # a folder is one single sample
+            # print(labels_in_folder)
+            folder_labels = to_categorical(labels, num_classes=2)
+            y_batch.append(folder_labels)
 
-            if noise:
-                gauss = get_gauss_noise(im_resized)
-                im_resized = noisy("gauss",im_resized, gauss)
+            # if noise:
+            #     gauss = get_gauss_noise(im_resized)
+            #     im_resized = noisy("gauss",im_resized, gauss)
 
-            if im_resized.shape != (c.max_size, c.max_size):
-                print("Bad shape for folder {}, file {}".format(folder, f))
+            # if im_resized.shape != (c.max_size, c.max_size):
+            #     print("Bad shape for folder {}, file {}".format(folder, f))
 
-            if flip_img:
-                im_resized = cv2.flip(im_resized, 1)
-            images_in_folder.append(im_resized)
-            original_images.append(im)
+            # if flip_img:
+            #     im_resized = cv2.flip(im_resized, 1)
 
-        if np.array(images_in_folder).shape != (c.n_tiles_per_sample, c.max_size, c.max_size):
-            continue
-        # print(np.array(images_in_folder).shape)
-        images_in_folder = add_similarity_channel(images_in_folder, original_images, c)
+    if len(y_batch) == batch_size:
+        zipped = list(zip(X_batch, y_batch))
+        random.shuffle(zipped)
+        X_batch, y_batch = zip(*zipped)
 
-        X_batch.append(np.array(images_in_folder))  # a folder is one single sample
-        # print(labels_in_folder)
-        folder_labels = to_categorical(labels_in_folder, num_classes=2)
-        y_batch.append(folder_labels)
-        if len(y_batch) == batch_size:
-            # print(np.array(X_batch).ndim)
-            # print(np.array(X_batch))
-            if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size, 2):
-                print(folder)
-                print(np.array(X_batch).shape)
-            yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, batch_size, c.max_size, c.max_size, 2)), \
-                  list(np.array(y_batch).reshape(c.n_tiles_per_sample, batch_size, 2))
-            X_batch = []
-            y_batch = []
-    # handle last batch in case n_folders not fully divisible by batch_size (has a remainder)
-    if len(y_batch) != batch_size:  # if equal, already yielded above
-        # print(np.array(X_batch).shape)
-        # print(np.array(X_batch))
-        if np.array(X_batch).shape[1:] != (c.n_tiles_per_sample, c.max_size, c.max_size, 2):
-            print(folder)
-            print(np.array(X_batch).shape)
-        yield list(np.array(X_batch).reshape(c.n_tiles_per_sample, -1, c.max_size, c.max_size, 2)), \
-              list(np.array(y_batch).reshape(c.n_tiles_per_sample, -1, 2))
+        # if np.array(X_batch).shape[1:] != (2, c.max_size, c.max_size, 2):
+        #     print(folder)
+        #     print(np.array(X_batch).shape)
+        # print(list(np.array(y_batch).reshape(1, batch_size, 2)))
+        images, labels = list(np.array(X_batch).reshape(2, batch_size, c.max_size, c.max_size, 1)), list(np.array(y_batch).reshape(1, batch_size, 2))
+        # print(labels)
+        yield images, labels
 
-
-# def dice_coef(y_true, y_pred, smooth, thresh):
-#     y_pred = y_pred > thresh
-#     y_true_f = K.flatten(y_true)
-#     y_pred_f = K.flatten(y_pred)
-#     intersection = K.sum(y_true_f * y_pred_f)
-#
-#     return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-
-#
-# def my_loss(y_true, y_pred):
-#     cross_entropy_loss = keras.losses.categorical_crossentropy(y_true, y_pred)
-#     # print(y_true.shape)
-#     y_p = K.reshape(y_pred, shape=(-1, c.n_classes))
-#     sum = 0
-#     for t in range(c.n_tiles_per_sample):
-#         sum += keras.layers.Lambda(lambda x: x[t, :, :])(y_p)
-#     all_differet_loss = K.sum((1- sum)**2, 1)
-#
-#     return cross_entropy_loss #+ all_differet_loss
 
 def run(c):
 
-    batch_size = 128
+    batch_size = 10
+    c.max_size = 64
     # adam = optimizers.Adam()
     if c.n_tiles_per_sample > 6:
         batch_size = 50
@@ -274,7 +201,7 @@ def run(c):
     # for i in range(2):
     #     print(dgen.__next__()[1])
 
-    resnet = build_resnet_ood(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
+    resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes, c.n_original_tiles, c.tiles_per_dim)
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     # sgd = optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
@@ -301,15 +228,17 @@ def run(c):
             # print(X_batch.shape)
             # print(y_batch.shape)
             hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
+            print("TRAIN STATS:", hist)
             preds = resnet.predict_on_batch(X_batch)
 
             if step % 5 == 0:
-                print(hist)
+                print("hist", hist)
             if step % 10 == 0:
                 preds = np.array(preds)
                 y = np.array(y_batch)
+                # print(preds)
                 # print(preds - y)
-                assert preds.shape == y.shape
+                # assert preds.shape == y.shape
             step += 1
 
         # Validating at end of epoch
@@ -318,7 +247,7 @@ def run(c):
         current_acc = []
         for X_batch_val, y_batch_val in val_generator:
             hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
-            current_acc.append(np.mean(hist_val[-c.n_tiles_per_sample:]))
+            current_acc.append(hist_val[-1])
         current_avg_acc = np.mean(current_acc)
         if current_avg_acc > best_avg_acc_val:
             resnet.save_weights(
@@ -330,7 +259,7 @@ def run(c):
                                                                                                      str(
                                                                                                          current_avg_acc)))
 
-            print(hist_val)
+            print("val hist", hist_val)
             best_avg_acc_val = current_avg_acc
             print("best avg acc val: {}".format(best_avg_acc_val))
             no_improvement_counter = 0  # reset
@@ -346,7 +275,7 @@ def run(c):
         #                                                                                                str(
         #                                                                                                    hist[0])))
 
-        print(current_avg_acc)
+        print("acc", current_avg_acc)
         val_steps_max += 1
 
         if no_improvement_counter >= no_improvement_tolerance:

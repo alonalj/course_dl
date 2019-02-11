@@ -718,4 +718,4 @@ def create_ood_non_ood_pairs(isImg):
 
 # split_train_val_test(True)
 # shred_for_ood_pairs(True)
-create_ood_non_ood_pairs(True)
+# create_ood_non_ood_pairs(True)
