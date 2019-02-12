@@ -4,11 +4,11 @@ from resnet_rows_cols_folder_based import *
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
     for is_images in [True]:
-        for tiles_per_dim in [4, 5]:  # [4]: #
+        for tiles_per_dim in [5, 4]:  # [4]: #
             if tiles_per_dim == 5:
                 rows_or_cols_list = ["rows"]
             else:
-                rows_or_cols_list = ["rows", "cols"]
+                rows_or_cols_list = ["cols"]
             for rows_or_cols in rows_or_cols_list:
                 c = Conf(tiles_per_dim=tiles_per_dim, max_size=112, is_images=is_images)
                 print(c.n_tiles_per_sample)
