@@ -4,9 +4,9 @@ from resnet_rows_cols_folder_based import *
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
     for is_images in [True]:
-        for tiles_per_dim in [5, 2]:  # [4]: #
+        for tiles_per_dim in [4, 5]:  # [4]: #
             if tiles_per_dim == 5:
-                rows_or_cols_list = ["cols"]
+                rows_or_cols_list = ["rows"]
             else:
                 rows_or_cols_list = ["rows", "cols"]
             for rows_or_cols in rows_or_cols_list:
