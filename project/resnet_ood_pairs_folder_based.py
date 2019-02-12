@@ -11,7 +11,7 @@ from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
-SHAPE = 112
+# SHAPE = 112
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -71,8 +71,8 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
     return x
 
 
-def build_resnet_rows_col(TILES_PER_DIM, weight_decay=1e-3):
-    x_in = Input(shape=(SHAPE, SHAPE, 3))
+def build_resnet_ood(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
+    x_in = Input(shape=(SHAPE*2, SHAPE, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -112,14 +112,16 @@ def lr_scheduler(epoch):
 
 
 def run(c):
+
     import glob
 
     tiles_per_dim = c.tiles_per_dim
     is_image = c.is_images
+    SHAPE = c.max_size
 
-    resnet_rows_cols = build_resnet_rows_col(tiles_per_dim)
+    resnet_rows_cols = build_resnet_ood(tiles_per_dim, SHAPE)
 
-    batch_size = 128
+    batch_size = 60
     path = "ood_isImg_{}".format(c.is_images)
     train_len = len(glob.glob(path+'/0'+'/*'))
 
@@ -147,17 +149,17 @@ def run(c):
         # vertical_flip=False)  # randomly flip images
 
     # datagen.fit(X_train)
-    if os.path.exists('model_ood_pairs_isImg_{}.h5'.format(is_image)):
-        print("found weights, loading and continuing to train.")
-        resnet_rows_cols.load_weights('model_ood_pairs_isImg_True.h5')
+    # if os.path.exists('model_ood_pairs_isImg_{}.h5'.format(is_image)):
+    #     print("found weights, loading and continuing to train.")
+    #     resnet_rows_cols.load_weights('model_ood_pairs_isImg_{}.h5'.format(is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_ood_pairs_isImg_{}.h5'.format(is_image), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory(path,
-                                               target_size=(SHAPE, SHAPE),
-                                               # color_mode='grayscale',
+                                               target_size=(c.max_size*2, c.max_size),
+                                               color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=1000,
@@ -165,8 +167,8 @@ def run(c):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory(path+'_val',
-                                               target_size=(SHAPE, SHAPE)),
-                                               # color_mode='grayscale'),
+                                               target_size=(c.max_size*2, c.max_size),
+                                               color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
@@ -174,5 +176,5 @@ def run(c):
 
 if __name__ == '__main__':
     c = Conf()
-    c.is_images = True
+    c.is_images = False
     run(c)

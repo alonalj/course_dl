@@ -108,7 +108,7 @@ def add_similarity_channel(processed_images, original_images, c, n_channels=2):
     return final_images
 
 
-def _shredder(raw_input_dir, data_type, c, output_dir):
+def _shredder(raw_input_dir, c, output_dir):
     import os
 
     Xa = []
@@ -120,108 +120,103 @@ def _shredder(raw_input_dir, data_type, c, output_dir):
     # raw_input_dir = "images/"
 
     files = os.listdir(raw_input_dir)
+    print("shredding for dictionary {}".format(c.data_split_dict))
     files_dict = load_obj(c.data_split_dict)
-    files = files_dict[data_type]  # augment only train files
-    files = files
+    files = files_dict
     # files = [f for f in files if "n01440764_7267" in f]
     list_of_folders = []
     # update this number for 4X4 crop 2X2 or 5X5 crops.
     # tiles_per_dim = 4
-    if data_type == 'train':
-        if 'image' in raw_input_dir:
-            print("shredding with crops for images")
-            crop_start_w = range(0, 46, 15)
-            crop_start_h = range(0, 46, 15)
-        else:
-            print("shredding with crops for docs")
-            crop_start_w = range(0, 91, 30)
-            crop_start_h = range(0, 91, 30)
-        reshape_options = [False]
-    else:
-        crop_start_w = [0]
-        crop_start_h = [0]
-        reshape_options = [False]
+    # if data_type == 'train':
+    #     if 'image' in raw_input_dir:
+    #         print("shredding with crops for images")
+    #         crop_start_w = range(0, 46, 15)
+    #         crop_start_h = range(0, 46, 15)
+    #     else:
+    #         print("shredding with crops for docs")
+    #         crop_start_w = range(0, 91, 30)
+    #         crop_start_h = range(0, 91, 30)
+    #     reshape_options = [False]
+    # else:
+    crop_start_w = [0]
+    crop_start_h = [0]
+    reshape_options = [False]
 
-    for reshape in reshape_options:
-        for c_w in crop_start_w:
-            for c_h in crop_start_h:
-                crops_previous = []
-                names_previous = []
 
-                for f in files:
-                    # TODO: add another for loop to do the same also for augmented tiles, but make sure OoD is from a previous image, not from a previous augmentation
-                    if c_w == 0 and c_h == 0 and reshape:
-                        continue
-                    filename = f.split('.')[0]+'_crw_'+str(c_w)+'_crh_'+str(c_h)+'_reshape_'+str(reshape)
-                    folder_name = output_dir + filename
-                    folder_output_dir = folder_name + '/'
-                    list_of_folders.append(filename)
-                    if not os.path.exists(output_dir):
-                        os.mkdir(output_dir)
-                    os.mkdir(folder_output_dir)
+    crops_previous = []
+    names_previous = []
 
-                    if add_t_OoDs:
-                        # add OOD from previous crops if exist:
-                        if len(crops_previous) > 0:
-                            # some of the time crate empty image (we will use this in case len(OoD) < t)
-                            idx = np.arange(len(crops_previous))
-                            np.random.shuffle(idx)
-                            for c_idx in idx[:c.tiles_per_dim]:
-                                if random.random() < 0.1:
-                                    null_img = np.zeros((c.max_size, c.max_size))
-                                    cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
-                                else:
-                                    # if random.random() < 0.5:  # sometimes place at the top, sometimes at the bottom
-                                    #     name = names_previous[c_idx]
-                                    #     name_split = name.split('_')
-                                    #     name_split[1] = '0'  # reducing image id to 0 so when sorted will appear first
-                                    #     name = name_split[0]+'_' + name_split[1] + '_' + name_split[2]+'_'+name_split[3]
-                                    #     cv2.imwrite(folder_output_dir + name, crops_previous[c_idx])
-                                    # else:
-                                    cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
-                        else:
-                            folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
+    for f in files:
 
-                    im = cv2.imread(raw_input_dir + f)
-                    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                    original_height, original_width = im.shape[0], im.shape[1]
-                    # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
+        filename = f.split('.')[0]
+        folder_name = output_dir + filename
+        folder_output_dir = folder_name + '/'
+        list_of_folders.append(filename)
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+        if not os.path.exists(folder_output_dir):
+            os.mkdir(folder_output_dir)
 
-                    im = im[c_w:im.shape[0]-c_w, c_h:im.shape[1]-c_h]
-                        # cv2.imshow("cropped", cropped)
+        if add_t_OoDs:
+            # add OOD from previous crops if exist:
+            if len(crops_previous) > 0:
+                # some of the time crate empty image (we will use this in case len(OoD) < t)
+                idx = np.arange(len(crops_previous))
+                np.random.shuffle(idx)
+                for c_idx in idx[:c.tiles_per_dim]:
+                    if random.random() < 0.1:
+                        null_img = np.zeros((c.max_size, c.max_size))
+                        cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
+                    else:
+                        # if random.random() < 0.5:  # sometimes place at the top, sometimes at the bottom
+                        #     name = names_previous[c_idx]
+                        #     name_split = name.split('_')
+                        #     name_split[1] = '0'  # reducing image id to 0 so when sorted will appear first
+                        #     name = name_split[0]+'_' + name_split[1] + '_' + name_split[2]+'_'+name_split[3]
+                        #     cv2.imwrite(folder_output_dir + name, crops_previous[c_idx])
+                        # else:
+                        cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
+            else:
+                folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
 
-                    height = im.shape[0]
-                    width = im.shape[1]
-                    # if original_height != height and original_width != width and reshape:
-                    #     try:
-                    #         im = cv2.resize(im,(original_height, original_width))
-                    #     except:
-                    #         continue
+        im = cv2.imread(raw_input_dir + f)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        original_height, original_width = im.shape[0], im.shape[1]
+        # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
+            # cv2.imshow("cropped", cropped)
 
-                    frac_h = height // c.tiles_per_dim
-                    frac_w = width // c.tiles_per_dim
-                    i = 0
-                    crops_previous = []
-                    names_previous = []
-                    for h in range(c.tiles_per_dim):
-                        for w in range(c.tiles_per_dim):
-                            crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
-                            cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
-                            crops_previous.append(crop)
-                            names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
-                            i = i + 1
+        height = im.shape[0]
+        width = im.shape[1]
+        # if original_height != height and original_width != width and reshape:
+        #     try:
+        #         im = cv2.resize(im,(original_height, original_width))
+        #     except:
+        #         continue
 
-                    if add_t_OoDs:
-                        # take OoD from last image in files as "previous" for first img
-                        if f == files[-1]:
-                            idx = np.arange(len(crops_previous))
-                            np.random.shuffle(idx)
-                            for c_idx in idx[:c.tiles_per_dim]:
-                                cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
+        frac_h = height // c.tiles_per_dim
+        frac_w = width // c.tiles_per_dim
+        i = 0
+        crops_previous = []
+        names_previous = []
+        for h in range(c.tiles_per_dim):
+            for w in range(c.tiles_per_dim):
+                crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
+                cv2.imwrite(folder_output_dir + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
+                crops_previous.append(crop)
+                names_previous.append(f[:-4] + "_{}_{}.jpg".format(str(i).zfill(2), str(-1))) # -1 indicates it will OoD for next image
+                i = i + 1
 
-    files_dict[data_type] = list_of_folders
-    print(files_dict)
-    save_obj(files_dict, c.data_split_dict)
+        if add_t_OoDs:
+            # take OoD from last image in files as "previous" for first img
+            if f == files[-1]:
+                idx = np.arange(len(crops_previous))
+                np.random.shuffle(idx)
+                for c_idx in idx[:c.tiles_per_dim]:
+                    cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
+
+    # files_dict[data_type] = list_of_folders
+    # print(files_dict)
+    # save_obj(files_dict, c.data_split_dict)
 
 #
 # def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
@@ -331,18 +326,15 @@ def run_shredder(c):
     #     split_into_train_val_test('documents', 30, dict_name)
     # else:
     #     split_into_train_val_test('images', 30, dict_name)
-    if 'doc' in c.data_split_dict:
-        split_into_train_val_test('documents',0.8,0.1, dict_name)
-    else:
-        split_into_train_val_test('images', 0.8, 0.1, dict_name)
+    split_train_val_test(c.data_split_dict == 'doc',0.8,0.1)
+    # else:
     d = load_obj(dict_name)
     # TODO: need this for multiple tile sizes, as well as for documents
-    for data_type in ['train', 'val', 'test']:
-        print("Shredding for {}".format(data_type))
-        if 'doc' in c.data_split_dict:
-            _shredder("documents/", data_type, c, output_dir)
-        else:
-            _shredder("images/", data_type, c, output_dir)
+
+    if 'doc' in c.data_split_dict:
+        _shredder("documents/", c, output_dir)
+    else:
+        _shredder("images/", c, output_dir)
 
 
 def shred_for_rows_cols(isImg, tiles_per_dim, c):
@@ -664,16 +656,16 @@ def create_ood_non_ood_pairs(c):
                 dataset_files = files_test
                 OUTPUT_DIR = OUTPUT_DIR_TEST
 
-            files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))[:5000]
+            files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))#[:5000]
             np.random.shuffle(files_for_t)
-            files_for_t = files_for_t
+            files_for_t = files_for_t[:4000]
             files_for_t = [f.split('/')[-1] for f in files_for_t]
 
             if isImg:
                 files_for_t = [f for f in files_for_t if f.split('.')[0] + '.JPEG' in dataset_files]
                 image_ids = set([f.split('_')[1] for f in files_for_t])
             else:
-                files_for_t = [f for f in files_for_t if files_for_t[0].split('_')[0]+"_"+files_for_t[0].split('_')[1] + '.jpg' in dataset_files]
+                files_for_t = [f for f in files_for_t if f.split('_')[0]+"_"+f.split('_')[1] + '.jpg' in dataset_files]
                 image_ids = set([f.split('_')[0]+'_'+f.split('_')[1] for f in files_for_t])
 
             for im_id in image_ids:

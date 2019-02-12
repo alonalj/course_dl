@@ -7,7 +7,7 @@ from resnet_ood_pairs_folder_based import run
 import time
 from preprocessor import *
 
-base_max_size = 64
+base_max_size = 224
 
 
 for i in range(1):  # for majority vote
@@ -16,6 +16,8 @@ for i in range(1):  # for majority vote
         # if not is_images and tiles_per_dim < 5:
         #     continue
         c = Conf()
+        if is_images:
+            base_max_size = 112
         c.max_size = base_max_size
         c.is_images = is_images
         shred_for_ood_pairs(is_images)
