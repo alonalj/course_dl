@@ -3,7 +3,7 @@ from resnet_rows_cols_folder_based import *
 
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
-    for is_images in [True]:
+    for is_images in [False]:
         for tiles_per_dim in [2,4,5]:  # [4]: #
             # for rows_or_cols in :
             # if tiles_per_dim == 5:

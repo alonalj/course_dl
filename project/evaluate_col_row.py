@@ -194,11 +194,11 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     non_ood_images = []
     if non_ood_images_ix == -1:
-        non_ood_images = images
+        non_ood_images = [cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
         non_ood_images_ix = range(len(images))
     else:
         for i in non_ood_images_ix:
-            non_ood_images.append(images[i])
+            non_ood_images.append(cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
 
     # predicting rows and cols
     rows_cols_model = get_rows_cols_model(conf_row_col)
@@ -214,6 +214,7 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     logits_img_ix_pos_tuples = []
     argmax_preds = []
     for im_ix_internal in range(len(logits)):
+        print(logits[im_ix_internal])
         argmax_preds.append(np.argmax(logits[im_ix_internal]))
         for pos in range(len(logits[im_ix_internal])):
             score = logits[im_ix_internal][pos]
