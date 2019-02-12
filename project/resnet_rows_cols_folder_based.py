@@ -159,7 +159,7 @@ def run(c, rows_or_cols):
     # resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='max', period=1)
-    early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.2,patience=10)
+    early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.01,patience=100)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc_train.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
@@ -174,7 +174,7 @@ def run(c, rows_or_cols):
         datagen_img_vs_doc_val.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
                                                target_size=(SHAPE, SHAPE),
                                                color_mode='grayscale'),
-        callbacks=[reduce_lr, ckpt])#, early_stop])
+        callbacks=[reduce_lr, ckpt, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
 
