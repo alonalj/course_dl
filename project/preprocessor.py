@@ -326,7 +326,7 @@ def run_shredder(c):
     #     split_into_train_val_test('documents', 30, dict_name)
     # else:
     #     split_into_train_val_test('images', 30, dict_name)
-    split_train_val_test(c.data_split_dict == 'doc',0.8,0.1)
+    split_train_val_test(c.data_split_dict != 'doc',0.8,0.1)
     # else:
     d = load_obj(dict_name)
     # TODO: need this for multiple tile sizes, as well as for documents
