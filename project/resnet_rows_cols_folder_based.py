@@ -121,7 +121,8 @@ def run(c, rows_or_cols):
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim)
 
     batch_size = 100
-    steps_per_epoch = len(os.listdir('{}_{}_val/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
+    # TODO: check withoutval in row below
+    steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim))) // batch_size
     maxepoches = 1
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
@@ -149,7 +150,7 @@ def run(c, rows_or_cols):
         # vertical_flip=False)  # randomly flip images
 
     # datagen.fit(X_train)
-
+    resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
@@ -161,7 +162,7 @@ def run(c, rows_or_cols):
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=1000,
-        validation_steps=30,
+        validation_steps=40,
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
@@ -170,3 +171,4 @@ def run(c, rows_or_cols):
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
+
