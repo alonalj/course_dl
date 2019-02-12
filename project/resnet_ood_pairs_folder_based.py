@@ -147,7 +147,7 @@ def run(c):
         # vertical_flip=False)  # randomly flip images
 
     # datagen.fit(X_train)
-
+    resnet_rows_cols.load_weights('model_ood_pairs_isImg_True.h5')
     ckpt = keras.callbacks.ModelCheckpoint('model_ood_pairs_isImg_{}.h5'.format(is_image), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
@@ -165,7 +165,7 @@ def run(c):
         datagen_img_vs_doc.flow_from_directory(path+'_val',
                                                target_size=(SHAPE, SHAPE)),
                                                # color_mode='grayscale'),
-        callbacks=[reduce_lr, ckpt])#, early_stop])
+        callbacks=[reduce_lr])#, ckpt])#, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
 
