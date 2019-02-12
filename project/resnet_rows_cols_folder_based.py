@@ -138,7 +138,9 @@ def run(c, rows_or_cols):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_train = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_val = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+
         # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
         # featurewise_std_normalization=False,  # divide inputs by std of the dataset
@@ -154,13 +156,13 @@ def run(c, rows_or_cols):
     model_net_name = 'model_net_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    # resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='max', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.2,patience=10)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
-        datagen_img_vs_doc.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
+        datagen_img_vs_doc_train.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
                                                target_size=(SHAPE, SHAPE),
                                                # color_mode='grayscale',
                                                batch_size=batch_size),
@@ -169,7 +171,7 @@ def run(c, rows_or_cols):
         validation_steps=100,
         shuffle=True,
         validation_data=
-        datagen_img_vs_doc.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
+        datagen_img_vs_doc_val.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
                                                target_size=(SHAPE, SHAPE)),
                                                # color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
