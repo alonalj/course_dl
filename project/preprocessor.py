@@ -370,7 +370,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
                 crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
                 all_crops.append(crop)
 
-        all_crops = add_similarity_channel(all_crops, all_crops, c, n_channels=3)
+        # all_crops = add_similarity_channel(all_crops, all_crops, c, n_channels=3)
         i = 0
         for crop in all_crops:
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)

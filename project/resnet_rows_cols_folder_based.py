@@ -72,7 +72,7 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
 
 
 def build_resnet_rows_col(TILES_PER_DIM, weight_decay=1e-3):
-    x_in = Input(shape=(SHAPE, SHAPE, 3))
+    x_in = Input(shape=(SHAPE, SHAPE, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -138,8 +138,8 @@ def run(c, rows_or_cols):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc_train = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
-    datagen_img_vs_doc_val = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_train = ImageDataGenerator()#preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_val = ImageDataGenerator()#preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
 
         # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
@@ -156,7 +156,7 @@ def run(c, rows_or_cols):
     model_net_name = 'model_net_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    # resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='max', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.2,patience=10)
@@ -164,7 +164,7 @@ def run(c, rows_or_cols):
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc_train.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
                                                target_size=(SHAPE, SHAPE),
-                                               # color_mode='grayscale',
+                                               color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
         epochs=1000,
@@ -172,8 +172,8 @@ def run(c, rows_or_cols):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc_val.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(SHAPE, SHAPE)),
-                                               # color_mode='grayscale'),
+                                               target_size=(SHAPE, SHAPE),
+                                               color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
     # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))

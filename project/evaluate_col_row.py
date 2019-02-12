@@ -208,25 +208,9 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     resized_images = []
-    non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, n_channels=3)
-    datagen_img_vs_doc = ImageDataGenerator(
-        preprocessing_function=lambda x: x / 255.)  # preprocessing_function=to_grayscale)
-    for im in non_ood_images:
-        from keras_preprocessing import image
-
-        # # from PIL import Image
-        # # im_ = Image.fromarray(im)
-        # # im_ = im_.resize((conf_row_col.max_size, conf_row_col.max_size))
-        # # im = np.array(im_)
-        im = im / 255.
-        resized_images.append(im)
-        # resized_images.append(im / 255.)
-
-    non_ood_images = resized_images
+    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, 3)
     logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
-    # flower = datagen_img_vs_doc.flow(np.array(resized_images))
-    # flower.target_size = (conf_row_col.max_size, conf_row_col.max_size)
-    # logits = rows_cols_model.predict_generator(flower,steps=1)
+
     logits_img_ix_pos_tuples = []
     argmax_preds = []
     for im_ix_internal in range(len(logits)):
@@ -280,6 +264,30 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
 
 
+    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, n_channels=3)
+    # from PIL import Image
+
+    # datagen_img_vs_doc = ImageDataGenerator(
+    #     preprocessing_function=lambda x: x / 255.)  # preprocessing_function=to_grayscale)
+    # for im in non_ood_images:
+        # im_ = Image.fromarray(im.astype('uint8'))
+        # im = np.array(im_)
+        # cv2.imwrite("tmp.jpg", im)
+        # im = cv2.imread("tmp.jpg")
+        # from keras_preprocessing import image
+
+        # # from PIL import Image
+        # # im_ = Image.fromarray(im)
+        # # im_ = im_.resize((conf_row_col.max_size, conf_row_col.max_size))
+        # # im = np.array(im_)
+        # im = im / 255.
+        # resized_images.append(im)
+        # resized_images.append(im / 255.)
+
+    # non_ood_images = resized_images
+    # flower = datagen_img_vs_doc.flow(np.array(resized_images))
+    # flower.target_size = (conf_row_col.max_size, conf_row_col.max_size)
+    # logits = rows_cols_model.predict_generator(flower,steps=1)
 
     # greedily start placing those with higher row certainty
 
