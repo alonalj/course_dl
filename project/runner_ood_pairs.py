@@ -12,12 +12,10 @@ base_max_size = 224
 
 for i in range(1):  # for majority vote
     mID = str(i) + "_" + str(time.time())
-    for is_images in [False]:
+    for is_images in [True]:
         # if not is_images and tiles_per_dim < 5:
         #     continue
         c = Conf()
-        if is_images:
-            base_max_size = 112
         c.max_size = base_max_size
         c.is_images = is_images
         shred_for_ood_pairs(is_images)
