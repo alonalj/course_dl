@@ -11,7 +11,6 @@ from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
-# SHAPE = 112
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -71,8 +70,8 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
     return x
 
 
-def build_resnet_ood(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
-    x_in = Input(shape=(SHAPE*2, SHAPE, 1))
+def build_resnet_ood(SHAPE, weight_decay=1e-3):
+    x_in = Input(shape=(SHAPE, SHAPE*2, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
     x = BatchNormalization()(x)
@@ -84,7 +83,7 @@ def build_resnet_ood(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
     x = res_tower_2_layer_img_vs_doc(x, 512, 2, True, weight_decay=weight_decay)
 
     x = GlobalAveragePooling2D()(x)
-    x = Dense(TILES_PER_DIM, activation='softmax')(x)
+    x = Dense(2, activation='softmax')(x)
     return Model(inputs=x_in, outputs=x)
 
 
@@ -115,11 +114,10 @@ def run(c):
 
     import glob
 
-    tiles_per_dim = c.tiles_per_dim
     is_image = c.is_images
     SHAPE = c.max_size
 
-    resnet_rows_cols = build_resnet_ood(tiles_per_dim, SHAPE)
+    resnet_rows_cols = build_resnet_ood(SHAPE)
 
     batch_size = 18
     path = "ood_isImg_{}".format(c.is_images)
@@ -158,7 +156,7 @@ def run(c):
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc.flow_from_directory(path,
-                                               target_size=(c.max_size*2, c.max_size),
+                                               target_size=(c.max_size, c.max_size*2),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
@@ -167,7 +165,7 @@ def run(c):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc.flow_from_directory(path+'_val',
-                                               target_size=(c.max_size*2, c.max_size),
+                                               target_size=(c.max_size, c.max_size*2),
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
