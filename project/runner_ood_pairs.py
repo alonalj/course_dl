@@ -7,7 +7,7 @@ from resnet_ood_pairs_folder_based import run
 import time
 from preprocessor import *
 
-base_max_size = 224
+base_max_size = 112
 
 
 for i in range(1):  # for majority vote
