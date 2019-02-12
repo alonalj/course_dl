@@ -150,6 +150,7 @@ def run(c, rows_or_cols):
         # vertical_flip=False)  # randomly flip images
 
     # datagen.fit(X_train)
+    resnet_rows_cols.save('model.h5')
     resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
