@@ -121,7 +121,7 @@ def run(c):
 
     resnet_rows_cols = build_resnet_ood(tiles_per_dim, SHAPE)
 
-    batch_size = 60
+    batch_size = 18
     path = "ood_isImg_{}".format(c.is_images)
     train_len = len(glob.glob(path+'/0'+'/*'))
 
