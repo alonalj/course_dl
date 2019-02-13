@@ -171,7 +171,7 @@ def run(c, rows_or_cols):
         shuffle=True,
         validation_data=
         datagen_img_vs_doc_val.flow_from_directory('{}_{}_val'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(SHAPE, SHAPE),
+                                               target_size=(c.max_size, c.max_size),
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
