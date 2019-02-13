@@ -15,12 +15,12 @@ from conf import Conf
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
 
     if downsample:
         x_in = Conv2D(dim, kernel_size=(1, 1), padding='same', strides=(2, 2),
@@ -41,17 +41,17 @@ def res_tower_2_layer_img_vs_doc(x, dim, num_layers, downsample_first=True, weig
 def res_3_layer_block_img_vs_doc(x_in, dim_reduce, dim_out, downsample=False, adjust_skip_dim=False, weight_decay=0.0001):
     x = Conv2D(dim_reduce, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim_reduce, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
 
     if downsample or adjust_skip_dim:
         x_in = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -74,7 +74,7 @@ def build_resnet_rows_col(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
     x_in = Input(shape=(SHAPE, SHAPE, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = res_tower_2_layer_img_vs_doc(x, 64, 2, False, weight_decay=weight_decay)
@@ -119,10 +119,10 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
-    batch_size = 10
+    batch_size = 100
     # TODO: check withoutval in row below
 
-    steps_per_epoch = 3#len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
+    steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
     maxepoches = 1
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
@@ -166,7 +166,7 @@ def run(c, rows_or_cols):
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
-        epochs=1000,
+        epochs=10,
         validation_steps=100,
         shuffle=True,
         validation_data=
@@ -175,5 +175,5 @@ def run(c, rows_or_cols):
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
-    # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
+    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
 
