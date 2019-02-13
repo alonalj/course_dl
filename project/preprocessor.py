@@ -402,6 +402,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
         # all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
         i = 0
         for crop in all_crops:
+            crop = np.resize(crop, (c.max_size, c.max_size)) # TODO; remove if using similarity channel
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
             i+=1
 
