@@ -166,7 +166,7 @@ def run(c, rows_or_cols):
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
-        epochs=10,
+        epochs=2,
         validation_steps=100,
         shuffle=True,
         validation_data=
