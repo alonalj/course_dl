@@ -1,6 +1,7 @@
 import os
 import cv2
 from keras.utils import to_categorical
+import  keras
 from preprocessor import *
 from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
 from resnet_ood_pairs_folder_based import build_resnet_ood
@@ -103,8 +104,9 @@ def get_rows_cols_model(c):
 
     resnet.compile(
         loss='categorical_crossentropy',
-        optimizer="adam",
-        metrics=['accuracy'])
+        optimizer='adam',
+        metrics=['accuracy']
+    )
     return resnet
 
 
@@ -195,7 +197,7 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     non_ood_images = []
     if non_ood_images_ix == -1:
-        non_ood_images = [cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
+        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
         non_ood_images_ix = range(len(images))
     else:
         for i in non_ood_images_ix:
@@ -206,7 +208,7 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     model_type = "rows" if is_rows else "cols"
     print(model_type)
-    # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
+    rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
     # resized_images = []
