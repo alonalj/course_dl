@@ -3,8 +3,8 @@ import cv2
 from keras.utils import to_categorical
 from preprocessor import *
 from resnet_rows_cols_folder_based import *
-from resnet_ood_pairs_folder_based import *
-from resnet_img_doc_classifier import *
+from resnet_ood_pairs_folder_based import build_resnet_ood
+from resnet_img_doc_classifier import build_resnet_img_vs_doc
 
 
 def maybe_download_weights():
@@ -195,11 +195,11 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     non_ood_images = []
     if non_ood_images_ix == -1:
-        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
+        non_ood_images = [cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
         non_ood_images_ix = range(len(images))
     else:
         for i in non_ood_images_ix:
-            non_ood_images.append(images[i])#cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
+            non_ood_images.append(cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
 
     # predicting rows and cols
     rows_cols_model = get_rows_cols_model(conf_row_col)
@@ -208,17 +208,17 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     print(model_type)
     # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
-    non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
-    resized_images = []
-    for im in non_ood_images:
-        resized_images.append(np.expand_dims(im,-1))
-    non_ood_images = resized_images
+    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
+    # resized_images = []
+    # for im in non_ood_images:
+    #     resized_images.append(np.expand_dims(im,-1))
+    # non_ood_images = resized_images
     logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
-
+    print(np.argmax(logits,1))
     logits_img_ix_pos_tuples = []
     argmax_preds = []
     for im_ix_internal in range(len(logits)):
-        print(logits[im_ix_internal])
+        # print(logits[im_ix_internal])
         argmax_preds.append(np.argmax(logits[im_ix_internal]))
         for pos in range(len(logits[im_ix_internal])):
             score = logits[im_ix_internal][pos]
@@ -343,6 +343,7 @@ def evaluate(file_dir='example/'):
     print(Y)  # TODO - remove!
     return Y
 
+
 def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
     from preprocessor import get_row_col_label
     files = os.listdir(file_dir)
@@ -350,10 +351,13 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
     # random.shuffle(files)
     print(files)  #TODO: remove
     labels = []
-    if is_img:
-        for f in files:
-            f = f.split('.')[1]
-            labels.append(get_row_col_label(int(f.split('_')[-1]),tiles_per_dim,is_img))
+    # if is_img:
+    for f in files:
+        if is_img:
+            label_original = int(f.split('.')[1].split('_')[-1])
+        else:
+            label_original = int(f.split('.')[0].split('_')[-1])
+        labels.append(get_row_col_label(label_original,tiles_per_dim,True))
     images = []
     for f in files:
         im = cv2.imread(file_dir + f)
@@ -369,8 +373,9 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
 # evaluate('example/')
 import glob
 tiles_per_dim = 4
-for folder in glob.glob('dataset_{}_isImg_True/*'.format(tiles_per_dim)):
-    evaluate_internal(tiles_per_dim, folder+'/')
+is_img = False
+for folder in glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img)):
+    evaluate_internal(tiles_per_dim, folder+'/', is_img)
 
     # try:
     #     evaluate_internal(tiles_per_dim, folder+'/')
