@@ -2,7 +2,7 @@ import os
 import cv2
 from keras.utils import to_categorical
 from preprocessor import *
-from resnet_rows_cols_folder_based import *
+from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
 from resnet_ood_pairs_folder_based import build_resnet_ood
 from resnet_img_doc_classifier import build_resnet_img_vs_doc
 
@@ -362,7 +362,8 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
     for f in files:
         im = cv2.imread(file_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        images.append(im)
+        im = cv2.resize(im, (112,112))
+        images.append(np.expand_dims(im,-1))
 
     Y = predict(images, labels)
     print(Y)  # TODO - remove!
