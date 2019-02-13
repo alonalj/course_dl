@@ -44,7 +44,7 @@ def reshape_ood_images_to_majority_shape(images, shape_majority):
     return images
 
 
-def add_similarity_channel(processed_images, original_images, c, n_channels=2, only_sim=False, sim_on_side=False):
+def add_similarity_channel(processed_images, original_images, c, n_channels=None, only_sim=False, sim_on_side=False):
     from scipy import spatial  # TODO: add to dependencies
 
     indices_identified_as_ood = []
@@ -60,6 +60,8 @@ def add_similarity_channel(processed_images, original_images, c, n_channels=2, o
     for i in range(len(processed_images)):
         if only_sim:
             sim_layer = np.zeros((25, 25))
+        elif sim_on_side:
+            sim_layer = np.zeros((c.max_size, 4))
         else:
             sim_layer = np.zeros((c.max_size, c.max_size))
         im = original_images[i]
@@ -99,11 +101,18 @@ def add_similarity_channel(processed_images, original_images, c, n_channels=2, o
             sim_layer = 255 * sim_layer
             final_image = sim_layer
         else:
-            final_image = np.zeros((c.max_size, c.max_size, n_channels))
-            final_image[:,:,0] = cv2.resize(processed_images[i], (c.max_size,c.max_size))
-            if np.max(final_image) > 1:
-                sim_layer = 255 * sim_layer
-            final_image[:,:,1] = sim_layer
+            if sim_on_side:
+                img = cv2.resize(processed_images[i], (c.max_size-4, c.max_size))
+                if np.max(img) > 1:
+                    sim_layer = 255 * sim_layer
+                img = np.concatenate([img,sim_layer], 1)
+                final_image = img
+            else:
+                final_image = np.zeros((c.max_size, c.max_size, 3))
+                final_image[:,:,0] = cv2.resize(processed_images[i], (c.max_size,c.max_size))
+                if np.max(final_image) > 1:
+                    sim_layer = 255 * sim_layer
+                final_image[:,:,1] = sim_layer
 
         final_images.append(final_image)  # each has two channels, the second channel has the similarities
         sum_similarity_to_neighbors = sum_similarity_to_neighbors / float(len(processed_images))
@@ -378,8 +387,10 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
 
                 crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
                 all_crops.append(crop)
-
-        all_crops = add_similarity_channel(all_crops, all_crops, c, n_channels=3, only_sim=True, sim_on_side=False)
+        # print("before", all_crops)
+        random.shuffle(all_crops)
+        # print("after", all_crops)
+        all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
         i = 0
         for crop in all_crops:
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
