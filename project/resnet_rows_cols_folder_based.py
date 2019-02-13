@@ -175,5 +175,5 @@ def run(c, rows_or_cols):
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt, early_stop])
 
-    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
+    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
 
