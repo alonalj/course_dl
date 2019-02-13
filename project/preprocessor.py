@@ -332,7 +332,7 @@ def resize_image(image, max_size=None, resize_factor=None, simple_reshape=True):
 
 
 def run_shredder(c):
-    if 'doc' in c.data_split_dict:
+    if 'False' in c.data_split_dict:
         output_dir = "dataset_{}_isImg_False/".format(c.tiles_per_dim)
     else:
         output_dir = "dataset_{}_isImg_True/".format(c.tiles_per_dim)
@@ -344,12 +344,12 @@ def run_shredder(c):
     #     split_into_train_val_test('documents', 30, dict_name)
     # else:
     #     split_into_train_val_test('images', 30, dict_name)
-    split_train_val_test(c.data_split_dict != 'doc',0.8,0.1)
+    split_train_val_test('True' in c.data_split_dict,0.8,0.1)
     # else:
     d = load_obj(dict_name)
     # TODO: need this for multiple tile sizes, as well as for documents
 
-    if 'doc' in c.data_split_dict:
+    if 'False' in c.data_split_dict:
         _shredder("documents/", c, output_dir)
     else:
         _shredder("images/", c, output_dir)
@@ -399,7 +399,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
         # print("before", all_crops)
         # random.shuffle(all_crops)
         # print("after", all_crops)
-        all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
+        # all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
         i = 0
         for crop in all_crops:
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
