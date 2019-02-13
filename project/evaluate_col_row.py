@@ -99,13 +99,14 @@ def get_ood_model(c, is_image):
 
 
 def get_rows_cols_model(c):
-    resnet = build_resnet_rows_col(c.tiles_per_dim)
+    resnet = build_resnet_rows_col(c.tiles_per_dim, c.max_size)
 
     resnet.compile(
         loss='categorical_crossentropy',
         optimizer="adam",
         metrics=['accuracy'])
     return resnet
+
 
 def predict_oods(images, conf_ood, img_ix_to_labels):
     # OOD classification
@@ -194,11 +195,11 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     non_ood_images = []
     if non_ood_images_ix == -1:
-        non_ood_images = [cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
+        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
         non_ood_images_ix = range(len(images))
     else:
         for i in non_ood_images_ix:
-            non_ood_images.append(cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
+            non_ood_images.append(images[i])#cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
 
     # predicting rows and cols
     rows_cols_model = get_rows_cols_model(conf_row_col)
@@ -207,8 +208,11 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     print(model_type)
     # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
+    non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
     resized_images = []
-    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, 3)
+    for im in non_ood_images:
+        resized_images.append(np.expand_dims(im,-1))
+    non_ood_images = resized_images
     logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
 
     logits_img_ix_pos_tuples = []
@@ -364,7 +368,7 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
 # # TODO: remove
 # evaluate('example/')
 import glob
-tiles_per_dim = 2
+tiles_per_dim = 4
 for folder in glob.glob('dataset_{}_isImg_True/*'.format(tiles_per_dim)):
     evaluate_internal(tiles_per_dim, folder+'/')
 

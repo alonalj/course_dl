@@ -7,7 +7,7 @@ for image,
     for augmentation of image:
         shred in preprocessor into subfolders with labels in name ( check keras input?)
 for each folder randomly select t ood tiles from another folder and add them
-split folders into train, val, test parent-folders randomly
+split folders into train, val, test parent-folderas randomly
 '''
 
 import os
@@ -382,13 +382,22 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
         frac_h = height//tiles_per_dim
         frac_w = width//tiles_per_dim
         i=0
+        crop_names = []
         for h in range(tiles_per_dim):
             for w in range(tiles_per_dim):
 
                 crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
                 all_crops.append(crop)
+                crop_names.append(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)))
+                i+=1
+
+        print("before", crop_names)
+        zipped = zip(crop_names,all_crops)
+        result = sorted(zipped,key=lambda x: x[0])
+        crop_names, all_crops = [item[0] for item in result], [item[1] for item in result]
+        print("after", crop_names)
         # print("before", all_crops)
-        random.shuffle(all_crops)
+        # random.shuffle(all_crops)
         # print("after", all_crops)
         all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
         i = 0

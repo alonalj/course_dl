@@ -11,7 +11,6 @@ from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
-SHAPE = 112
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -71,7 +70,7 @@ def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first
     return x
 
 
-def build_resnet_rows_col(TILES_PER_DIM, weight_decay=1e-3):
+def build_resnet_rows_col(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
     x_in = Input(shape=(SHAPE, SHAPE, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
@@ -118,7 +117,7 @@ def run(c, rows_or_cols):
     tiles_per_dim = c.tiles_per_dim
     is_image = c.is_images
 
-    resnet_rows_cols = build_resnet_rows_col(tiles_per_dim)
+    resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
     batch_size = 100
     # TODO: check withoutval in row below
@@ -163,7 +162,7 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_img_vs_doc_train.flow_from_directory('{}_{}'.format(rows_or_cols, tiles_per_dim),
-                                               target_size=(SHAPE, SHAPE),
+                                               target_size=(c.max_size, c.max_size),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
