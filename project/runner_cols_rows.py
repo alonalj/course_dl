@@ -1,4 +1,4 @@
-from preprocessor import shredder_original, create_rows_cols_folders_by_class
+from preprocessor import shredder_original, create_rows_cols_folders_by_class, create_normalization_stats
 from resnet_rows_cols_folder_based_lessKeras import *
 
 for i in range(1):  # for majority vote
@@ -16,4 +16,5 @@ for i in range(1):  # for majority vote
                 OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, is_images)
                 shredder_original(is_images,tiles_per_dim,c,OUTPUT_DIR)
                 create_rows_cols_folders_by_class(tiles_per_dim, is_images, rows_or_cols)
+                create_normalization_stats(c, rows_or_cols)
                 run(c, rows_or_cols)
