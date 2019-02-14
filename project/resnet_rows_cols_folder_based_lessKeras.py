@@ -217,14 +217,14 @@ def run(c, rows_or_cols):
     # resnet_rows_cols = keras.models.load_model(model_net_name)
     # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
     # print("loaded")
-    # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
-    #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
+    ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
+                                    verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
 
     # for e in range(maxepoches):
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
                                                            steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches,
-                                                           callbacks=[early_stop])
+                                                           callbacks=[early_stop, ckpt])
 
     resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
 
