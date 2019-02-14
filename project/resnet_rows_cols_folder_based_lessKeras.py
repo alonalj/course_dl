@@ -178,7 +178,7 @@ def run(c, rows_or_cols):
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
     batch_size = 120
-    # TODO: check withoutval in row below
+    # TODO: check withoutval in row below 
 
     steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
     maxepoches = 6
