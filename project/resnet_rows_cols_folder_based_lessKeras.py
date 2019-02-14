@@ -73,12 +73,12 @@ from conf import Conf
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
 
     if downsample:
         x_in = Conv2D(dim, kernel_size=(1, 1), padding='same', strides=(2, 2),
@@ -99,17 +99,17 @@ def res_tower_2_layer_img_vs_doc(x, dim, num_layers, downsample_first=True, weig
 def res_3_layer_block_img_vs_doc(x_in, dim_reduce, dim_out, downsample=False, adjust_skip_dim=False, weight_decay=0.0001):
     x = Conv2D(dim_reduce, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim_reduce, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
 
     if downsample or adjust_skip_dim:
         x_in = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
@@ -132,7 +132,7 @@ def build_resnet_rows_col(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
     x_in = Input(shape=(SHAPE, SHAPE, 1))
     x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
                kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
+    # x = BatchNormalization()(x)
     x = Activation('relu')(x)
 
     x = res_tower_2_layer_img_vs_doc(x, 64, 2, False, weight_decay=weight_decay)
