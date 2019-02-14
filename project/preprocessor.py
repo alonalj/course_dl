@@ -447,7 +447,10 @@ def shred_for_ood_pairs(isImg):
                 i+=1
 
 def preprocess_image(im, c):
-    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    try:
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    except:
+        pass
     im = cv2.resize(im, (c.max_size, c.max_size))
     im = im / 255.0
     im = np.expand_dims(im, -1)

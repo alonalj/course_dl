@@ -178,7 +178,7 @@ def run(c, rows_or_cols):
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
     batch_size = 120
-    # TODO: check withoutval in row below 
+    # TODO: check withoutval in row below
 
     steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
     maxepoches = 6
@@ -215,7 +215,7 @@ def run(c, rows_or_cols):
     model_net_name = 'model_net_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
+    resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
     # print("loaded")
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
