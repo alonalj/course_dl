@@ -446,13 +446,50 @@ def shred_for_ood_pairs(isImg):
                 cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}_t_{}.jpg".format(str(i).zfill(2), tiles_per_dim), crop)
                 i+=1
 
+def create_normalization_stats_dict(c, rows_or_cols):
+    import glob
+    if os.path.exists('mean_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)) and os.path.exists('std_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)):
+        print("already calculated mean, std stats")
+        return
+    sum_imgs = np.zeros((c.max_size, c.max_size))
+    sum_imgs_2 = np.zeros((c.max_size, c.max_size))
+    subt_imgs_2 = np.zeros((c.max_size, c.max_size))
+    count_images = 0
+    for folder in glob.glob("{}_{}_isImg_{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images)):
+        for file in glob.glob("{}_{}_isImg_{}/{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images, folder.split('/')[1])):
+            im = cv2.imread(file)
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            im = cv2.resize(im, (c.max_size, c.max_size))
+            sum_imgs += im
+            count_images += 1
+    mean_image = sum_imgs / float(count_images)
+    for folder in glob.glob("{}_{}_isImg_{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images)):
+        for file in glob.glob("{}_{}_isImg_{}/{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images, folder.split('/')[1])):
+            im = cv2.imread(file)
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+            im = cv2.resize(im, (c.max_size, c.max_size))
+            subt_imgs_2 += (im - mean_image)**2
+    stdev_image = np.sqrt(subt_imgs_2 / float(count_images-1))
+
+    save_obj(mean_image, 'mean_{}_isImg_{}'.format(c.tiles_per_dim, c.is_images))
+    save_obj(stdev_image, 'std_{}_isImg_{}'.format(c.tiles_per_dim, c.is_images))
+
+
 def preprocess_image(im, c):
+
+    MEAN = load_obj('mean_{}_isImg_{}'.format(c.tiles_per_dim, c.is_images))
+    STD = load_obj('std_{}_isImg_{}'.format(c.tiles_per_dim, c.is_images))
+
+    def normalize(im, is_img=True):
+        im = (im - MEAN) / STD
+        return im
+
     try:
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
     except:
         pass
     im = cv2.resize(im, (c.max_size, c.max_size))
-    im = im / 255.0
+    im = normalize(im, c.is_images)
     im = np.expand_dims(im, -1)
     return im
 
@@ -635,9 +672,9 @@ def create_rows_cols_folders_by_class(tiles_per_dim, isImg, rows_or_cols):
     y = []
 
 
-    OUTPUT_DIR_TRAIN = rows_or_cols + "_" + str(tiles_per_dim) + "/"
-    OUTPUT_DIR_VAL = rows_or_cols + "_" + str(tiles_per_dim) + "_val/"
-    OUTPUT_DIR_TEST = rows_or_cols + "_" + str(tiles_per_dim) + "_test/"
+    OUTPUT_DIR_TRAIN = "{}_{}_isImg_{}/".format(rows_or_cols, tiles_per_dim, isImg)
+    OUTPUT_DIR_VAL = "{}_{}_isImg_{}_val/".format(rows_or_cols, tiles_per_dim, isImg)
+    OUTPUT_DIR_TEST = "{}_{}_isImg_{}_test/".format(rows_or_cols, tiles_per_dim, isImg)
 
     if not os.path.exists(OUTPUT_DIR_TRAIN):
         os.mkdir(OUTPUT_DIR_TRAIN)

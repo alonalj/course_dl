@@ -11,13 +11,13 @@ from keras_preprocessing.image import ImageDataGenerator
 from preprocessor import preprocess_image
 from conf import Conf
 
-def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
+def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c, rows_or_cols):
     import random
     import glob
     import os
     from keras.utils import to_categorical
 
-    path = '{}_{}'.format("rows", c.tiles_per_dim)
+    path = "{}_{}_isImg_{}".format(rows_or_cols, tiles_per_dim, c.is_images)
     if data_type == "val":
         path = path+'_val'
     if data_type == "test":
@@ -177,11 +177,11 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
-    batch_size = 128
+    batch_size = 130
     # TODO: check withoutval in row below
 
-    steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
-    maxepoches = 6
+    steps_per_epoch = len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
+    maxepoches = 100
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=50, min_lr=0.00001)
@@ -195,9 +195,9 @@ def run(c, rows_or_cols):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc_train = data_generator('train', c.tiles_per_dim, '', batch_size, c)#ImageDataGenerator()#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_train = data_generator('train', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
 
-    datagen_img_vs_doc_val = data_generator('val', c.tiles_per_dim, '', batch_size, c)#ImageDataGenerator()#preprocessing_function=to_grayscale)
+    datagen_img_vs_doc_val = data_generator('val', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
 
 
         # featurewise_center=False,  # set input mean to 0 over the dataset
