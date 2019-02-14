@@ -446,7 +446,7 @@ def shred_for_ood_pairs(isImg):
                 cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}_t_{}.jpg".format(str(i).zfill(2), tiles_per_dim), crop)
                 i+=1
 
-def create_normalization_stats_dict(c, rows_or_cols):
+def create_normalization_stats(c, rows_or_cols):
     import glob
     if os.path.exists('mean_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)) and os.path.exists('std_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)):
         print("already calculated mean, std stats")
