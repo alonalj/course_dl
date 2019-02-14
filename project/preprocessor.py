@@ -543,60 +543,42 @@ def shred_for_img_vs_doc():
 
 def get_row_col_label(label, t, is_rows):
     label = int(label)
-    if t == 2:
-        if is_rows:
-            if label in [0,1]:
-                label = 0
-            else:
-                label = 1
-        else:
-            if label in [0,2]:
-                label = 0
-            else:
-                label = 1
-    if t == 4:
-        if is_rows:
-            if label in [0,1,2,3]:
-                label = 0
-            elif label in [4,5,6,7]:
-                label = 1
-            elif label in [8,9,10,11]:
-                label = 2
-            else:  # [ 12,13,14,15]
-                label = 3
-        else:
-            if label in [0,4,8,12]:
-                label = 0
-            elif label in [1,5,9,13]:
-                label = 1
-            elif label in [2,6,10,14]:
-                label = 2
-            else:
-                label = 3
-    if t == 5:
-        if is_rows:
-            if label in [0,1,2,3,4]:
-                label = 0
-            elif label in [5,6,7,8,9]:
-                label = 1
-            elif label in [10,11,12,13,14]:
-                label = 2
-            elif label in [15,16,17,18,19]:
-                label = 3
-            else: # [20,21,22,23,24]
-                label = 4
-        else:
-            if label in [0,5,10,15,20]:
-                label = 0
-            elif label in [1,6,11,16,21]:
-                label = 1
-            elif label in [2,7,12,17,22]:
-                label = 2
-            elif label in [3,8,13,18,23]:
-                label = 3
-            else:
-                label = 4
+    if is_rows:
+        label = int(label/t)
+    else:
+        label = int(label % t)
     return label
+
+
+def shred_original_ta():
+    import cv2
+    import os
+    import numpy as np
+
+    Xa = []
+    Xb = []
+    y = []
+
+    IM_DIR = "images/"
+    OUTPUT_DIR = "output/"
+    files = os.listdir(IM_DIR)
+
+    # update this number for 4X4 crop 2X2 or 5X5 crops.
+    tiles_per_dim = 4
+
+    for f in files:
+        im = cv2.imread(IM_DIR + f)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        height = im.shape[0]
+        width = im.shape[1]
+        frac_h = height // tiles_per_dim
+        frac_w = width // tiles_per_dim
+        i = 0
+        for h in range(tiles_per_dim):
+            for w in range(tiles_per_dim):
+                crop = im[h * frac_h:(h + 1) * frac_h, w * frac_w:(w + 1) * frac_w]
+                cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
+                i = i + 1
 
 
 def shredder_original(isImg, tiles_per_dim, c, OUTPUT_DIR, dict=[]):
