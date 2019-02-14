@@ -13,8 +13,6 @@ base_max_size = 112
 for i in range(1):  # for majority vote
     mID = str(i) + "_" + str(time.time())
     for is_images in [False]:
-        # if not is_images and tiles_per_dim < 5:
-        #     continue
         c = Conf()
         c.max_size = base_max_size
         c.is_images = is_images

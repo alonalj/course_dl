@@ -365,7 +365,7 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
     else:
         IM_DIR = "documents/"
 
-    OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, IM_DIR == "images/")
+    OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, isImg)
     if not os.path.exists(OUTPUT_DIR):
         os.mkdir(OUTPUT_DIR)
     else:
@@ -560,6 +560,45 @@ def get_row_col_label(label, t, is_rows):
             else:
                 label = 4
     return label
+
+
+def shredder_original(isImg, tiles_per_dim, c, OUTPUT_DIR, dict=[]):
+
+    Xa = []
+    Xb = []
+    y = []
+
+    if isImg:
+        IM_DIR = "images/"
+    else:
+        IM_DIR = "documents/"
+
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR)
+    else:
+        print("Already shredded")
+        return
+
+    if len(dict) > 1:
+        files_dict = load_obj(c.data_split_dict)
+        files = files_dict
+    else:
+        files = os.listdir(IM_DIR)
+
+    for f in files:
+        im = cv2.imread(IM_DIR+f)
+        im = cv2.cvtColor(im,cv2.COLOR_RGB2GRAY)
+        height = im.shape[0]
+        width = im.shape[1]
+        frac_h = height//tiles_per_dim
+        frac_w = width//tiles_per_dim
+        i=0
+        for h in range(tiles_per_dim):
+            for w in range(tiles_per_dim):
+
+                crop = im[h*frac_h:(h+1)*frac_h,w*frac_w:(w+1)*frac_w]
+                cv2.imwrite(OUTPUT_DIR+f[:-4]+"_{}.jpg".format(str(i).zfill(2)),crop)
+                i=i+1
 
 
 def split_train_val_test(is_img, ratio_train=0.8, ratio_val=0.1, ratio_test=0.1):

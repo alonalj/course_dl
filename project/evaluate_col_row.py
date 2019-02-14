@@ -212,17 +212,18 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
             non_ood_images.append(images[i])#cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
 
     # predicting rows and cols
-    rows_cols_model = get_rows_cols_model(conf_row_col)
+    # rows_cols_model = get_rows_cols_model(conf_row_col)
 
-    model_type = "rows" if is_rows else "cols"
-    print(model_type)
-    # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
-    rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
+    # model_type = "rows" if is_rows else "cols"
+    # print(model_type)
+    # # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
+    # rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
     # resized_images = []
     # for im in non_ood_images:
     #     resized_images.append(np.expand_dims(im,-1))
     # non_ood_images = resized_images
+    rows_cols_model = test_model()
     logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
     print(np.argmax(logits,1))
     logits_img_ix_pos_tuples = []
@@ -327,6 +328,18 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     #         img_ix_to_label_cols[ix] = col
     # # print("final labels mapping cols", img_ix_to_label_cols)
 
+def test_model():
+    from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
+    resnet_rows_cols = build_resnet_rows_col(4, 112)
+
+    resnet_rows_cols.compile(
+        loss='categorical_crossentropy',
+        optimizer='adam',
+        metrics=['accuracy']
+    )
+    resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format("rows", 4, False), by_name=True)
+    return resnet_rows_cols
+    # resnet_rows_cols.summary()
 
 def row_col_tuple_to_position(tiles_per_dim, row_col_tuple):
     dictionary = {}
@@ -385,13 +398,25 @@ import glob
 tiles_per_dim = 4
 is_img = False
 for folder in glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img)):
-    if not is_img:
-        d = load_obj('files_train_img_False')
-        list_k = [k.split('.')[0] for k in d]
-        print(folder.split('/')[1])
-        print(list_k)
-        assert folder.split('/')[1] in list_k
+# for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
+    # c = Conf()
+    # c.max_size = 112
+    # c.tiles_per_dim = 4
+    # images = []
+    # model = test_model()
+    # im = cv2.imread(folder)
+    # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    # im = preprocess_image(im, c)
+    # images.append(im)
+    # print(np.argmax(model.predict_on_batch(np.array(images))))
+    # if not is_img:
+    #     d = load_obj('files_train_img_False')
+    #     list_k = [k.split('.')[0] for k in d]
+    #     print(folder.split('/')[1])
+    #     print(list_k)
+    #     assert folder.split('/')[1] in list_k
     evaluate_internal(tiles_per_dim, folder+'/', is_img)
+
 
     # try:
     #     evaluate_internal(tiles_per_dim, folder+'/')

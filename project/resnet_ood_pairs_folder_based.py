@@ -121,7 +121,7 @@ def run(c):
 
     batch_size = 18
     path = "ood_isImg_{}".format(c.is_images)
-    train_len = len(glob.glob(path+'/0'+'/*'))
+    train_len = len(glob.glob(path+'/0'+'/*')) * 2
 
     steps_per_epoch = train_len // batch_size
 
@@ -134,7 +134,9 @@ def run(c):
     )
     resnet_rows_cols.summary()
 
-    datagen_img_vs_doc = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_ood_train = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+    datagen_ood_Val = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
+
         # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
         # featurewise_std_normalization=False,  # divide inputs by std of the dataset
@@ -155,7 +157,7 @@ def run(c):
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
-        datagen_img_vs_doc.flow_from_directory(path,
+        datagen_ood_train.flow_from_directory(path,
                                                target_size=(c.max_size, c.max_size*2),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
@@ -164,7 +166,7 @@ def run(c):
         validation_steps=30,
         shuffle=True,
         validation_data=
-        datagen_img_vs_doc.flow_from_directory(path+'_val',
+        datagen_ood_Val.flow_from_directory(path+'_val',
                                                target_size=(c.max_size, c.max_size*2),
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])

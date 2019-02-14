@@ -1,4 +1,4 @@
-from preprocessor import shred_for_rows_cols, create_rows_cols_folders_by_class
+from preprocessor import shredder_original, create_rows_cols_folders_by_class
 from resnet_rows_cols_folder_based_lessKeras import *
 
 for i in range(1):  # for majority vote
@@ -13,6 +13,7 @@ for i in range(1):  # for majority vote
             for rows_or_cols in ["rows", "cols"]:
                 c = Conf(tiles_per_dim=tiles_per_dim, max_size=112, is_images=is_images)
                 print(c.n_tiles_per_sample)
-                shred_for_rows_cols(is_images, tiles_per_dim, c)
+                OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, is_images)
+                shredder_original(is_images,tiles_per_dim,c,OUTPUT_DIR)
                 create_rows_cols_folders_by_class(tiles_per_dim, is_images, rows_or_cols)
                 run(c, rows_or_cols)
