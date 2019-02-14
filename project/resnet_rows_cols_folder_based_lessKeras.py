@@ -185,11 +185,11 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
-    batch_size = 100
+    batch_size = 110
     # TODO: check withoutval in row below
 
     steps_per_epoch = get_train_steps(c,batch_size)#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
-    maxepoches = 10
+    maxepoches = 35
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=5, min_lr=0.00001,verbose=1)
@@ -203,27 +203,29 @@ def run(c, rows_or_cols):
 
     datagen_img_vs_doc_val = data_generator('val', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
 
-    # from keras.applications.resnet50 import ResNet50
-    # resnet_rows_cols = ResNet50(
-    #     include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size,c.max_size,1),
-    #                                    pooling=None, classes=c.tiles_per_dim)
-    # # Add final layers
-    # x = resnet_rows_cols.output
-    # x = Flatten()(x)
-    # predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
-    #
-    # # This is the model we will train
-    # model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
-    # d = load_obj('all_weights')
-    # for l_ix in range(len(model.layers)):
-    #     model.layers[l_ix].set_weights(d[l_ix])
-    # print("loaded")
-    resnet_rows_cols.compile(
+    from keras.applications.resnet50 import ResNet50
+    resnet_rows_cols = ResNet50(
+        include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size,c.max_size,1),
+                                       pooling=None, classes=c.tiles_per_dim)
+    # Add final layers
+    x = resnet_rows_cols.output
+    x = Flatten()(x)
+    predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
+
+    # This is the model we will train
+    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
+
+
+
+    model.compile(
         loss='categorical_crossentropy',
         optimizer='adam',
         metrics=['accuracy']
     )
-    resnet_rows_cols.summary()
+    model.summary()
+
+    # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+
     # featurewise_center=False,  # set input mean to 0 over the dataset
         # samplewise_center=False,  # set each sample mean to 0
         # featurewise_std_normalization=False,  # divide inputs by std of the dataset
@@ -238,24 +240,25 @@ def run(c, rows_or_cols):
     # datagen.fit(X_train)
     # model_net_name = 'w.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     # resnet_rows_cols.save(model_net_name)
-    # resnet_rows_cols = keras.models.load_model(model_net_name)
-
 
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     # early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
 
     # for e in range(maxepoches):
-    resnet_rows_cols_hist = resnet_rows_cols.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
+    resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
                                                            steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
-    # all_weights = []
-    # for l in model.layers:
-    #     all_weights.append(l.get_weights())
-    # save_obj(all_weights, 'all_weights')
+    all_weights = []
+    for l in model.layers:
+        all_weights.append(l.get_weights())
+    save_obj(all_weights, 'all_weights')
 
+    # d = load_obj('all_weights')
+    # for l_ix in range(len(model.layers)):
+    #     model.layers[l_ix].set_weights(d[l_ix])
+    # print("loaded")
 
-
-    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     # np.save('w.pkl', model.get_weights())
     # model.set_weights(np.load('w.pkl'))
     files = os.listdir('example_docs/')
@@ -269,7 +272,7 @@ def run(c, rows_or_cols):
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         im = preprocess_image(im, c)
         images.append(im)
-    res = resnet_rows_cols.predict_on_batch(np.array(images))#, steps=10)
+    res = model.predict_on_batch(np.array(images))#, steps=10)
     print(np.argmax(res,1))
 
 
