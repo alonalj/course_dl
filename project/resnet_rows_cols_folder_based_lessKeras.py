@@ -184,7 +184,7 @@ def run(c, rows_or_cols):
     # TODO: check withoutval in row below
 
     steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
-    maxepoches = 1000
+    maxepoches = 2
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=50, min_lr=0.00001)
@@ -218,16 +218,17 @@ def run(c, rows_or_cols):
     model_net_name = 'model_net_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    # resnet_rows_cols.load_weights('model_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
+    # print("loaded")
     ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
                                     verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
-    early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=200)
+    early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
 
     # for e in range(maxepoches):
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
                                                            steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches,
-                                                           callbacks=[ckpt,early_stop])
+                                                           callbacks=[early_stop])
 
-    # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
 
 
