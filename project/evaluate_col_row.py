@@ -385,6 +385,12 @@ import glob
 tiles_per_dim = 4
 is_img = False
 for folder in glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img)):
+    if not is_img:
+        d = load_obj('files_train_img_False')
+        list_k = [k.split('.')[0] for k in d]
+        print(folder.split('/')[1])
+        print(list_k)
+        assert folder.split('/')[1] in list_k
     evaluate_internal(tiles_per_dim, folder+'/', is_img)
 
     # try:
