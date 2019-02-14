@@ -269,7 +269,7 @@ def run(c, rows_or_cols):
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         im = preprocess_image(im, c)
         images.append(im)
-    res = model.predict_on_batch(np.array(images))#, steps=10)
+    res = resnet_rows_cols.predict_on_batch(np.array(images))#, steps=10)
     print(np.argmax(res,1))
 
 
