@@ -233,7 +233,7 @@ def run(c, rows_or_cols):
     # model_net_name = 'w.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     # resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    model.load_weights('w_{}_{}_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    # model.load_weights('w_{}_{}_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     # print("loaded")
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
