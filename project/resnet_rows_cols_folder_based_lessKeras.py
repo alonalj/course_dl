@@ -211,7 +211,7 @@ def run(c, rows_or_cols):
     predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
 
     # This is the model we will train
-    model = Model(input=resnet_rows_cols.input, output=predictions)
+    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
     model.compile(
         loss='categorical_crossentropy',
         optimizer='adam',
@@ -233,8 +233,8 @@ def run(c, rows_or_cols):
     # model_net_name = 'w.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     # resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    # model.load_weights('w_{}_{}_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
-    # print("loaded")
+
+
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
@@ -242,21 +242,32 @@ def run(c, rows_or_cols):
     # for e in range(maxepoches):
     resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
                                                            steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
-    model.save_weights('w'.format(rows_or_cols, tiles_per_dim, is_image))
+    all_weights = []
+    for l in model.layers:
+        all_weights.append(l.get_weights())
+    save_obj(all_weights, 'all_weights')
 
-    # files = os.listdir('example_docs/')
-    # files.sort()
-    # print(files)  # TODO: remove
-    # images = []
-    # for f in files:
-    #     if 'DS' in f:
-    #         continue
-    #     im = cv2.imread('example_docs/' + f)
-    #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-    #     im = preprocess_image(im, c)
-    #     images.append(im)
-    # res = model.predict_on_batch(np.array(images))#, steps=10)
-    # print(np.argmax(res,1))
+    d = load_obj('all_weights')
+    for l_ix in range(len(model.layers)):
+        model.layers[l_ix].set_weights(d[l_ix])
+    print("loaded")
+
+    # model.save_weights('w'.format(rows_or_cols, tiles_per_dim, is_image))
+    # np.save('w.pkl', model.get_weights())
+    # model.set_weights(np.load('w.pkl'))
+    files = os.listdir('example_docs/')
+    files.sort()
+    print(files)  # TODO: remove
+    images = []
+    for f in files:
+        if 'DS' in f:
+            continue
+        im = cv2.imread('example_docs/' + f)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        im = preprocess_image(im, c)
+        images.append(im)
+    res = model.predict_on_batch(np.array(images))#, steps=10)
+    print(np.argmax(res,1))
 
 
 
