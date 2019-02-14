@@ -391,11 +391,11 @@ def shred_for_rows_cols(isImg, tiles_per_dim, c):
                 crop_names.append(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)))
                 i+=1
 
-        print("before", crop_names)
+        # print("before", crop_names)
         zipped = zip(crop_names,all_crops)
         result = sorted(zipped,key=lambda x: x[0])
         crop_names, all_crops = [item[0] for item in result], [item[1] for item in result]
-        print("after", crop_names)
+        # print("after", crop_names)
         # print("before", all_crops)
         # random.shuffle(all_crops)
         # print("after", all_crops)
@@ -446,6 +446,12 @@ def shred_for_ood_pairs(isImg):
                 cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}_t_{}.jpg".format(str(i).zfill(2), tiles_per_dim), crop)
                 i+=1
 
+def preprocess_image(im, c):
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    im = cv2.resize(im, (c.max_size, c.max_size))
+    im = im / 255.0
+    im = np.expand_dims(im, -1)
+    return im
 
 def shred_for_img_vs_doc():
     Xa = []

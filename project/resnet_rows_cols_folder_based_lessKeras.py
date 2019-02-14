@@ -8,7 +8,7 @@ from keras.regularizers import Regularizer
 from keras import backend as K
 import numpy as np
 from keras_preprocessing.image import ImageDataGenerator
-
+from preprocessor import preprocess_image
 from conf import Conf
 
 def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
@@ -35,11 +35,8 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
                 for f in folders_in_class[:batch_size//c.tiles_per_dim]: # because of random shuffle above, will be different between yields
                     # files_in_folder = glob.glob(folder+'/*')
                     # combined_images = []
-
                     im = cv2.imread(f)
-                    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                    im = cv2.resize(im, (c.max_size, c.max_size))
-                    im = np.expand_dims(im, -1)
+                    im = preprocess_image(im, c)
                     X_batch.append(im)
                     y_batch.append(to_categorical(label, num_classes=c.tiles_per_dim))
                         # combined_images.append(im / 255.)
@@ -180,11 +177,11 @@ def run(c, rows_or_cols):
 
     resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
-    batch_size = 10
+    batch_size = 120
     # TODO: check withoutval in row below
 
     steps_per_epoch = len(os.listdir('{}_{}/0/'.format(rows_or_cols, tiles_per_dim)))*tiles_per_dim // batch_size
-    maxepoches = 10
+    maxepoches = 6
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=50, min_lr=0.00001)
@@ -218,10 +215,10 @@ def run(c, rows_or_cols):
     model_net_name = 'model_net_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image)
     resnet_rows_cols.save(model_net_name)
     # resnet_rows_cols = keras.models.load_model(model_net_name)
-    resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
+    # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), by_name=True)
     # print("loaded")
-    ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
-                                    verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
+    # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
+    #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
 
     # for e in range(maxepoches):
@@ -229,6 +226,6 @@ def run(c, rows_or_cols):
                                                            steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches,
                                                            callbacks=[early_stop])
 
-    # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
 
 

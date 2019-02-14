@@ -102,11 +102,13 @@ def get_ood_model(c, is_image):
 def get_rows_cols_model(c):
     resnet = build_resnet_rows_col(c.tiles_per_dim, c.max_size)
 
-    resnet.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['accuracy']
-    )
+
+    # resnet.load_weights('model_weights_rows_4_isImg_False.h5')
+    # resnet.compile(
+    #     loss='categorical_crossentropy',
+    #     optimizer='adam',
+    #     metrics=['accuracy']
+    # )
     return resnet
 
 
@@ -173,8 +175,14 @@ def predict(images, labels_gt=None):
     conf_ood = Conf(int(t), 112, isImg)
     conf_row_col = Conf(int(t), 112, isImg)
 
+
     # img_ix_to_labels, non_ood_images_ix = predict_oods(images, conf_ood, img_ix_to_labels)
     non_ood_images_ix = -1 # TODO remove
+    processed_images = []
+    for im in images:
+        im = preprocess_image(im, conf_row_col)
+        processed_images.append(im)
+    images = processed_images
     img_ix_to_labels_rows = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=True)
     # img_ix_to_labels_cols = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=False)
 
@@ -197,18 +205,18 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
 
     non_ood_images = []
     if non_ood_images_ix == -1:
-        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images]
+        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images
         non_ood_images_ix = range(len(images))
     else:
         for i in non_ood_images_ix:
-            non_ood_images.append(cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
+            non_ood_images.append(images[i])#cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
 
     # predicting rows and cols
     rows_cols_model = get_rows_cols_model(conf_row_col)
 
     model_type = "rows" if is_rows else "cols"
     print(model_type)
-    rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
+    # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
     # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
     # resized_images = []
@@ -364,8 +372,7 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
     for f in files:
         im = cv2.imread(file_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        im = cv2.resize(im, (112,112))
-        images.append(np.expand_dims(im,-1))
+        images.append(im)
 
     Y = predict(images, labels)
     print(Y)  # TODO - remove!
