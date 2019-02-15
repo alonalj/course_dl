@@ -168,7 +168,7 @@ def run(c, rows_or_cols):
 
     # resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
-    batch_size = 110
+    batch_size = 11
     # TODO: check withoutval in row below
 
     steps_per_epoch = get_steps(c, batch_size, "train")#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
@@ -222,7 +222,7 @@ def run(c, rows_or_cols):
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     # early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
-    weights_name_format = 'all_weights_train_L{}_A{}_val_L{}_A{}'
+    weights_name_format = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
 
     load_weights = False
     if load_weights:
@@ -246,7 +246,7 @@ def run(c, rows_or_cols):
             train_steps_count += 1
             if train_steps_count == steps_per_epoch:
                 break
-
+        print("Train loss, acc:", round(avg_loss,2), round(avg_acc,2))
         print("Validating")
         val_steps = 3
         avg_loss_val, avg_acc_val = 0, 0
@@ -257,18 +257,20 @@ def run(c, rows_or_cols):
             val_steps_count += 1
             if val_steps_count == val_steps:
                 break
-        print("avg val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
+        print("Val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
         if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
             print("Saving model, loss change: {} --> {}, acc change: {} --> {}"
                   .format(round(baseline_loss,2), round(avg_loss_val,2), round(baseline_acc,2), round(avg_acc_val,2)))
             all_weights = []
             for l in model.layers:
                 all_weights.append(l.get_weights())
-            save_obj(all_weights, weights_name_format.format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
+            save_obj(all_weights, weights_name_format+'_L{}_A{}_val_L{}_A{}'
+                     .format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
             baseline_loss, baseline_acc = avg_loss_val, avg_acc_val
             count_plateau = 0
         else:
             count_plateau += 1
+            print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
         if count_plateau == tolerance_plateau:
             print("No improvement for {} epochs. Moving on.".format(count_plateau))
             return
