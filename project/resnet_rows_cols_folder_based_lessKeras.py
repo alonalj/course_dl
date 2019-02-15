@@ -172,7 +172,7 @@ def run(c, rows_or_cols):
     # TODO: check withoutval in row below
 
     steps_per_epoch = get_steps(c, batch_size, "train")#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
-    maxepoches = 500
+    maxepoches = 900
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=5, min_lr=0.00001,verbose=1)
@@ -234,7 +234,7 @@ def run(c, rows_or_cols):
     baseline_loss = np.inf
     baseline_acc = -np.inf
     count_plateau = 0
-    tolerance_plateau = 30
+    tolerance_plateau = 100
     for e in range(maxepoches):
         train_steps_count, val_steps_count = 0, 0
         avg_loss, avg_acc = 0, 0
@@ -266,6 +266,7 @@ def run(c, rows_or_cols):
                 all_weights.append(l.get_weights())
             save_obj(all_weights, weights_name_format.format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
             baseline_loss, baseline_acc = avg_loss_val, avg_acc_val
+            count_plateau = 0
         else:
             count_plateau += 1
         if count_plateau == tolerance_plateau:
