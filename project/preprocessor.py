@@ -446,29 +446,39 @@ def shred_for_ood_pairs(isImg):
                 cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}_t_{}.jpg".format(str(i).zfill(2), tiles_per_dim), crop)
                 i+=1
 
+
+def get_relevant_files(data_type, c):
+    path = c.output_dir
+    relevant_files = load_obj('files_{}_img_{}'.format(data_type, c.is_images))
+    folders = os.listdir(path)
+    if c.is_images:
+        relevant_files = [f for f in folders if f.split('.')[0] + '.JPEG' in relevant_files]  # tTODO: for images too
+    else:
+        relevant_files = [f for f in folders if f.split('.')[0][:-3] + '.jpg' in relevant_files]  # tTODO: for images too
+    return relevant_files
+
+
 def create_normalization_stats(c, rows_or_cols):
     import glob
     if os.path.exists('mean_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)) and os.path.exists('std_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)):
         print("already calculated mean, std stats")
         return
     sum_imgs = np.zeros((c.max_size, c.max_size))
-    sum_imgs_2 = np.zeros((c.max_size, c.max_size))
     subt_imgs_2 = np.zeros((c.max_size, c.max_size))
     count_images = 0
-    for folder in glob.glob("{}_{}_isImg_{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images)):
-        for file in glob.glob("{}_{}_isImg_{}/{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images, folder.split('/')[1])):
-            im = cv2.imread(file)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-            im = cv2.resize(im, (c.max_size, c.max_size))
-            sum_imgs += im
-            count_images += 1
+    train_files = get_relevant_files("train", c)
+    for file in train_files:
+        im = cv2.imread(c.output_dir+file)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        im = cv2.resize(im, (c.max_size, c.max_size))
+        sum_imgs += im
+        count_images += 1
     mean_image = sum_imgs / float(count_images)
-    for folder in glob.glob("{}_{}_isImg_{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images)):
-        for file in glob.glob("{}_{}_isImg_{}/{}/*".format(rows_or_cols, c.tiles_per_dim, c.is_images, folder.split('/')[1])):
-            im = cv2.imread(file)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-            im = cv2.resize(im, (c.max_size, c.max_size))
-            subt_imgs_2 += (im - mean_image)**2
+    for file in train_files:
+        im = cv2.imread(c.output_dir+file)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        im = cv2.resize(im, (c.max_size, c.max_size))
+        subt_imgs_2 += (im - mean_image)**2
     stdev_image = np.sqrt(subt_imgs_2 / float(count_images-1))
 
     save_obj(mean_image, 'mean_{}_isImg_{}'.format(c.tiles_per_dim, c.is_images))
@@ -541,7 +551,12 @@ def shred_for_img_vs_doc():
                         i = i + 1
 
 
-def get_row_col_label(label, t, is_rows):
+def get_row_col_label(f, c, is_rows):
+    t = c.tiles_per_dim
+    if c.is_images:
+        label = f.split('.')[1].split('_')[1]
+    else:
+        label = f.split('.')[0][-2:]
     label = int(label)
     if is_rows:
         label = int(label/t)

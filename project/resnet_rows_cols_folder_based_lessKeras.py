@@ -10,60 +10,6 @@ import numpy as np
 from keras_preprocessing.image import ImageDataGenerator
 from preprocessor import *
 from conf import Conf
-
-def get_train_steps(c, batch_size):
-    path = "dataset_rows_cols_{}_isImg_{}/".format(c.tiles_per_dim, c.is_images)
-    folders = os.listdir(path)
-    relevant_files = load_obj('files_{}_img_{}'.format("train", c.is_images))
-    train_len = len(relevant_files) * c.tiles_per_dim ** 2
-    relevant_files = [f for f in folders if f.split('.')[0][:-3] + '.jpg' in relevant_files]  # tTODO: for images too
-    # n_per_class = batch_size // c.tiles_per_dim
-    return train_len // batch_size
-
-
-def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c, rows_or_cols):
-    import random
-    import glob
-    import os
-    from keras.utils import to_categorical
-
-    path = "dataset_rows_cols_{}_isImg_{}/".format(c.tiles_per_dim, c.is_images)
-
-    relevant_files = load_obj('files_{}_img_{}'.format(data_type, c.is_images))
-
-    folders = os.listdir(path)
-    train_len = len(relevant_files) * c.tiles_per_dim**2
-    relevant_files = [f for f in folders if f.split('.')[0][:-3]+'.jpg' in relevant_files] #tTODO: for images too
-    # n_per_class = batch_size // c.tiles_per_dim
-    while True:
-        # for i in range(get_train_steps(c, batch_size)):
-        labels_per_class = []
-        X_batch = []
-        y_batch = []
-        # files = relevant_files[:batch_size]
-        random.shuffle(relevant_files)
-        for f in relevant_files[:batch_size]:
-
-            if 'DS' in f:
-                continue
-            # print(f)
-            label = get_row_col_label(f.split('.')[0][-2:],c.tiles_per_dim,rows_or_cols) #TODO verify for imgs
-
-            im = cv2.imread(path+f)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-            im = preprocess_image(im, c)
-            if im.shape != (c.max_size, c.max_size, 1):
-                continue
-            # if to_categorical(label, num_classes=c.tiles_per_dim).shape != c.tiles_per_dim:
-            #     continue
-            X_batch.append(im)
-            y_batch.append(to_categorical(label, num_classes=c.tiles_per_dim))
-
-        combined_images, labels = np.array(X_batch), np.array(y_batch)
-        # print(labels)
-        yield combined_images, labels
-
-
 import cv2
 import keras
 from keras.layers import Dense, MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, Conv2D, Dropout, Concatenate, Input
@@ -76,6 +22,43 @@ import numpy as np
 from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
+
+
+def get_steps(c, batch_size, data_type):
+    relevant_files = get_relevant_files(data_type,c)
+    return len(relevant_files) // batch_size
+
+
+def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c, rows_or_cols):
+    import random
+    from keras.utils import to_categorical
+
+    relevant_files = get_relevant_files(data_type, c)
+    while True:
+        random.shuffle(relevant_files)
+        for i in range(get_steps(c, batch_size, data_type)):
+            X_batch = []
+            y_batch = []
+            for f in relevant_files[batch_size*i:batch_size*(i+1)]:
+                if 'DS' in f:
+                    continue
+                # print(f)
+                label = get_row_col_label(f,c,rows_or_cols) #TODO verify for imgs
+                im = cv2.imread(c.output_dir+f)
+                im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                im = preprocess_image(im, c)
+                if im.shape != (c.max_size, c.max_size, 1):
+                    continue
+                X_batch.append(im)
+                y_batch.append(to_categorical(label, num_classes=c.tiles_per_dim))
+
+            combined_images, labels = np.array(X_batch), np.array(y_batch)
+            # print(labels)
+            if len(combined_images) > 0:
+                yield combined_images, labels
+
+
+
 
 
 def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
@@ -183,21 +166,18 @@ def run(c, rows_or_cols):
     tiles_per_dim = c.tiles_per_dim
     is_image = c.is_images
 
-    resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
+    # resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
 
     batch_size = 110
     # TODO: check withoutval in row below
 
-    steps_per_epoch = get_train_steps(c,batch_size)#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
-    maxepoches = 35
+    steps_per_epoch = get_steps(c, batch_size, "train")#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
+    maxepoches = 500
     learning_rate = 0.0001
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=5, min_lr=0.00001,verbose=1)
 
     sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
-
-
-
 
     datagen_img_vs_doc_train = data_generator('train', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
 
@@ -215,14 +195,12 @@ def run(c, rows_or_cols):
     # This is the model we will train
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
 
-
-
     model.compile(
         loss='categorical_crossentropy',
         optimizer='adam',
         metrics=['accuracy']
     )
-    model.summary()
+    # model.summary()
 
     # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
 
@@ -244,37 +222,81 @@ def run(c, rows_or_cols):
     # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
     #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
     # early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
+    weights_name_format = 'all_weights_train_L{}_A{}_val_L{}_A{}'
 
-    # for e in range(maxepoches):
-    resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
-                                                           steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
-    all_weights = []
-    for l in model.layers:
-        all_weights.append(l.get_weights())
-    save_obj(all_weights, 'all_weights')
+    load_weights = False
+    if load_weights:
+        d = load_obj('all_weights_train_L0.0_A0.0_val_L1.13_A0.82')
+        for l_ix in range(len(model.layers)):
+            model.layers[l_ix].set_weights(d[l_ix])
+        print("loaded")
 
-    # d = load_obj('all_weights')
-    # for l_ix in range(len(model.layers)):
-    #     model.layers[l_ix].set_weights(d[l_ix])
-    # print("loaded")
+    baseline_loss = np.inf
+    baseline_acc = -np.inf
+    count_plateau = 0
+    tolerance_plateau = 30
+    for e in range(maxepoches):
+        train_steps_count, val_steps_count = 0, 0
+        avg_loss, avg_acc = 0, 0
+        print("Epoch {}".format(e))
+        for X_batch, y_batch in datagen_img_vs_doc_train:
+            loss, acc = model.train_on_batch(X_batch, y_batch)
+            avg_loss += loss / float(steps_per_epoch)
+            avg_acc += acc / float(steps_per_epoch)
+            train_steps_count += 1
+            if train_steps_count == steps_per_epoch:
+                break
 
-    # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
-    # np.save('w.pkl', model.get_weights())
-    # model.set_weights(np.load('w.pkl'))
-    files = os.listdir('example_docs/')
-    files.sort()
-    print(files)  # TODO: remove
-    images = []
-    for f in files:
-        if 'DS' in f:
-            continue
-        im = cv2.imread('example_docs/' + f)
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        im = preprocess_image(im, c)
-        images.append(im)
-    res = model.predict_on_batch(np.array(images))#, steps=10)
-    print(np.argmax(res,1))
+        print("Validating")
+        val_steps = 3
+        avg_loss_val, avg_acc_val = 0, 0
+        for X_batch, y_batch in datagen_img_vs_doc_val:
+            batch_loss, batch_acc = model.evaluate(X_batch, y_batch)
+            avg_loss_val += batch_loss / float(val_steps)
+            avg_acc_val += batch_acc / float(val_steps)
+            val_steps_count += 1
+            if val_steps_count == val_steps:
+                break
+        print("avg val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
+        if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
+            print("Saving model, loss change: {} --> {}, acc change: {} --> {}"
+                  .format(round(baseline_loss,2), round(avg_loss_val,2), round(baseline_acc,2), round(avg_acc_val,2)))
+            all_weights = []
+            for l in model.layers:
+                all_weights.append(l.get_weights())
+            save_obj(all_weights, weights_name_format.format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
+            baseline_loss, baseline_acc = avg_loss_val, avg_acc_val
+        else:
+            count_plateau += 1
+        if count_plateau == tolerance_plateau:
+            print("No improvement for {} epochs. Moving on.".format(count_plateau))
+            return
+
+
+
+    # resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
+    #                                                        steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
 
 
 
 
+    # # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
+    # # np.save('w.pkl', model.get_weights())
+    # # model.set_weights(np.load('w.pkl'))
+    # files = os.listdir('example_docs/')
+    # files.sort()
+    # print(files)  # TODO: remove
+    # images = []
+    # for f in files:
+    #     if 'DS' in f:
+    #         continue
+    #     im = cv2.imread('example_docs/' + f)
+    #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    #     im = preprocess_image(im, c)
+    #     images.append(im)
+    # res = model.predict_on_batch(np.array(images))#, steps=10)
+    # print(np.argmax(res,1))
+    #
+    #
+    #
+    #
