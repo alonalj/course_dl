@@ -7,6 +7,12 @@ from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
 from resnet_ood_pairs_folder_based import build_resnet_ood
 from resnet_img_doc_classifier import build_resnet_img_vs_doc
 
+def data_generator_pred(images, c):
+   X_batch = []
+   for im in images:
+       im = preprocess_image(im, c)
+       X_batch.append(im)
+   yield np.array(X_batch)
 
 def maybe_download_weights():
     import os
@@ -170,19 +176,19 @@ def predict(images, labels_gt=None):
     img_ix_to_labels = {}
     img_ix_to_label_cols = {}
 
-    isImg = is_image(images)
+    # isImg = is_image(images) # TODO
 
-    conf_ood = Conf(int(t), 112, isImg)
-    conf_row_col = Conf(int(t), 112, isImg)
+    conf_ood = Conf(int(t), 112, False)
+    # conf_row_col = Conf(int(t), 112, isImg) # TODO change back to t
+    conf_row_col = Conf(4, 112, False)
 
 
     # img_ix_to_labels, non_ood_images_ix = predict_oods(images, conf_ood, img_ix_to_labels)
     non_ood_images_ix = -1 # TODO remove
-    processed_images = []
-    for im in images:
-        im = preprocess_image(im, conf_row_col)
-        processed_images.append(im)
-    images = processed_images
+    # processed_images = []
+    # for im in images:
+    #     im = preprocess_image(im, conf_row_col)
+    #     processed_images.append(im)
     img_ix_to_labels_rows = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=True)
     # img_ix_to_labels_cols = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=False)
 
@@ -224,7 +230,8 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     #     resized_images.append(np.expand_dims(im,-1))
     # non_ood_images = resized_images
     rows_cols_model = test_model()
-    logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
+    # logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
+    logits = rows_cols_model.predict_generator(data_generator_pred(images,conf_row_col), steps=1)
     print(np.argmax(logits,1))
     logits_img_ix_pos_tuples = []
     argmax_preds = []
@@ -332,11 +339,11 @@ def test_model():
     from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
     resnet_rows_cols = build_resnet_rows_col(4, 112)
 
-    resnet_rows_cols.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['accuracy']
-    )
+    # resnet_rows_cols.compile(
+    #     loss='categorical_crossentropy',
+    #     optimizer='adam',
+    #     metrics=['accuracy']
+    # )
     resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format("rows", 4, False), by_name=True)
     return resnet_rows_cols
     # resnet_rows_cols.summary()
@@ -367,9 +374,9 @@ def evaluate(file_dir='example/'):
     return Y
 
 
-def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
+def evaluate_internal(tiles_per_dim, files, is_img=True):
     from preprocessor import get_row_col_label
-    files = os.listdir(file_dir)
+    # files = os.listdir(file_dir)
     files.sort()
     # random.shuffle(files)
     print(files)  #TODO: remove
@@ -383,9 +390,10 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
         labels.append(get_row_col_label(label_original,tiles_per_dim,True))
     images = []
     for f in files:
-        im = cv2.imread(file_dir + f)
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        im = cv2.imread(f)
         images.append(im)
+        # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        # images.append(im)
 
     Y = predict(images, labels)
     print(Y)  # TODO - remove!
@@ -397,11 +405,17 @@ def evaluate_internal(tiles_per_dim, file_dir='example/', is_img=True):
 import glob
 tiles_per_dim = 4
 is_img = False
-for folder in glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img)):
-# for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
-    # c = Conf()
-    # c.max_size = 112
-    # c.tiles_per_dim = 4
+list_f = glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img))
+list_f = sorted(list_f)
+
+for i in range(10):
+    files = list_f[:50]
+
+    # for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
+    c = Conf()
+    c.max_size = 112
+    c.tiles_per_dim = 4
+    # label = folder.split('_')
     # images = []
     # model = test_model()
     # im = cv2.imread(folder)
@@ -415,7 +429,7 @@ for folder in glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img)):
     #     print(folder.split('/')[1])
     #     print(list_k)
     #     assert folder.split('/')[1] in list_k
-    evaluate_internal(tiles_per_dim, folder+'/', is_img)
+    evaluate_internal(tiles_per_dim, files, is_img)
 
 
     # try:

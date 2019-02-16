@@ -157,6 +157,59 @@ def lr_scheduler(epoch):
 # def to_grayscale(im):
 #     return cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
 
+def evaluate(file_dir='example/'):
+    files = os.listdir(file_dir)
+    files.sort()
+    print(files)  #TODO: remove
+    images = []
+    for f in files:
+        if 'DS' in f:
+            continue
+        im = cv2.imread(file_dir + f)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+        images.append(im)
+
+    Y = predict(images)
+    print(Y)  # TODO - remove!
+    return Y
+
+def get_trained_model(c):
+    from keras.applications.resnet50 import ResNet50
+    resnet_rows_cols = ResNet50(
+        include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size, c.max_size, 1),
+        pooling=None, classes=c.tiles_per_dim)
+    # Add final layers
+    x = resnet_rows_cols.output
+    x = Flatten()(x)
+    predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
+
+    # This is the model we will train
+    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
+
+    model.compile(
+        loss='categorical_crossentropy',
+        optimizer='adam',
+        metrics=['accuracy']
+    )
+    d = load_obj('weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
+    for l_ix in range(len(model.layers)):
+        model.layers[l_ix].set_weights(d[l_ix])
+    print("loaded")
+    return model
+
+def predict(images):
+    c = Conf()
+    c.tiles_per_dim = 4
+    c.is_images = True
+    c.max_size = 112
+    images = add_similarity_channel(images,images,c,sim_on_side=True)
+    processed_images = []
+    for im in images:
+        im = preprocess_image(im, c)
+        processed_images.append(im)
+    model = get_trained_model(c)
+    res = model.predict_on_batch(np.array(processed_images))  # , steps=10)
+    print(np.argmax(res, 1))
 
 
 def run(c, rows_or_cols):
@@ -225,57 +278,63 @@ def run(c, rows_or_cols):
     weights_name_format = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
 
     load_weights = False
+    train = True
     if load_weights:
         d = load_obj('all_weights_train_L0.0_A0.0_val_L1.13_A0.82')
         for l_ix in range(len(model.layers)):
             model.layers[l_ix].set_weights(d[l_ix])
         print("loaded")
 
-    baseline_loss = np.inf
-    baseline_acc = -np.inf
-    count_plateau = 0
-    tolerance_plateau = 100
-    for e in range(maxepoches):
-        train_steps_count, val_steps_count = 0, 0
-        avg_loss, avg_acc = 0, 0
-        print("Epoch {}".format(e))
-        for X_batch, y_batch in datagen_img_vs_doc_train:
-            loss, acc = model.train_on_batch(X_batch, y_batch)
-            avg_loss += loss / float(steps_per_epoch)
-            avg_acc += acc / float(steps_per_epoch)
-            train_steps_count += 1
-            if train_steps_count == steps_per_epoch:
-                break
-        print("Train loss, acc:", round(avg_loss,2), round(avg_acc,2))
-        print("Validating")
-        val_steps = 3
-        avg_loss_val, avg_acc_val = 0, 0
-        for X_batch, y_batch in datagen_img_vs_doc_val:
-            batch_loss, batch_acc = model.evaluate(X_batch, y_batch)
-            avg_loss_val += batch_loss / float(val_steps)
-            avg_acc_val += batch_acc / float(val_steps)
-            val_steps_count += 1
-            if val_steps_count == val_steps:
-                break
-        print("Val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
-        if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
-            print("Saving model, loss change: {} --> {}, acc change: {} --> {}"
-                  .format(round(baseline_loss,2), round(avg_loss_val,2), round(baseline_acc,2), round(avg_acc_val,2)))
-            all_weights = []
-            for l in model.layers:
-                all_weights.append(l.get_weights())
-            save_obj(all_weights, weights_name_format+'_L{}_A{}_val_L{}_A{}'
-                     .format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
-            baseline_loss, baseline_acc = avg_loss_val, avg_acc_val
-            count_plateau = 0
-        else:
-            count_plateau += 1
-            print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
-        if count_plateau == tolerance_plateau:
-            print("No improvement for {} epochs. Moving on.".format(count_plateau))
-            return
+    if train:
+        baseline_loss = np.inf
+        baseline_acc = -np.inf
+        count_plateau = 0
+        tolerance_plateau = 80
+        for e in range(maxepoches):
+            train_steps_count, val_steps_count = 0, 0
+            avg_loss, avg_acc = 0, 0
+            print("Epoch {}".format(e))
+            for X_batch, y_batch in datagen_img_vs_doc_train:
+                loss, acc = model.train_on_batch(X_batch, y_batch)
+                avg_loss += loss / float(steps_per_epoch)
+                avg_acc += acc / float(steps_per_epoch)
+                train_steps_count += 1
+                if train_steps_count == steps_per_epoch:
+                    break
+            print("Train loss, acc:", round(avg_loss,2), round(avg_acc,2))
+            print("Validating")
+            val_steps = 3
+            avg_loss_val, avg_acc_val = 0, 0
+            for X_batch, y_batch in datagen_img_vs_doc_val:
+                batch_loss, batch_acc = model.evaluate(X_batch, y_batch)
+                avg_loss_val += batch_loss / float(val_steps)
+                avg_acc_val += batch_acc / float(val_steps)
+                val_steps_count += 1
+                if val_steps_count == val_steps:
+                    break
+            print("Val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
+            if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
+                print("Saving model, loss change: {} --> {}, acc change: {} --> {}"
+                      .format(round(baseline_loss,2), round(avg_loss_val,2), round(baseline_acc,2), round(avg_acc_val,2)))
+                all_weights = []
+                for l in model.layers:
+                    all_weights.append(l.get_weights())
+                save_obj(all_weights, weights_name_format+'_L{}_A{}_val_L{}_A{}'
+                         .format(round(avg_loss,2), round(avg_acc,2),round(avg_loss_val,2), round(avg_acc_val,2)))
+                baseline_loss, baseline_acc = avg_loss_val, avg_acc_val
+                count_plateau = 0
+                if avg_acc_val > 0.9:
+                    print("*** VAL BETTER THAN 0.9 :) MOVING ON... ***")
+                    return
+            else:
+                count_plateau += 1
+                print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
+            if count_plateau == tolerance_plateau:
+                print("No improvement for {} epochs. Moving on.".format(count_plateau))
+                return
 
-
+    else:
+        evaluate('example/')
 
     # resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
     #                                                        steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
@@ -286,20 +345,18 @@ def run(c, rows_or_cols):
     # # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
     # # np.save('w.pkl', model.get_weights())
     # # model.set_weights(np.load('w.pkl'))
-    # files = os.listdir('example_docs/')
+    # evaluate('example_docs/')
+    # evaluate('example/')
+    # files = os.listdir()
     # files.sort()
     # print(files)  # TODO: remove
     # images = []
     # for f in files:
-    #     if 'DS' in f:
-    #         continue
+    #
     #     im = cv2.imread('example_docs/' + f)
     #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-    #     im = preprocess_image(im, c)
-    #     images.append(im)
-    # res = model.predict_on_batch(np.array(images))#, steps=10)
-    # print(np.argmax(res,1))
     #
-    #
-    #
-    #
+
+
+
+

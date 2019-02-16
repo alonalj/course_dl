@@ -4,8 +4,10 @@ from resnet_rows_cols_folder_based_lessKeras import run
 
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
-    for is_images in [True]:
+    for is_images in [True, False]:
         for tiles_per_dim in [4,5,2]:#,5,2]:  # [4]: #
+            if is_images and tiles_per_dim == 4:
+                continue
             # for rows_or_cols in :
             # if tiles_per_dim == 5:
             #     rows_or_cols_list = ["rows"]
