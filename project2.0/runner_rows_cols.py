@@ -12,9 +12,9 @@ for i in range(1):  # for majority vote
             #     rows_or_cols_list = ["rows"]
             # else:
             #     rows_or_cols_list = ["cols"]
-            for rows_or_cols in ["cols","rows"]:#, "cols"]:
-                if is_images and tiles_per_dim == 4 and rows_or_cols == "rows":  # TODO 4, cols
-                    continue
+            for rows_or_cols in ["rows","cols"]:#, "cols"]:
+                # if is_images and tiles_per_dim == 4 and rows_or_cols == "rows":  # TODO 4, cols
+                #     continue
                 print("Training for: is_images", is_images, tiles_per_dim, rows_or_cols)
                 c = Conf(tiles_per_dim=tiles_per_dim, max_size=112, is_images=is_images)
                 OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, is_images)

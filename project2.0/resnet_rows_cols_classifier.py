@@ -1,3 +1,4 @@
+from keras import optimizers
 
 from preprocessor import *
 import cv2
@@ -19,7 +20,7 @@ def data_generator(data_type, batch_size, c, rows_or_cols):
     import random
     from keras.utils import to_categorical
 
-    relevant_files = get_relevant_files(data_type, c)
+    relevant_files = get_relevant_files(data_type, c)[:10]
     while True:
         random.shuffle(relevant_files)
         for i in range(get_steps(c, batch_size, data_type)):
@@ -74,9 +75,11 @@ def build_model(c, weights=False):
     # This is the model we will train
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
 
+    sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
+
     model.compile(
         loss='categorical_crossentropy',
-        optimizer='adam',
+        optimizer=sgd,
         metrics=['accuracy']
     )
     if weights:
@@ -104,8 +107,8 @@ def _predict(images):
 
 def run(c, rows_or_cols):
 
-    batch_size = 128
-    steps_per_epoch = get_steps(c, batch_size, "train")
+    batch_size = 12
+    steps_per_epoch = 1#get_steps(c, batch_size, "train")
     max_epochs = 900
 
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
