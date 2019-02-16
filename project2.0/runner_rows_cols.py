@@ -21,5 +21,5 @@ for i in range(1):  # for majority vote
                 c.output_dir = OUTPUT_DIR
                 shred_with_similarity_channel(is_images, tiles_per_dim, c, OUTPUT_DIR)
                 split_train_val_test(is_images)
-                create_normalization_stats(c, rows_or_cols)
+                create_normalization_stats(c)
                 run(c, rows_or_cols)
