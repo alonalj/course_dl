@@ -268,7 +268,7 @@ def evaluate_internal(c, files, is_rows=True):
     labels = []
     # if is_img:
     for f in files:
-        labels.append(get_row_col_label(f,c,is_rows))
+        labels.append(get_row_col_label(f,c,'rows' if is_rows else 'cols'))
     images = []
     for f in files:
         im = cv2.imread(f)

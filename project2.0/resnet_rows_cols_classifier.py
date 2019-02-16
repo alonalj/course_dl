@@ -29,7 +29,7 @@ def data_generator(data_type, batch_size, c, rows_or_cols):
                 if 'DS' in f:
                     continue
                 # print(f)
-                label = get_row_col_label(f,c,rows_or_cols) #TODO verify for imgs
+                label = get_row_col_label(f,c,rows_or_cols)
                 im = cv2.imread(c.output_dir+f)
                 im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
                 im = preprocess_image(im, c)

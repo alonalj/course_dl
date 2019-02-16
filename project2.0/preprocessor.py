@@ -228,7 +228,7 @@ def get_relevant_files(data_type, c):
     return relevant_files
 
 
-def create_normalization_stats(c, rows_or_cols):
+def create_normalization_stats(c):
     import glob
     if os.path.exists('mean_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)) and os.path.exists('std_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)):
         print("already calculated mean, std stats")
@@ -322,14 +322,14 @@ def shred_for_img_vs_doc():
                         i = i + 1
 
 
-def get_row_col_label(f, c, is_rows):
+def get_row_col_label(f, c, rows_or_cols):
     t = c.tiles_per_dim
     if c.is_images:
         label = f.split('.')[1].split('_')[1]
     else:
         label = f.split('.')[0][-2:]
     label = int(label)
-    if is_rows:
+    if rows_or_cols == 'rows':
         label = int(label/t)
     else:
         label = int(label % t)
