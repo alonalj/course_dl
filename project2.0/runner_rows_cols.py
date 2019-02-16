@@ -5,7 +5,7 @@ from resnet_rows_cols_classifier import run
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
     for is_images in [True, False]:
-        for tiles_per_dim in [4,2,5]:#,5,2]:  # [4]: #
+        for tiles_per_dim in [2,4,5]:#,5,2]:  # [4]: #
 
             # for rows_or_cols in :
             # if tiles_per_dim == 5:
