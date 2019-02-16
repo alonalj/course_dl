@@ -20,6 +20,8 @@ def data_generator(data_type, batch_size, c, rows_or_cols):
     from keras.utils import to_categorical
 
     relevant_files = get_relevant_files(data_type, c)
+    print("length of relevant files:", data_type, len(relevant_files))
+
     while True:
         random.shuffle(relevant_files)
         for i in range(get_steps(c, batch_size, data_type)):
