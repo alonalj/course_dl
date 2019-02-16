@@ -1,25 +1,11 @@
-import cv2
-import keras
-from keras.layers import Dense, MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, Conv2D, Dropout, Concatenate, Input
-from keras.layers import Flatten, InputLayer, BatchNormalization, Activation
-from keras.models import Model
-from keras import regularizers, optimizers
-from keras.regularizers import Regularizer
-from keras import backend as K
-import numpy as np
-from keras_preprocessing.image import ImageDataGenerator
+
 from preprocessor import *
-from conf import Conf
 import cv2
 import keras
-from keras.layers import Dense, MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, Conv2D, Dropout, Concatenate, Input
-from keras.layers import Flatten, InputLayer, BatchNormalization, Activation
+from keras.layers import Dense
+from keras.layers import Flatten
 from keras.models import Model
-from keras import regularizers, optimizers
-from keras.regularizers import Regularizer
-from keras import backend as K
 import numpy as np
-from keras_preprocessing.image import ImageDataGenerator
 import os
 from conf import Conf
 
@@ -29,7 +15,7 @@ def get_steps(c, batch_size, data_type):
     return len(relevant_files) // batch_size
 
 
-def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c, rows_or_cols):
+def data_generator(data_type, batch_size, c, rows_or_cols):
     import random
     from keras.utils import to_categorical
 
@@ -58,106 +44,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c, row
                 yield combined_images, labels
 
 
-
-
-
-def res_2_layer_block_img_vs_doc(x_in, dim, downsample=False, weight_decay=0.0001):
-    x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(2, 2) if downsample else (1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(dim, kernel_size=(3, 3), padding='same', strides=(1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
-
-    if downsample:
-        x_in = Conv2D(dim, kernel_size=(1, 1), padding='same', strides=(2, 2),
-                      kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-
-    x = keras.layers.add([x, x_in])
-    x = Activation('relu')(x)
-
-    return x
-
-
-def res_tower_2_layer_img_vs_doc(x, dim, num_layers, downsample_first=True, weight_decay=0.0001):
-    for i in range(num_layers):
-        x = res_2_layer_block_img_vs_doc(x, dim, downsample=(i == 0 and downsample_first), weight_decay=weight_decay)
-    return x
-
-
-def res_3_layer_block_img_vs_doc(x_in, dim_reduce, dim_out, downsample=False, adjust_skip_dim=False, weight_decay=0.0001):
-    x = Conv2D(dim_reduce, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(dim_reduce, kernel_size=(3, 3), padding='same', strides=(1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-
-    x = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x)
-    x = BatchNormalization()(x)
-
-    if downsample or adjust_skip_dim:
-        x_in = Conv2D(dim_out, kernel_size=(1, 1), padding='same', strides=(2, 2) if downsample else (1, 1),
-                      kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-
-    x = keras.layers.add([x, x_in])
-    x = Activation('relu')(x)
-
-    return x
-
-
-def res_tower_img_vs_doc(x, dim, num_layers, downsample_first=True, adjust_first=False, weight_decay=0.0001):
-    for i in range(num_layers):
-        x = res_3_layer_block_img_vs_doc(x, int(dim / 4), dim, downsample=(i == 0 and downsample_first),
-                                         adjust_skip_dim=(i == 0 and adjust_first), weight_decay=weight_decay)
-    return x
-
-
-def build_resnet_rows_col(TILES_PER_DIM, SHAPE, weight_decay=1e-3):
-    x_in = Input(shape=(SHAPE, SHAPE, 1))
-    x = Conv2D(64, kernel_size=(3, 3), padding='same', strides=(1, 1),
-               kernel_regularizer=regularizers.l2(weight_decay))(x_in)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-
-    x = res_tower_2_layer_img_vs_doc(x, 64, 2, False, weight_decay=weight_decay)
-    x = res_tower_2_layer_img_vs_doc(x, 128, 2, True, weight_decay=weight_decay)
-    x = res_tower_2_layer_img_vs_doc(x, 256, 2, True, weight_decay=weight_decay)
-    x = res_tower_2_layer_img_vs_doc(x, 512, 2, True, weight_decay=weight_decay)
-
-    x = GlobalAveragePooling2D()(x)
-    x = Dense(TILES_PER_DIM, activation='softmax')(x)
-    return Model(inputs=x_in, outputs=x)
-
-
-def lr_scheduler(epoch):
-    """Learning Rate Schedule
-    Learning rate is scheduled to be reduced after 80, 120, 160, 180 epochs.
-    Called automatically every epoch as part of callbacks during training.
-    # Arguments
-        epoch (int): The number of epochs
-    # Returns
-        lr (float32): learning rate
-    """
-    lr = 0.1
-    if epoch > 5:
-        lr = 0.01
-    if epoch > 10:
-        lr = 0.001
-    if epoch > 20:
-        lr = 1e-4
-    return lr
-
-# def to_grayscale(im):
-#     return cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-
-def evaluate(file_dir='example/'):
+def _evaluate(file_dir='example/'):
     files = os.listdir(file_dir)
     files.sort()
     print(files)  #TODO: remove
@@ -169,11 +56,12 @@ def evaluate(file_dir='example/'):
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         images.append(im)
 
-    Y = predict(images)
+    Y = _predict(images)
     print(Y)  # TODO - remove!
     return Y
 
-def get_trained_model(c):
+
+def build_model(c, weights=False):
     from keras.applications.resnet50 import ResNet50
     resnet_rows_cols = ResNet50(
         include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size, c.max_size, 1),
@@ -191,13 +79,15 @@ def get_trained_model(c):
         optimizer='adam',
         metrics=['accuracy']
     )
-    d = load_obj('weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
-    for l_ix in range(len(model.layers)):
-        model.layers[l_ix].set_weights(d[l_ix])
-    print("loaded")
+    if weights:
+        d = load_obj(weights)
+        for l_ix in range(len(model.layers)):
+            model.layers[l_ix].set_weights(d[l_ix])
+        print("loaded weights")
     return model
 
-def predict(images):
+
+def _predict(images):
     c = Conf()
     c.tiles_per_dim = 4
     c.is_images = True
@@ -207,90 +97,32 @@ def predict(images):
     for im in images:
         im = preprocess_image(im, c)
         processed_images.append(im)
-    model = get_trained_model(c)
+    model = build_model(c,'weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
     res = model.predict_on_batch(np.array(processed_images))  # , steps=10)
     print(np.argmax(res, 1))
 
 
 def run(c, rows_or_cols):
 
-    rows_or_cols = rows_or_cols
-    print("STARTING {}".format(rows_or_cols))
-    tiles_per_dim = c.tiles_per_dim
-    is_image = c.is_images
-
-    # resnet_rows_cols = build_resnet_rows_col(tiles_per_dim, c.max_size)
-
     batch_size = 128
-    # TODO: check withoutval in row below
+    steps_per_epoch = get_steps(c, batch_size, "train")
+    max_epochs = 900
 
-    steps_per_epoch = get_steps(c, batch_size, "train")#len(os.listdir("{}_{}_isImg_{}/0/".format(rows_or_cols, tiles_per_dim, c.is_images)))*tiles_per_dim // batch_size
-    maxepoches = 900
-    learning_rate = 0.0001
-    # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=5, min_lr=0.00001,verbose=1)
+    datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
+    datagen_img_vs_doc_val = data_generator('val', batch_size, c, rows_or_cols)
 
-    sgd = optimizers.SGD(lr=learning_rate, momentum=0.9, nesterov=True)
-
-    datagen_img_vs_doc_train = data_generator('train', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
-
-    datagen_img_vs_doc_val = data_generator('val', c.tiles_per_dim, '', batch_size, c, rows_or_cols)#ImageDataGenerator()#preprocessing_function=to_grayscale)
-
-    from keras.applications.resnet50 import ResNet50
-    resnet_rows_cols = ResNet50(
-        include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size,c.max_size,1),
-                                       pooling=None, classes=c.tiles_per_dim)
-    # Add final layers
-    x = resnet_rows_cols.output
-    x = Flatten()(x)
-    predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
-
-    # This is the model we will train
-    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
-
-    model.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['accuracy']
-    )
-    # model.summary()
-
-    # resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
-
-    # featurewise_center=False,  # set input mean to 0 over the dataset
-        # samplewise_center=False,  # set each sample mean to 0
-        # featurewise_std_normalization=False,  # divide inputs by std of the dataset
-        # samplewise_std_normalization=False,  # divide each input by its std
-        # zca_whitening=False,  # apply ZCA whitening
-        # rotation_range=15,  # randomly rotate images in the range (degrees, 0 to 180)
-        # width_shift_range=0.1,  # randomly shift images horizontally (fraction of total width)
-        # height_shift_range=0.1,  # randomly shift images vertically (fraction of total height)
-        # horizontal_flip=True,  # randomly flip images
-        # vertical_flip=False)  # randomly flip images
-
-    # datagen.fit(X_train)
-    # model_net_name = 'w.h5'.format(rows_or_cols, tiles_per_dim, is_image)
-    # resnet_rows_cols.save(model_net_name)
-
-    # ckpt = keras.callbacks.ModelCheckpoint('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image), monitor='val_acc',
-    #                                 verbose=1, save_best_only=True, save_weights_only=True, mode='max', period=1)
-    # early_stop = keras.callbacks.EarlyStopping('val_acc',min_delta=0.001,patience=120)
-    weights_name_format = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
-
-    load_weights = False
+    model = build_model(c, weights='weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
+    model = build_model(c)
+    # weights_name_format = 'weights_img_{}_t_{}_{}'.format(c.is_images, c.tiles_per_dim, rows_or_cols)
     train = True
-    if load_weights:
-        d = load_obj('all_weights_train_L0.0_A0.0_val_L1.13_A0.82')
-        for l_ix in range(len(model.layers)):
-            model.layers[l_ix].set_weights(d[l_ix])
-        print("loaded")
 
     if train:
+        print("STARTING")
         baseline_loss = np.inf
         baseline_acc = -np.inf
         count_plateau = 0
         tolerance_plateau = 80
-        for e in range(maxepoches):
+        for e in range(max_epochs):
             train_steps_count, val_steps_count = 0, 0
             avg_loss, avg_acc = 0, 0
             print("Epoch {}".format(e))
@@ -334,29 +166,6 @@ def run(c, rows_or_cols):
                 return
 
     else:
-        evaluate('example/')
-
-    # resnet_rows_cols_hist = model.fit_generator(datagen_img_vs_doc_train, validation_data=datagen_img_vs_doc_val,
-    #                                                        steps_per_epoch=steps_per_epoch, validation_steps=3, epochs=maxepoches)
-
-
-
-
-    # # resnet_rows_cols.save_weights('model_weights_{}_{}_isImg_{}.h5'.format(rows_or_cols, tiles_per_dim, is_image))
-    # # np.save('w.pkl', model.get_weights())
-    # # model.set_weights(np.load('w.pkl'))
-    # evaluate('example_docs/')
-    # evaluate('example/')
-    # files = os.listdir()
-    # files.sort()
-    # print(files)  # TODO: remove
-    # images = []
-    # for f in files:
-    #
-    #     im = cv2.imread('example_docs/' + f)
-    #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-    #
-
-
+        _evaluate('example/')
 
 

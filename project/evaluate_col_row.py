@@ -1,9 +1,5 @@
-import os
-import cv2
-from keras.utils import to_categorical
-import  keras
+
 from preprocessor import *
-from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
 from resnet_ood_pairs_folder_based import build_resnet_ood
 from resnet_img_doc_classifier import build_resnet_img_vs_doc
 
@@ -83,7 +79,9 @@ def is_image(images):
     resnet_img_vs_doc.load_weights('is_img_or_doc.h5')
     resized_images = []
     for im in images:
-        resized_images.append(cv2.resize(im, (32, 32)).reshape((32, 32, 1)))#.reshape((32,32,1)))
+        im = cv2.resize(im, (32, 32))
+        im = np.expand_dims(im,-1)
+        resized_images.append(im)#.reshape((32, 32, 1)))#.reshape((32,32,1)))
     # resnet_img_vs_doc.predict_on_batch(np.array([cv2.resize(im, (32, 32)).reshape((32, 32, 1))]))
     resized_images = np.array(resized_images)
     preds = resnet_img_vs_doc.predict_on_batch(resized_images)
@@ -105,24 +103,36 @@ def get_ood_model(c, is_image):
     return resnet_ood
 
 
-def get_rows_cols_model(c):
-    resnet = build_resnet_rows_col(c.tiles_per_dim, c.max_size)
+def get_rows_cols_model(c, is_rows):
+    rows_or_cols = "rows" if is_rows else "cols"
+    from resnet_rows_cols_folder_based_lessKeras import build_model
+    weights = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
+    weights = 'weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91' #TODO: remove
+
+    return build_model(c, weights)
 
 
-    # resnet.load_weights('model_weights_rows_4_isImg_False.h5')
-    # resnet.compile(
-    #     loss='categorical_crossentropy',
-    #     optimizer='adam',
-    #     metrics=['accuracy']
-    # )
-    return resnet
+def predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods):
+    '''
+    Loads the ood model, which outputs for each image in images whether it is OOD or not.
+    One option for training would be to take pairs, one in distribution (label 0), one out of distribution (label 1),
+    and at prediction time to have each pair tested, and use majority prediction to eliminate OODs (for example,
+    predict for all possible pairs {im_i, im_j}, j!=i  while keeping count of the number of pairs for which im_i was
+    predicted as OOD. If im_i has the highest such count (i.e. got a prediction of OOD in more pairs than any other),
+    remove im_i first. Proceed to remove the next image with the highest count and so on.
+    If none were predicted OODs, simply return the full list. The main model will choose those it is most certain of.
+    :param images:
+    :param conf_ood:
+    :param img_ix_to_labels:
+    :return: list of indices corresponding to images identified as NON-odd
+    '''
 
+    # TODO remove these two
+    non_ood_imgs_ix = list(range(len(images)))
+    return non_ood_imgs_ix
 
-def predict_oods(images, conf_ood, img_ix_to_labels):
     # OOD classification
     resnet_ood = get_ood_model(conf_ood, conf_ood.is_images)
-
-    n_expected_oods = len(images) - conf_ood.n_original_tiles
 
     all_votes = []
     for i in range(len(images)):
@@ -147,27 +157,32 @@ def predict_oods(images, conf_ood, img_ix_to_labels):
         all_votes.append((label, avg_certainty, i))
         print(label, avg_certainty)
 
+    non_ood_imgs_ix = list(range(len(images))) # default non_ood_imgs_ix is all images, worst-case the position model will take the most confident ones...
     # keep only ood votes and add to final labels
     all_votes_ood = [v for v in all_votes if v[0] == 1]
-    if len(all_votes_ood) >= n_expected_oods:
+    if len(all_votes_ood) > 0: # at least one was identified as ood
         all_votes_ood = sorted(all_votes_ood, key=lambda x: x[1], reverse=True)
         oods = all_votes_ood[:n_expected_oods]
         for o in oods:
             i = o[-1]  # the last index in all_votes = image ix in images
             img_ix_to_labels[i] = -1
         print(img_ix_to_labels)
-    else:
-        # TODO: add logic for the case where there are no ood votes (label=1) or not enough (sort by logits for position 1 and take highest as oods)
-        pass
+        non_ood_imgs_ix.pop(i) # TODO remove ix that's OOD
 
-    # TODO: return image indices for row col preds [non-ood] (sorted in order as they appear in images)
-    non_ood_imgs_ix = None
-    return img_ix_to_labels, non_ood_imgs_ix
+    return list(non_ood_imgs_ix)
+
+
+def prepare_images(images, c):
+    images = add_similarity_channel(images, images, c, sim_on_side=True)
+    processed_images = []
+    for im in images:
+        im = preprocess_image(im, c)
+        processed_images.append(im)
+    return processed_images
 
 
 def predict(images, labels_gt=None):
 
-    # maybe_download_weights()  # no need - function called in  weights_download
     print(labels_gt)
 
     labels = []
@@ -176,19 +191,15 @@ def predict(images, labels_gt=None):
     img_ix_to_labels = {}
     img_ix_to_label_cols = {}
 
-    # isImg = is_image(images) # TODO
+    isImg = is_image(images)
 
     conf_ood = Conf(int(t), 112, False)
-    # conf_row_col = Conf(int(t), 112, isImg) # TODO change back to t
-    conf_row_col = Conf(4, 112, False)
+    conf_row_col = Conf(int(t), 112, isImg)
 
+    n_expected_oods = len(images) - conf_ood.n_original_tiles
 
-    # img_ix_to_labels, non_ood_images_ix = predict_oods(images, conf_ood, img_ix_to_labels)
-    non_ood_images_ix = -1 # TODO remove
-    # processed_images = []
-    # for im in images:
-    #     im = preprocess_image(im, conf_row_col)
-    #     processed_images.append(im)
+    non_ood_images_ix = predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods) # TODO: add back
+
     img_ix_to_labels_rows = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=True)
     # img_ix_to_labels_cols = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=False)
 
@@ -210,38 +221,25 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     '''
 
     non_ood_images = []
-    if non_ood_images_ix == -1:
-        non_ood_images = images#[cv2.resize(im, (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)) for im in images
-        non_ood_images_ix = range(len(images))
-    else:
-        for i in non_ood_images_ix:
-            non_ood_images.append(images[i])#cv2.resize(images[i], (conf_row_col.max_size, conf_row_col.max_size)).reshape((conf_row_col.max_size, conf_row_col.max_size, 1)))
+    for i in non_ood_images_ix:
+        non_ood_images.append(images[i])
 
-    # predicting rows and cols
-    # rows_cols_model = get_rows_cols_model(conf_row_col)
-
-    # model_type = "rows" if is_rows else "cols"
-    # print(model_type)
-    # # rows_cols_model = keras.models.load_model('model_net_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
-    # rows_cols_model.load_weights('model_weights_{}_{}_isImg_{}.h5'.format(model_type, conf_row_col.tiles_per_dim, conf_row_col.is_images))
-    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, sim_on_side=True)
-    # resized_images = []
-    # for im in non_ood_images:
-    #     resized_images.append(np.expand_dims(im,-1))
-    # non_ood_images = resized_images
-    rows_cols_model = test_model()
-    # logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
-    logits = rows_cols_model.predict_generator(data_generator_pred(images,conf_row_col), steps=1)
+    non_ood_images = prepare_images(non_ood_images, conf_row_col)
+    rows_cols_model = get_rows_cols_model(conf_row_col, is_rows)
+    logits = rows_cols_model.predict_on_batch(np.array(non_ood_images))
     print(np.argmax(logits,1))
     logits_img_ix_pos_tuples = []
     argmax_preds = []
+
+    # Sort predictions by confidence
     for im_ix_internal in range(len(logits)):
-        # print(logits[im_ix_internal])
         argmax_preds.append(np.argmax(logits[im_ix_internal]))
         for pos in range(len(logits[im_ix_internal])):
             score = logits[im_ix_internal][pos]
             logits_img_ix_pos_tuples.append((score, im_ix_internal, pos))
     pos_list_sorted = sorted(logits_img_ix_pos_tuples, key=lambda x: x[0], reverse=True)
+
+    # Allocate predictions greedily, until all positions are filled
     internal_im_ix_to_pos = {}
     count_pos_to_allocated_imgs = {}
     img_ix_allocated = []
@@ -249,30 +247,29 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
         count_pos_to_allocated_imgs[pos] = 0
     for tuple in pos_list_sorted:
         score, im_ix_internal, pos = tuple
-        # print(pos)
-        # print(count_pos_to_allocated_imgs)
         if count_pos_to_allocated_imgs[pos] >= conf_row_col.tiles_per_dim or im_ix_internal in img_ix_allocated:
             continue
         internal_im_ix_to_pos[im_ix_internal] = pos
         img_ix_allocated.append(im_ix_internal)
         count_pos_to_allocated_imgs[pos] += 1
 
+    # Map indices back to originally supplied indices (in case OODs were successfully removed)
     final_im_ix_to_pos = {}
     for im_ix_internal in internal_im_ix_to_pos.keys():
         img_ix_global = non_ood_images_ix[im_ix_internal]
         final_im_ix_to_pos[img_ix_global] = internal_im_ix_to_pos[im_ix_internal]
 
-    # return final_im_ix_to_pos
+    if labels_gt:
+        pos_preds = []
+        for i in non_ood_images_ix:
+            pos_preds.append(final_im_ix_to_pos[i])
+        print(pos_preds)
+        n_correct = len([1 for i in range(len(pos_preds)) if pos_preds[i] == labels_gt[i]])
+        print("greedy preds", n_correct/len(pos_preds))
+        n_correct = len([1 for i in range(len(argmax_preds)) if argmax_preds[i] == labels_gt[i]])
+        print("argmax preds", n_correct / len(pos_preds))
 
-    pos_preds = []
-    for i in non_ood_images_ix:
-        pos_preds.append(final_im_ix_to_pos[i])
-    print(pos_preds)
-    n_correct = len([1 for i in range(len(pos_preds)) if pos_preds[i] == labels_gt[i]])
-    print("greedy preds", n_correct/len(pos_preds))
-    n_correct = len([1 for i in range(len(argmax_preds)) if argmax_preds[i] == labels_gt[i]])
-    print("argmax preds", n_correct / len(pos_preds))
-
+    return final_im_ix_to_pos
     #     # top_img_tuples_for_pos = pos_list_sorted[:conf_row_col.tiles_per_dim]
     #     for img_tuple in pos_list_sorted:
     #         im_ix_internal = img_tuple[1]
@@ -285,68 +282,6 @@ def predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt=None, i
     #     final_im_ix_to_pos[img_ix_global] = internal_im_ix_to_pos[im_ix_internal]
     # print(final_im_ix_to_pos)
 
-
-
-    # non_ood_images = add_similarity_channel(non_ood_images, non_ood_images, conf_row_col, n_channels=3)
-    # from PIL import Image
-
-    # datagen_img_vs_doc = ImageDataGenerator(
-    #     preprocessing_function=lambda x: x / 255.)  # preprocessing_function=to_grayscale)
-    # for im in non_ood_images:
-        # im_ = Image.fromarray(im.astype('uint8'))
-        # im = np.array(im_)
-        # cv2.imwrite("tmp.jpg", im)
-        # im = cv2.imread("tmp.jpg")
-        # from keras_preprocessing import image
-
-        # # from PIL import Image
-        # # im_ = Image.fromarray(im)
-        # # im_ = im_.resize((conf_row_col.max_size, conf_row_col.max_size))
-        # # im = np.array(im_)
-        # im = im / 255.
-        # resized_images.append(im)
-        # resized_images.append(im / 255.)
-
-    # non_ood_images = resized_images
-    # flower = datagen_img_vs_doc.flow(np.array(resized_images))
-    # flower.target_size = (conf_row_col.max_size, conf_row_col.max_size)
-    # logits = rows_cols_model.predict_generator(flower,steps=1)
-
-    # greedily start placing those with higher row certainty
-
-    # for row in range(conf_row_col.tiles_per_dim):
-    #     relevant_row_logits = [l[row] for l in logits]
-    #     logits_non_ood_with_idx = zip(relevant_row_logits, real_images_idx)
-    #     logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
-    #     most_likely_ix_in_row = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
-    #     for ix in most_likely_ix_in_row:
-    #         img_ix_to_label_rows[ix] = row
-
-    # # cols
-    # col_model = rows_cols_model.load_weights('model_cols_{}_isImg_{}.h5'.format(conf_row_col.tiles_per_dim, is_image))
-    # logits_col = col_model.predict_on_batch(images_for_row_col_prediction)
-    # # greedily start placing those with higher col certainty
-    # for col in range(conf_row_col.tiles_per_dim):
-    #     relevant_col_logits = [l[col] for l in logits_col]
-    #     logits_non_ood_with_idx = zip(relevant_col_logits, real_images_idx)
-    #     logits_non_ood_with_idx = sorted(logits_non_ood_with_idx, key=lambda item: item[0])
-    #     most_likely_ix_in_col = [item[1] for item in logits_non_ood_with_idx[:conf_row_col.tiles_per_dim]]
-    #     for ix in most_likely_ix_in_col:
-    #         img_ix_to_label_cols[ix] = col
-    # # print("final labels mapping cols", img_ix_to_label_cols)
-
-def test_model():
-    from resnet_rows_cols_folder_based_lessKeras import build_resnet_rows_col
-    resnet_rows_cols = build_resnet_rows_col(4, 112)
-
-    # resnet_rows_cols.compile(
-    #     loss='categorical_crossentropy',
-    #     optimizer='adam',
-    #     metrics=['accuracy']
-    # )
-    resnet_rows_cols.load_weights('model_weights_{}_{}_isImg_{}.h5'.format("rows", 4, False), by_name=True)
-    return resnet_rows_cols
-    # resnet_rows_cols.summary()
 
 def row_col_tuple_to_position(tiles_per_dim, row_col_tuple):
     dictionary = {}
@@ -374,7 +309,7 @@ def evaluate(file_dir='example/'):
     return Y
 
 
-def evaluate_internal(tiles_per_dim, files, is_img=True):
+def evaluate_internal(c, files, is_rows=True):
     from preprocessor import get_row_col_label
     # files = os.listdir(file_dir)
     files.sort()
@@ -383,17 +318,12 @@ def evaluate_internal(tiles_per_dim, files, is_img=True):
     labels = []
     # if is_img:
     for f in files:
-        if is_img:
-            label_original = int(f.split('.')[1].split('_')[-1])
-        else:
-            label_original = int(f.split('.')[0].split('_')[-1])
-        labels.append(get_row_col_label(label_original,tiles_per_dim,True))
+        labels.append(get_row_col_label(f,c,is_rows))
     images = []
     for f in files:
         im = cv2.imread(f)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         images.append(im)
-        # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-        # images.append(im)
 
     Y = predict(images, labels)
     print(Y)  # TODO - remove!
@@ -402,40 +332,41 @@ def evaluate_internal(tiles_per_dim, files, is_img=True):
 
 # # TODO: remove
 # evaluate('example/')
+# evaluate_internal('example/')
 import glob
 tiles_per_dim = 4
 is_img = False
-list_f = glob.glob('dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img))
+list_f = glob.glob('example/*')#'dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img))
 list_f = sorted(list_f)
 
 for i in range(10):
     files = list_f[:50]
 
-    # for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
+#     # for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
     c = Conf()
     c.max_size = 112
     c.tiles_per_dim = 4
-    # label = folder.split('_')
-    # images = []
-    # model = test_model()
-    # im = cv2.imread(folder)
-    # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-    # im = preprocess_image(im, c)
-    # images.append(im)
-    # print(np.argmax(model.predict_on_batch(np.array(images))))
-    # if not is_img:
-    #     d = load_obj('files_train_img_False')
-    #     list_k = [k.split('.')[0] for k in d]
-    #     print(folder.split('/')[1])
-    #     print(list_k)
-    #     assert folder.split('/')[1] in list_k
-    evaluate_internal(tiles_per_dim, files, is_img)
-
-
-    # try:
-    #     evaluate_internal(tiles_per_dim, folder+'/')
-    # except:
-    #     print("skipped", folder)
-# evaluate('dataset_4_isImg_True/n01440764_416/')
-
-# row_col_tuple_to_position(5, (2,2))
+#     # label = folder.split('_')
+#     # images = []
+#     # model = test_model()
+#     # im = cv2.imread(folder)
+#     # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+#     # im = preprocess_image(im, c)
+#     # images.append(im)
+#     # print(np.argmax(model.predict_on_batch(np.array(images))))
+#     # if not is_img:
+#     #     d = load_obj('files_train_img_False')
+#     #     list_k = [k.split('.')[0] for k in d]
+#     #     print(folder.split('/')[1])
+#     #     print(list_k)
+#     #     assert folder.split('/')[1] in list_k
+    evaluate_internal(c, files, True)
+#
+#
+#     # try:
+#     #     evaluate_internal(tiles_per_dim, folder+'/')
+#     # except:
+#     #     print("skipped", folder)
+# # evaluate('dataset_4_isImg_True/n01440764_416/')
+#
+# # row_col_tuple_to_position(5, (2,2))
