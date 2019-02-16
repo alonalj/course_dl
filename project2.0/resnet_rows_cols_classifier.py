@@ -20,7 +20,7 @@ def data_generator(data_type, batch_size, c, rows_or_cols):
     import random
     from keras.utils import to_categorical
 
-    relevant_files = get_relevant_files(data_type, c)[:10]
+    relevant_files = get_relevant_files(data_type, c)
     while True:
         random.shuffle(relevant_files)
         for i in range(get_steps(c, batch_size, data_type)):
@@ -107,8 +107,8 @@ def _predict(images):
 
 def run(c, rows_or_cols):
 
-    batch_size = 12
-    steps_per_epoch = 1#get_steps(c, batch_size, "train")
+    batch_size = 128
+    steps_per_epoch = get_steps(c, batch_size, "train")
     max_epochs = 900
 
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
