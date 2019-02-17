@@ -124,7 +124,7 @@ def run(c, rows_or_cols):
         baseline_loss = np.inf
         baseline_acc = -np.inf
         count_plateau = 0
-        tolerance_plateau = 15
+        tolerance_plateau = 35
         for e in range(max_epochs):
             train_steps_count, val_steps_count = 0, 0
             avg_loss, avg_acc = 0, 0
@@ -165,7 +165,7 @@ def run(c, rows_or_cols):
             else:
                 count_plateau += 1
                 print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
-            if count_plateau == tolerance_plateau and avg_acc > 0.9:
+            if count_plateau == tolerance_plateau and avg_acc > 0.97:
                 print("No improvement for {} epochs. Moving on.".format(count_plateau))
                 return
 
