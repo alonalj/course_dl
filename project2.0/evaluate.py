@@ -58,8 +58,8 @@ def get_rows_cols_model(c, is_rows):
     rows_or_cols = "rows" if is_rows else "cols"
     from resnet_rows_cols_classifier import build_model
     weights = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
-    weights = 'weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91' #TODO: remove
-
+    # weights = 'weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91' #TODO: remove
+    weights = 'weights_img_True_t_4_rows_L1.09_A0.53_val_L1.31_A0.42'
     return build_model(c, weights)
 
 
@@ -99,8 +99,7 @@ def predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods):
                 im = cv2.resize(im, (conf_ood.max_size, conf_ood.max_size))
                 combined_images.append(im)
             combined_images = np.concatenate(combined_images, axis=1)
-            logits_ood = resnet_ood.predict_on_batch(np.array([np.expand_dims(combined_images,
-                                                                              -1)]))  # TODO: change to prediction on batch, not on single example of combined images
+            logits_ood = resnet_ood.predict_on_batch(np.array([np.expand_dims(combined_images,-1)]))  # TODO: change to prediction on batch, not on single example of combined images
             vote = np.argmax(logits_ood, 1)
             avg_certainty += np.mean(logits_ood, 1)[0] / (len(images) - 1)
             all_votes_for_image.append(vote)

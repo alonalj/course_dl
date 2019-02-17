@@ -75,11 +75,11 @@ def build_model(c, weights=False):
     # This is the model we will train
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
 
-    sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
-
+    # sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
+    adam = optimizers.adam(lr=0.0001)
     model.compile(
         loss='categorical_crossentropy',
-        optimizer=sgd,
+        optimizer=adam,
         metrics=['accuracy']
     )
     if weights:
