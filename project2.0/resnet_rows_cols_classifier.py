@@ -70,7 +70,7 @@ def build_model(c, weights=False):
     # Add final layers
     x = resnet_rows_cols.output
     x = Flatten()(x)
-    predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000')(x)
+    predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000',kernel_regularizer=keras.regularizers.l2(0.0001))(x)
 
     # This is the model we will train
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
