@@ -124,7 +124,7 @@ def run(c, rows_or_cols):
         baseline_loss = np.inf
         baseline_acc = -np.inf
         count_plateau = 0
-        tolerance_plateau = 35
+        tolerance_plateau = 45
         for e in range(max_epochs):
             train_steps_count, val_steps_count = 0, 0
             avg_loss, avg_acc = 0, 0
