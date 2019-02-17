@@ -1,5 +1,5 @@
 from conf import Conf
-from preprocessor import shredder_original, split_train_val_test, create_normalization_stats, shred_with_similarity_channel
+from preprocessor import split_train_val_test, create_normalization_stats, shred_with_similarity_channel
 from resnet_rows_cols_classifier import run
 
 for i in range(1):  # for majority vote

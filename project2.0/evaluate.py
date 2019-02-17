@@ -59,7 +59,7 @@ def get_rows_cols_model(c, is_rows):
     from resnet_rows_cols_classifier import build_model
     weights = 'weights_img_{}_t_{}_{}'.format(c.is_images,c.tiles_per_dim,rows_or_cols)
     # weights = 'weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91' #TODO: remove
-    weights = 'weights_img_True_t_4_rows_L1.09_A0.53_val_L1.31_A0.42'
+    weights = 'weights_img_True_t_2_rows_L0.51_A0.94_val_L4.22_A0.75'
     return build_model(c, weights)
 
 
@@ -283,39 +283,15 @@ def evaluate_internal(c, files, is_rows=True):
 # evaluate('example/')
 # evaluate_internal('example/')
 import glob
-tiles_per_dim = 4
-is_img = False
-list_f = glob.glob('example/*')#'dataset_{}_isImg_{}/*'.format(tiles_per_dim, is_img))
+tiles_per_dim = 2
+is_img = True
+list_f = glob.glob('dataset_test_{}_isImg_{}/*'.format(tiles_per_dim, is_img))
 list_f = sorted(list_f)
+n_tiles_total = tiles_per_dim**2
 
 for i in range(10):
-    files = list_f[:50]
-
-#     # for folder in glob.glob('rows_4/2/*'.format(tiles_per_dim, is_img)):
+    files = list_f[i*n_tiles_total:(i+1)*n_tiles_total]
     c = Conf()
     c.max_size = 112
-    c.tiles_per_dim = 4
-#     # label = folder.split('_')
-#     # images = []
-#     # model = test_model()
-#     # im = cv2.imread(folder)
-#     # im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-#     # im = preprocess_image(im, c)
-#     # images.append(im)
-#     # print(np.argmax(model.predict_on_batch(np.array(images))))
-#     # if not is_img:
-#     #     d = load_obj('files_train_img_False')
-#     #     list_k = [k.split('.')[0] for k in d]
-#     #     print(folder.split('/')[1])
-#     #     print(list_k)
-#     #     assert folder.split('/')[1] in list_k
+    c.tiles_per_dim = tiles_per_dim
     evaluate_internal(c, files, True)
-#
-#
-#     # try:
-#     #     evaluate_internal(tiles_per_dim, folder+'/')
-#     # except:
-#     #     print("skipped", folder)
-# # evaluate('dataset_4_isImg_True/n01440764_416/')
-#
-# # row_col_tuple_to_position(5, (2,2))
