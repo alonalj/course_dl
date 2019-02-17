@@ -13,7 +13,7 @@ from conf import Conf
 
 def get_steps(c, batch_size, data_type):
     relevant_files = get_relevant_files(data_type,c)
-    return len(relevant_files) // batch_size
+    return max(len(relevant_files) // batch_size, 1)
 
 
 def data_generator(data_type, batch_size, c, rows_or_cols):
@@ -138,7 +138,7 @@ def run(c, rows_or_cols):
                     break
             print("Train loss, acc:", round(avg_loss,2), round(avg_acc,2))
             print("Validating")
-            val_steps = 3
+            val_steps = get_steps(c, batch_size, "val")
             avg_loss_val, avg_acc_val = 0, 0
             for X_batch, y_batch in datagen_img_vs_doc_val:
                 batch_loss, batch_acc = model.evaluate(X_batch, y_batch)
@@ -148,7 +148,8 @@ def run(c, rows_or_cols):
                 if val_steps_count == val_steps:
                     break
             print("Val loss, acc:", round(avg_loss_val,2), round(avg_acc_val,2))
-            if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
+            # if avg_loss_val < baseline_loss and avg_acc_val > baseline_acc:
+            if avg_acc_val > baseline_acc:
                 print("Saving model, loss change: {} --> {}, acc change: {} --> {}"
                       .format(round(baseline_loss,2), round(avg_loss_val,2), round(baseline_acc,2), round(avg_acc_val,2)))
                 all_weights = []
