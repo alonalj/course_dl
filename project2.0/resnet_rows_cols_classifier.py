@@ -165,7 +165,7 @@ def run(c, rows_or_cols):
             else:
                 count_plateau += 1
                 print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
-            if count_plateau == tolerance_plateau:
+            if count_plateau == tolerance_plateau and avg_acc > 0.9:
                 print("No improvement for {} epochs. Moving on.".format(count_plateau))
                 return
 
