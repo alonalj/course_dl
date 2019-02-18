@@ -109,6 +109,34 @@ def lr_scheduler(epoch):
 #     return cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
 
 
+def build_model(c, weights=False):
+    from keras.applications.resnet50 import ResNet50
+    from preprocessor import load_obj
+    resnet_rows_cols = ResNet50(
+        include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size, c.max_size, 1),
+        pooling=None, classes=c.tiles_per_dim)
+    # Add final layers
+    x = resnet_rows_cols.output
+    x = Flatten()(x)
+    predictions = Dense(2, activation='softmax', name='fc1000',kernel_regularizer=keras.regularizers.l2(0.0001))(x)
+
+    # This is the model we will train
+    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
+
+    # sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
+    adam = optimizers.adam(lr=0.0001)
+    model.compile(
+        loss='categorical_crossentropy',
+        optimizer=adam,
+        metrics=['accuracy']
+    )
+    if weights:
+        d = load_obj(weights)
+        for l_ix in range(len(model.layers)):
+            model.layers[l_ix].set_weights(d[l_ix])
+        print("loaded weights")
+    return model
+
 
 def run(c):
 
@@ -117,9 +145,9 @@ def run(c):
     is_image = c.is_images
     SHAPE = c.max_size
 
-    resnet_rows_cols = build_resnet_ood(SHAPE)
+    resnet_rows_cols = build_model(c)#build_resnet_ood(SHAPE)
 
-    batch_size = 18
+    batch_size = 2
     path = "ood_isImg_{}".format(c.is_images)
     train_len = len(glob.glob(path+'/0'+'/*')) * 2
 
@@ -158,7 +186,7 @@ def run(c):
 
     resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
         datagen_ood_train.flow_from_directory(path,
-                                               target_size=(c.max_size, c.max_size*2),
+                                               target_size=(c.max_size, c.max_size),
                                                color_mode='grayscale',
                                                batch_size=batch_size),
         steps_per_epoch=steps_per_epoch,
@@ -167,7 +195,7 @@ def run(c):
         shuffle=True,
         validation_data=
         datagen_ood_Val.flow_from_directory(path+'_val',
-                                               target_size=(c.max_size, c.max_size*2),
+                                               target_size=(c.max_size, c.max_size),
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
