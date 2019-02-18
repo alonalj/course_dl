@@ -803,7 +803,7 @@ def create_ood_non_ood_pairs(c):
                         f1 = tiles_in_distribution[i]
                         f2 = tiles_in_distribution[j]
                         combined_images = []
-                        print(f1, f2)
+                        # print(f1, f2)
                         for f in [f1, f2]:
                             im = cv2.imread(IM_DIR+f)
                             im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
@@ -822,7 +822,7 @@ def create_ood_non_ood_pairs(c):
                     f1 = random.choice(tiles_ood)
                     f2 = random.choice(tiles_in_distribution)
                     combined_images = []
-                    print("o", f1, f2)
+                    # print("o", f1, f2)
                     for f in [f1, f2]:
                         im = cv2.imread(IM_DIR+f)
                         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
