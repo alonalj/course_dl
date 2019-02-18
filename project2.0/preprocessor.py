@@ -804,16 +804,16 @@ def create_ood_non_ood_pairs(c):
                         f2 = tiles_in_distribution[j]
                         combined_images = []
                         # print(f1, f2)
-                        for f in [f1, f2]:
-                            im = cv2.imread(IM_DIR+f)
-                            im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                            im = cv2.resize(im, (c.max_size, c.max_size))
-                            combined_images.append(im)
-                        combined_images = np.concatenate(combined_images, axis=1)
-                        cv2.imwrite(OUTPUT_DIR + label + "/"+str(folder_counter)+'.jpg', combined_images)
-                        # os.makedirs(OUTPUT_DIR +label+ '/'+ str(folder_counter))
-                        # shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
-                        # shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
+                        # for f in [f1, f2]:
+                        #     im = cv2.imread(IM_DIR+f)
+                        #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                        #     im = cv2.resize(im, (c.max_size, c.max_size))
+                        #     combined_images.append(im)
+                        # combined_images = np.concatenate(combined_images, axis=1)
+                        # cv2.imwrite(OUTPUT_DIR + label + "/"+str(folder_counter)+'.jpg', combined_images)
+                        os.makedirs(OUTPUT_DIR +label+ '/'+ str(folder_counter))
+                        shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
+                        shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
                         count_pairs_per_class += 1
                         folder_counter += 1
                 # 2. ood:
@@ -823,16 +823,16 @@ def create_ood_non_ood_pairs(c):
                     f2 = random.choice(tiles_in_distribution)
                     combined_images = []
                     # print("o", f1, f2)
-                    for f in [f1, f2]:
-                        im = cv2.imread(IM_DIR+f)
-                        im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-                        im = cv2.resize(im, (c.max_size, c.max_size))
-                        combined_images.append(im)
-                    combined_images = np.concatenate(combined_images, axis=1)
-                    cv2.imwrite(OUTPUT_DIR + label + "/" + str(folder_counter) + '.jpg', combined_images)
-                    # os.makedirs(OUTPUT_DIR + label + '/' + str(folder_counter))
-                    # shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
-                    # shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
+                    # for f in [f1, f2]:
+                    #     im = cv2.imread(IM_DIR+f)
+                    #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                    #     im = cv2.resize(im, (c.max_size, c.max_size))
+                    #     combined_images.append(im)
+                    # combined_images = np.concatenate(combined_images, axis=1)
+                    # cv2.imwrite(OUTPUT_DIR + label + "/" + str(folder_counter) + '.jpg', combined_images)
+                    os.makedirs(OUTPUT_DIR + label + '/' + str(folder_counter))
+                    shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
+                    shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
                     folder_counter += 1
 
 # def create_ood_non_ood_pairs_OLD(c):
