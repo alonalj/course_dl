@@ -213,10 +213,10 @@ def run(c):
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
     # sgd = optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
-
+    adam = keras.optimizers.adam(lr=0.0001)
     resnet.compile(
         loss='categorical_crossentropy',
-        optimizer="adam",  # switch to adam later
+        optimizer=adam,  # switch to adam later
         metrics=['accuracy']
     )
     resnet.summary()
