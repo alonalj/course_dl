@@ -76,7 +76,7 @@ def build_model(c, weights=False):
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
 
     # sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
-    adam = optimizers.adam(lr=0.0001)
+    adam = optimizers.adam(lr=0.00001)
     model.compile(
         loss='categorical_crossentropy',
         optimizer=adam,
@@ -109,7 +109,7 @@ def run(c, rows_or_cols):
 
     batch_size = 128
     steps_per_epoch = get_steps(c, batch_size, "train")
-    max_epochs = 900
+    max_epochs = 2000
 
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
     datagen_img_vs_doc_val = data_generator('val', batch_size, c, rows_or_cols)
@@ -165,9 +165,9 @@ def run(c, rows_or_cols):
             else:
                 count_plateau += 1
                 print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
-            if count_plateau == tolerance_plateau and avg_loss < 0.01:
-                print("No improvement for {} epochs. Moving on.".format(count_plateau))
-                return
+            # if count_plateau == tolerance_plateau and avg_loss < 0.01:
+            #     print("No improvement for {} epochs. Moving on.".format(count_plateau))
+            #     return
 
     else:
         _evaluate('example/')
