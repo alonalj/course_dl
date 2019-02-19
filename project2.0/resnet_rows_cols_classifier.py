@@ -109,14 +109,14 @@ def run(c, rows_or_cols):
 
     batch_size = 128
     steps_per_epoch = get_steps(c, batch_size, "train")
-    max_epochs = 2000
+    max_epochs = 1000
 
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
     datagen_img_vs_doc_val = data_generator('val', batch_size, c, rows_or_cols)
 
     # model = build_model(c, weights='weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
     model = build_model(c)
-    weights_name_format = 'weights_img_{}_t_{}_{}'.format(c.is_images, c.tiles_per_dim, rows_or_cols)
+    weights_name_format = 'weights_no_sim_img_{}_t_{}_{}'.format(c.is_images, c.tiles_per_dim, rows_or_cols)
     train = True
 
     if train:
@@ -165,9 +165,9 @@ def run(c, rows_or_cols):
             else:
                 count_plateau += 1
                 print("No val improvement since loss, acc:", baseline_loss, baseline_acc)
-            # if count_plateau == tolerance_plateau and avg_loss < 0.01:
-            #     print("No improvement for {} epochs. Moving on.".format(count_plateau))
-            #     return
+            if count_plateau >= tolerance_plateau and avg_loss <= 0.05:
+                print("No improvement for {} epochs. Moving on.".format(count_plateau))
+                return
 
     else:
         _evaluate('example/')
