@@ -5,7 +5,7 @@ from resnet_rows_cols_classifier import run
 for i in range(1):  # for majority vote
     # mID = str(i) + "_" + str(time.time())
     for is_images in [False]:
-        for tiles_per_dim in [5]:#,5,2]:  # [4]: #
+        for tiles_per_dim in [2,4,5]:#,5,2]:  # [4]: #
 
             # for rows_or_cols in :
             # if tiles_per_dim == 5:
@@ -13,13 +13,13 @@ for i in range(1):  # for majority vote
             # else:
             #     rows_or_cols_list = ["cols"]
             for rows_or_cols in ["cols","rows"]:#, "cols"]:
-                if is_images and tiles_per_dim == 4 and rows_or_cols == "cols":  # TODO 4, cols
-                    continue
+                # if is_images and tiles_per_dim == 4 and rows_or_cols == "cols":  # TODO 4, cols
+                #     continue
                 print("Training for: is_images", is_images, tiles_per_dim, rows_or_cols)
                 c = Conf(tiles_per_dim=tiles_per_dim, max_size=112, is_images=is_images)
                 OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, is_images)
                 c.output_dir = OUTPUT_DIR
-                shred_with_similarity_channel(is_images, tiles_per_dim, c, OUTPUT_DIR)
+                shred_with_similarity_channel(is_images, tiles_per_dim, c, OUTPUT_DIR, add_sim=False)
                 split_train_val_test(is_images)
                 create_normalization_stats(c, rows_or_cols)
                 run(c, rows_or_cols)
