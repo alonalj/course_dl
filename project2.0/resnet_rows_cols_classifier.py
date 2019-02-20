@@ -196,7 +196,7 @@ def _predict(images):
 
 def run(c, rows_or_cols):
 
-    batch_size = 128
+    batch_size = 110
     steps_per_epoch = get_steps(c, batch_size, "train")
     max_epochs = 1000
 
