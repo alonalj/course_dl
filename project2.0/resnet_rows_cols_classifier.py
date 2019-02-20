@@ -66,7 +66,7 @@ def build_model(c, weights=False):
     from keras.applications.resnet50 import ResNet50
     resnet_rows_cols = ResNet50(
         include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size, c.max_size, 1),
-        pooling=None, classes=c.tiles_per_dim)
+        pooling=None, classes=c.tiles_per_dim)  # TODO check
     # Add final layers
     x = resnet_rows_cols.output
     x = Flatten()(x)
@@ -76,7 +76,7 @@ def build_model(c, weights=False):
     model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
 
     # sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
-    adam = optimizers.adam(lr=0.00001)
+    adam = optimizers.adam(lr=0.0001)
     model.compile(
         loss='categorical_crossentropy',
         optimizer=adam,
@@ -86,7 +86,9 @@ def build_model(c, weights=False):
         d = load_obj(weights)
         for l_ix in range(len(model.layers)):
             model.layers[l_ix].set_weights(d[l_ix])
-        print("loaded weights")
+        print("loaded weights", weights)
+
+    model.summary()
     return model
 
 
@@ -114,8 +116,8 @@ def run(c, rows_or_cols):
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
     datagen_img_vs_doc_val = data_generator('val', batch_size, c, rows_or_cols)
 
-    # model = build_model(c, weights='weights_img_True_t_4_rows_L0.21_A0.94_val_L0.27_A0.91')
-    model = build_model(c)
+    model = build_model(c, weights='weights_no_sim_img_True_t_4_cols_L0.08_A0.97_val_L3.0_A0.33')
+    # model = build_model(c)
     weights_name_format = 'weights_no_sim_img_{}_t_{}_{}'.format(c.is_images, c.tiles_per_dim, rows_or_cols)
     train = True
 
