@@ -65,35 +65,25 @@ def get_rows_cols_model(c, is_rows):
     return build_model(c, weights)
 
 
-def predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods):
+def find_potential_oods(images, c):
     '''
-    Loads the ood model, which outputs for each image in images whether it is OOD or not.
-    One option for training would be to take pairs, one in distribution (label 0), one out of distribution (label 1),
-    and at prediction time to have each pair tested, and use majority prediction to eliminate OODs (for example,
-    predict for all possible pairs {im_i, im_j}, j!=i  while keeping count of the number of pairs for which im_i was
-    predicted as OOD. If im_i has the highest such count (i.e. got a prediction of OOD in more pairs than any other),
-    remove im_i first. Proceed to remove the next image with the highest count and so on.
-    If none were predicted OODs, simply return the full list. The main model will choose those it is most certain of.
+    Simple idntification of the tiles who are most likely to be the odd ones out - they will be lower in preference for
+    out greedy algorithm.
     :param images:
     :param conf_ood:
     :param img_ix_to_labels:
     :return: list of indices corresponding to images identified as NON-odd
     '''
 
-    # TODO remove these two
-    non_ood_imgs_ix = list(range(len(images)))
-    # return non_ood_imgs_ix
-    im_ix_to_max_sim = []
     removed_indices = []
     n_oods = len(images)-c.tiles_per_dim**2
-    # for ood_round in range(n_oods): # remove the most likely OOD first, and pursue to remove the rest, given the most likely has been removed
     im_ix_to_max_sim = []
     for i in range(len(images)):
         max_edges = []
         for j in range(len(images)):
             if i == j or i in removed_indices or j in removed_indices:
                 continue
-            im1 = cv2.resize(images[i], (224,224))
+            im1 = cv2.resize(images[i], (224, 224))
             im2 = cv2.resize(images[j], (224, 224))
             max_edge = max(calc_cosine_sim_on_edges(im1, im2,disregard_whites=True))
             max_edges.append(max_edge)
@@ -107,13 +97,11 @@ def predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods):
     # ood_to_remove = im_ix_to_max_sim[0][0]
     # removed_indices.append(ood_to_remove)
     im_ix_to_max_sim = sorted(im_ix_to_max_sim, key=lambda x: x[1], reverse=False)
-    print(n_oods+tiles_per_dim**2-1,im_ix_to_max_sim[:n_oods])
+    potential_oods = im_ix_to_max_sim[:n_oods]
+    potential_oods = [i[0] for i in potential_oods]
+    # print(n_oods+tiles_per_dim**2-1,im_ix_to_max_sim[:n_oods])
 
-
-
-
-    # TODO: remove those whose max cosine similarity to any other image, over all edges, is lowest
-    return list(non_ood_imgs_ix)
+    return potential_oods
 
 
 
@@ -149,8 +137,8 @@ def resolve_clashes(pos_to_img_ix, pos_to_img_ix_leftovers, images):
                     certain_neighbors.append(neighbor)
             pos_to_n_neighbors_non_clashing.append((count_neighbors_non_clashing,pos, certain_neighbors))
 
-        count_neighbors_non_clashing = sorted(pos_to_n_neighbors_non_clashing, key=lambda x: x[0], reverse=True)
-        pos_with_largest_number_of_certain_neighbors = count_neighbors_non_clashing[0][1]
+        pos_to_n_neighbors_non_clashing = sorted(pos_to_n_neighbors_non_clashing, key=lambda x: x[0], reverse=True)
+        pos_with_largest_number_of_certain_neighbors = pos_to_n_neighbors_non_clashing[0][1]
         _, im_ix_clash_1 = pos_to_img_ix[pos_with_largest_number_of_certain_neighbors]
         neighbors = pos_to_n_neighbors_non_clashing[0][2]
 
@@ -196,6 +184,7 @@ def resolve_clashes(pos_to_img_ix, pos_to_img_ix_leftovers, images):
 
 
 def predict_position(logits_rows, logits_cols, conf_row_col, labels_gt=False):
+    # TODO remove
     preds_rows = np.argmax(logits_rows,1)
     preds_cols = np.argmax(logits_cols,1)
     pos_to_im_ix = {}
@@ -245,13 +234,16 @@ def predict_position_greedy(logits_rows, logits_cols, conf_row_col, labels_gt=Fa
                     img_best_pos = (i,j)
         img_ix_to_best_pos[im_ix] = (img_best_pos, determining_pos_score)
 
-    # Allocate predictions greedily (each position (i,j) gets the image with the highest average col, row logits)
+    # Allocate predictions greedily (each position (i,j) gets the image with the highest average col, row logits),
+    # unless the image is highly likely to be an OOD (in which case leave aside - will be considered a clash to be
+    # resolved later
     pos_to_im_ix = {}
     img_ix_allocated = []
     for pos in position_to_score_img_ix.keys():
         pos_list_sorted = sorted(position_to_score_img_ix[pos], key=lambda x: x[0], reverse=True)
         top_tuple = pos_list_sorted[0]
         score, im_ix = top_tuple
+
         while im_ix in img_ix_allocated:
             pos_list_sorted.pop(0)
             top_tuple = pos_list_sorted[0]
@@ -348,43 +340,28 @@ def predict(images, labels_gt=None):
 
     labels = []
     t = get_t(images)
-    print("t",t)
-    img_ix_to_labels = {}
-
     isImg = is_image(images)
-
-    conf_ood = Conf(int(t), 112, isImg)
     conf_row_col = Conf(int(t), 112, isImg)
 
-    n_expected_oods = len(images) - conf_ood.n_original_tiles
-
-    non_ood_images_ix = predict_oods(images, conf_ood, img_ix_to_labels, n_expected_oods)
-
     logits_rows = predict_rows_cols(images, conf_row_col, labels_gt, is_rows=True)
-    print(np.argmax(logits_rows,1))
+    print("row preds", np.argmax(logits_rows,1))
     logits_cols = predict_rows_cols(images, conf_row_col, labels_gt, is_rows=False)
-    print(np.argmax(logits_cols,1))
+    print("col preds", np.argmax(logits_cols,1))
     # pos_to_img_ix, pos_to_img_ix_leftovers = predict_position(logits_rows, logits_cols, conf_row_col, labels_gt)
+    # img_ix_potential_oods = []#find_potential_oods(images, conf_row_col)
     pos_to_img_ix, pos_to_img_ix_leftovers = predict_position_greedy(logits_rows, logits_cols, conf_row_col,labels_gt)
     pos_to_img_ix = resolve_clashes(pos_to_img_ix, pos_to_img_ix_leftovers, images) # returns mapping: (im_ix: (i,j) and im_ix:-1
     img_ix_to_pos = {}
     for pos in pos_to_img_ix.keys():
         img_ix_to_pos[pos_to_img_ix[pos][1]] = pos
 
-
-    # TODO: check all options of 25 (given 30 for example) and keep only the set of 25 with the highest avg score (similarities should be too noisy to be relevant)
-    # img_ix_to_labels_rows = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=True)
-    # img_ix_to_labels_cols = predict_rows_cols(images, non_ood_images_ix, conf_row_col, labels_gt, is_rows=False)
-
-    # convert (row,col) tuple to position and add to mapping from img_ix to label
-    # get final list of labels TODO: check this when cols finishes training
+    # convert (row,col) tuple to position and add get final list of labels
     for i in range(len(images)):
         if i in img_ix_to_pos.keys():
             label = row_col_tuple_to_position(conf_row_col.tiles_per_dim, img_ix_to_pos[i])
         else:
             label = -1
         labels.append(label)
-    print(labels)
     return labels
 
 
@@ -497,18 +474,28 @@ def evaluate_internal(c, files, is_rows=True, gt_labels=False):
 #     # c.tiles_per_dim = tiles_per_dim
 #     evaluate_internal(c, files, False)
 
-# EVAL OODS
-import glob
-tiles_per_dim = 5
-is_img = False
-list_f = glob.glob('shredded_oods_{}/*'.format(tiles_per_dim))
-list_f = sorted(list_f)
-n_tiles_total = tiles_per_dim**2
-
-for folder in list_f:
-    files = glob.glob(folder+'/*')
-    c = Conf()
-    c.max_size = 112
-    c.tiles_per_dim = tiles_per_dim
-    c.is_images = is_img
-    evaluate_internal(c, files, False)
+# # EVAL OODS  TODO: THIS WAS REMOVED TO runner_testing
+# import glob
+# tiles_per_dim = 4
+# is_img = False
+# list_f = glob.glob('shredded_oods_{}/*'.format(tiles_per_dim))
+# list_f = sorted(list_f)
+# n_tiles_total = tiles_per_dim**2
+#
+# all_same = []
+# for folder in list_f:
+#     files = glob.glob(folder+'/*')
+#     c = Conf()
+#     c.max_size = 112
+#     c.tiles_per_dim = tiles_per_dim
+#     c.is_images = is_img
+#     preds = evaluate_internal(c, files, False)
+#     actual = list(range(c.tiles_per_dim**2))
+#     oods = [-1 for i in range(len(preds) - c.tiles_per_dim**2)]
+#     actual.extend(oods)
+#
+#     same = [1 if preds[i] == actual[i] else 0 for i in range(len(preds))]
+#     accuracy = np.mean(same)
+#     all_same.extend(same)
+#     print("current accuracy", accuracy)
+#     print("ongoing accuracy", np.mean(all_same))

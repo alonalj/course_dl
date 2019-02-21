@@ -100,6 +100,7 @@ def calc_cosine_sim_on_single_edge(pos_1, pos_2,
             edge_2 = image_2[-1,:]
     else:
         print("Invalid neighbors")
+        print(pos_1, pos_2)
         return
 
     edge_1, edge_2 = edge_1.flatten(), edge_2.flatten()
@@ -195,7 +196,9 @@ def shredder_with_oods(raw_input_dir, c, output_dir):
 
     # raw_input_dir = "images/"
     if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
+        print("already created folder")
+        return
+        # shutil.rmtree(output_dir)
     files = os.listdir(raw_input_dir)
     if c.data_split_dict:
         print("shredding for dictionary {}".format(c.data_split_dict))
