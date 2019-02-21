@@ -43,7 +43,7 @@ def reshape_ood_images_to_majority_shape(images, shape_majority):
             im = cv2.resize(im, (shape_majority[1], shape_majority[0]))
             images[i] = im
     return images
-
+#
 def calc_cosine_sim_on_edges(im1, im2, disregard_whites=False):
 
     right_edge_original = im1[:, -1].flatten()
@@ -73,6 +73,39 @@ def calc_cosine_sim_on_edges(im1, im2, disregard_whites=False):
                 results.append(tuples[tix][0])
         cosine_sim_rl, cosine_sim_lr, cosine_sim_tb, cosine_sim_bt = results
     return cosine_sim_lr, cosine_sim_rl, cosine_sim_tb, cosine_sim_bt
+
+
+def calc_cosine_sim_on_single_edge(pos_1, pos_2,
+                    im_ix_1, im_ix_2,
+                    images
+                ):
+    is_horizontal_neighbors = np.abs(pos_1[0] - pos_2[0]) == 0 and np.abs(pos_1[1] - pos_2[1]) == 1
+    is_vertical_neighbors = np.abs(pos_1[0] - pos_2[0]) == 1 and np.abs(pos_1[1] - pos_2[1]) == 0
+
+    image_1 = images[im_ix_1]
+    image_2 = images[im_ix_2]
+    if is_horizontal_neighbors:
+        if pos_1[1] == pos_2[1] - 1: # 1 is left to 2
+            edge_1 = image_1[:, -1] # right most column of pixels
+            edge_2 = image_2[:, 0]
+        else:
+            edge_1 = image_1[:, 0] # left most column pf pixels
+            edge_2 = image_2[:, -1]
+    elif is_vertical_neighbors:
+        if pos_1[0] == pos_2[0] - 1: # 1 above 2
+            edge_1 = image_1[-1,:]
+            edge_2 = image_2[0,:]
+        else:
+            edge_1 = image_1[0,:]
+            edge_2 = image_2[-1,:]
+    else:
+        print("Invalid neighbors")
+        return
+
+    edge_1, edge_2 = edge_1.flatten(), edge_2.flatten()
+    edge_cosine_sim = 1 - spatial.distance.cosine(np.add(edge_1, 0.0001), np.add(edge_2, 0.0001))
+    return edge_cosine_sim
+
 
 def add_similarity_channel(processed_images, original_images, c, n_channels=None, only_sim=False, sim_on_side=False, sim_layer_size=25, random_shuffle=False):
 
