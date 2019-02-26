@@ -196,14 +196,14 @@ def _predict(images):
 
 def run(c, rows_or_cols):
 
-    batch_size = 100
+    batch_size = 120
     steps_per_epoch = get_steps(c, batch_size, "train")
     max_epochs = 1000
 
     datagen_img_vs_doc_train = data_generator('train', batch_size, c, rows_or_cols)
     datagen_img_vs_doc_val = data_generator('val', batch_size, c, rows_or_cols)
 
-    # model = build_model(c, weights='weights_no_sim_img_True_t_4_cols_L1.75_A0.32_val_L1.66_A0.33.h5')
+    # model = build_model(c, weights='weights_no_sim_img_False_t_2_cols.h5')
     model = build_model(c)
     weights_name_format = 'weights_no_sim_img_{}_t_{}_{}.h5'.format(c.is_images, c.tiles_per_dim, rows_or_cols)
     train = True

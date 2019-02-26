@@ -16,7 +16,7 @@ import numpy as np
 from conf import Conf
 import random
 import cv2
-from scipy import spatial  # TODO: add to dependencies
+from scipy import spatial
 
 
 def get_shapes(images):
@@ -84,6 +84,9 @@ def calc_cosine_sim_on_single_edge(pos_1, pos_2,
 
     image_1 = images[im_ix_1]
     image_2 = images[im_ix_2]
+    if image_1.shape != image_2.shape:  # TODO ! - put this at the bottom and make sure this would mean similarity = 0
+        image_1 = cv2.resize(image_1, (image_2.shape[1],image_2.shape[0]))
+
     if is_horizontal_neighbors:
         if pos_1[1] == pos_2[1] - 1: # 1 is left to 2
             edge_1 = image_1[:, -1] # right most column of pixels
@@ -177,22 +180,17 @@ def add_similarity_channel(processed_images, original_images, c, n_channels=None
 
     if random_shuffle:
         return final_images, indices
-    # zipped = zip(final_images, all_grayscale_tones)
-    # zipped = sorted(zipped, key=lambda x: x[1], reverse=True)  # sorting by grayscale tone
-    # zipped = [item[0] for item in zipped]
 
     return final_images
 
 
-def shredder_with_oods(raw_input_dir, c, output_dir):
+def shredder_with_oods(raw_input_dir, c, output_dir, add_t_OoDs=True):
     import os
     import shutil
 
     Xa = []
     Xb = []
     y = []
-
-    add_t_OoDs = True
 
     # raw_input_dir = "images/"
     if os.path.exists(output_dir):
@@ -204,25 +202,11 @@ def shredder_with_oods(raw_input_dir, c, output_dir):
         print("shredding for dictionary {}".format(c.data_split_dict))
         files_dict = load_obj(c.data_split_dict)
         files = files_dict
-    # files = [f for f in files if "n01440764_7267" in f]
     list_of_folders = []
-    # update this number for 4X4 crop 2X2 or 5X5 crops.
-    # tiles_per_dim = 4
-    # if data_type == 'train':
-    #     if 'image' in raw_input_dir:
-    #         print("shredding with crops for images")
-    #         crop_start_w = range(0, 46, 15)
-    #         crop_start_h = range(0, 46, 15)
-    #     else:
-    #         print("shredding with crops for docs")
-    #         crop_start_w = range(0, 91, 30)
-    #         crop_start_h = range(0, 91, 30)
-    #     reshape_options = [False]
-    # else:
+
     crop_start_w = [0]
     crop_start_h = [0]
     reshape_options = [False]
-
 
     crops_previous = []
     names_previous = []
@@ -252,13 +236,6 @@ def shredder_with_oods(raw_input_dir, c, output_dir):
                         null_img = np.zeros((c.max_size, c.max_size))
                         cv2.imwrite(folder_output_dir + names_previous[c_idx], null_img)
                     else:
-                        # if random.random() < 0.5:  # sometimes place at the top, sometimes at the bottom
-                        #     name = names_previous[c_idx]
-                        #     name_split = name.split('_')
-                        #     name_split[1] = '0'  # reducing image id to 0 so when sorted will appear first
-                        #     name = name_split[0]+'_' + name_split[1] + '_' + name_split[2]+'_'+name_split[3]
-                        #     cv2.imwrite(folder_output_dir + name, crops_previous[c_idx])
-                        # else:
                         cv2.imwrite(folder_output_dir+names_previous[c_idx], crops_previous[c_idx])
             else:
                 folder_output_dir_first_img = folder_output_dir  # first img has no "previous", will use last img later
@@ -266,16 +243,9 @@ def shredder_with_oods(raw_input_dir, c, output_dir):
         im = cv2.imread(raw_input_dir + f)
         im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
         original_height, original_width = im.shape[0], im.shape[1]
-        # augmentation - crop image  # TODO: remove this for ducments - probably easier due to white gap naturally present on page
-            # cv2.imshow("cropped", cropped)
 
         height = im.shape[0]
         width = im.shape[1]
-        # if original_height != height and original_width != width and reshape:
-        #     try:
-        #         im = cv2.resize(im,(original_height, original_width))
-        #     except:
-        #         continue
 
         frac_h = height // c.tiles_per_dim
         frac_w = width // c.tiles_per_dim
@@ -297,57 +267,6 @@ def shredder_with_oods(raw_input_dir, c, output_dir):
                 np.random.shuffle(idx)
                 for c_idx in idx[:c.tiles_per_dim]:
                     cv2.imwrite(folder_output_dir_first_img + names_previous[c_idx], crops_previous[c_idx])
-
-
-    # files_dict[data_type] = list_of_folders
-    # print(files_dict)
-    # save_obj(files_dict, c.data_split_dict)
-
-#
-# def split_into_train_val_test(dataset_folder, portion_train, portion_val, dict_name):
-#     # call the main split for all files
-#     train_test_val_dict = {}
-#     folders_original = os.listdir(dataset_folder)
-#     folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
-#     folders = [f for f in folders if 'DS_Store' not in f]
-#     np.random.shuffle(folders)
-#     num_folders = len(folders)
-#     stop_idx_train = int(num_folders*portion_train)
-#     stop_idx_val = stop_idx_train+int(num_folders*portion_val)
-#     train_folders = folders[:stop_idx_train]
-#     val_folders = folders[stop_idx_train : stop_idx_val]
-#     test_folders = folders[stop_idx_val :]
-#
-#     train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
-#     val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
-#     test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
-#
-#     train_test_val_dict['train'] = train_folders
-#     train_test_val_dict['val'] = val_folders
-#     train_test_val_dict['test'] = test_folders
-#     save_obj(train_test_val_dict, dict_name)
-
-
-# def split_into_train_val_test(dataset_folder, n_test, dict_name):
-#     train_test_val_dict = {}
-#     folders_original = os.listdir(dataset_folder)
-#     folders = list(set([folders_original[i].split('_cr')[0] for i in range(len(folders_original))]))
-#     folders = [f for f in folders if 'DS_Store' not in f]
-#     np.random.shuffle(folders)
-#     num_folders = len(folders)
-#     train_folders = folders[:-60]
-#     val_folders = folders[-60 : -30]
-#     test_folders = folders[-30 :]
-#
-#     train_folders = [f for f in folders_original if f.split('_cr')[0] in train_folders]
-#     val_folders = [f for f in folders_original if f.split('_cr')[0] in val_folders]
-#     test_folders = [f for f in folders_original if f.split('_cr')[0] in test_folders]
-#
-#     train_test_val_dict['train'] = train_folders
-#     train_test_val_dict['val'] = val_folders
-#     train_test_val_dict['test'] = test_folders
-#     save_obj(train_test_val_dict, dict_name)
-
 
 
 def save_obj(obj, name, directory=''):
@@ -377,23 +296,18 @@ def resize_image(image, max_size=None, resize_factor=None, simple_reshape=True):
         else:
             raise Exception("One, and only one, of max_size and resize_factor should be defined.")
 
-        # TODO: because of OoD as well as images being of different size, need to do zero pad now
-        # img = cv2.imread("img_src.jpg")
-        shape = im_resized.shape
         w = shape[1]
         h = shape[0]
         slack_w = max_size - w  # padding size w
         slack_h = max_size - h  # padding size h
-        # to avoid always padding img the same way, we randomly choose where img is located within the padding limits, also
-        # a means of data augmentation to increase train size. For test time this is not very important... TODO: verify (try running with reshaping image, no padding)
+
         import random
-        start_w = 0 #random.randint(0, slack_w)
+        start_w = 0
         end_w = start_w + w
-        start_h = 0 #random.randint(0, slack_h)
+        start_h = 0
         end_h = start_h + h
         base_size = max_size, max_size
         base = np.zeros(base_size, dtype=np.uint8)
-        # cv2.rectangle(base, (0, 0), (max_size, max_size), (255, 255))
         base[start_h:end_h, start_w:end_w] = im_resized
         im_resized = base
     return im_resized / 255.
@@ -408,14 +322,8 @@ def run_shredder(c):
         print("Already shredded for: isImg {} and n_tiles_per_dim {}".format(c.is_images, c.tiles_per_dim))
         return
     dict_name = c.data_split_dict
-    # if 'doc' in c.data_split_dict:
-    #     split_into_train_val_test('documents', 30, dict_name)
-    # else:
-    #     split_into_train_val_test('images', 30, dict_name)
     split_train_val_test('True' in c.data_split_dict,0.8,0.1)
-    # else:
     d = load_obj(dict_name)
-    # TODO: need this for multiple tile sizes, as well as for documents
 
     if 'False' in c.data_split_dict:
         shredder_with_oods("documents/", c, output_dir)
@@ -433,7 +341,6 @@ def shred_with_similarity_channel(isImg, tiles_per_dim, c, OUTPUT_DIR, add_sim=T
     else:
         IM_DIR = "documents/"
 
-    # OUTPUT_DIR = "dataset_rows_cols_{}_isImg_{}/".format(tiles_per_dim, isImg)
     if not os.path.exists(OUTPUT_DIR):
         os.mkdir(OUTPUT_DIR)
     else:
@@ -461,20 +368,14 @@ def shred_with_similarity_channel(isImg, tiles_per_dim, c, OUTPUT_DIR, add_sim=T
                 crop_names.append(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)))
                 i+=1
 
-        # print("before", crop_names)
         zipped = zip(crop_names,all_crops)
         result = sorted(zipped,key=lambda x: x[0])
         crop_names, all_crops = [item[0] for item in result], [item[1] for item in result]
-        # print("after", crop_names)
-        # print("before", all_crops)
-        # random.shuffle(all_crops)
-        # print("after", all_crops)
+
         if add_sim:
             all_crops = add_similarity_channel(all_crops, all_crops, c, only_sim=False, sim_on_side=True)
         i = 0
         for crop in all_crops:
-            # if not add_sim:
-            #     crop = np.resize(crop, (c.max_size, c.max_size)) # TODO; remove if using similarity channel
             cv2.imwrite(OUTPUT_DIR + f[:-4] + "_{}.jpg".format(str(i).zfill(2)), crop)
             i+=1
 
@@ -533,7 +434,6 @@ def get_relevant_files(data_type, c):
 
 
 def create_normalization_stats(c, rows_or_cols):
-    import glob
     if os.path.exists('mean_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)) and os.path.exists('std_{}_isImg_{}.pkl'.format(c.tiles_per_dim, c.is_images)):
         print("already calculated mean, std stats")
         return
@@ -590,20 +490,12 @@ def shred_for_img_vs_doc():
         IM_DIR = filedir
         OUTPUT_DIR_TRAIN= "img_vs_doc/"
         OUTPUT_DIR_TEST = "img_vs_doc_val/"
-        # if not os.path.exists(OUTPUT_DIR_TEST):
-        #     os.mkdir(OUTPUT_DIR_TEST)
-        # if not os.path.exists(OUTPUT_DIR_TRAIN):
-        #     os.mkdir(OUTPUT_DIR_TEST)
-        # if not os.path.exists(OUTPUT_DIR_TRAIN+sub_folder):
-        #     os.mkdir(OUTPUT_DIR_TRAIN+sub_folder)
-        # if not os.path.exists(OUTPUT_DIR_TEST+sub_folder):
-        #     os.mkdir(OUTPUT_DIR_TEST+sub_folder)
+
         files = np.array(os.listdir(IM_DIR))
         np.random.shuffle(files)
         files_train = files[:int(len(files)*0.8)]
         files_test = files[int(len(files) * 0.8):]
-        # update this number for 4X4 crop 2X2 or 5X5 crops.
-        # tiles_per_dim = 2
+
         for tiles_per_dim in [2,4,5]:
             for f in files:
                 if f in files_train:
@@ -962,133 +854,3 @@ def create_ood_non_ood_pairs(c):
                     shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
                     shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
                     folder_counter += 1
-
-# def create_ood_non_ood_pairs_OLD(c):
-#
-#     '''
-#     Creates two folders (two classes):
-#     0 - contains pairs that are from the same image
-#     1 - contains pairs that are not from the same image
-#     (The model will take as input two images, and will produce either 0 or 1)
-#     At prediction time, we will take the majority vote over the paris
-#     (e.g. if for image i all pairs (i,j) where j != i produced 1, then i is OoD)
-#     '''
-#     import shutil
-#     import glob
-#
-#     Xa = []
-#     Xb = []
-#     y = []
-#
-#     isImg = c.is_images
-#     base_name = "ood_isImg_{}".format(isImg)
-#     OUTPUT_DIR_TRAIN = base_name + "/"
-#     OUTPUT_DIR_VAL = base_name + "_val/"
-#     OUTPUT_DIR_TEST = base_name + "_test/"
-#
-#     if not os.path.exists(OUTPUT_DIR_TRAIN):
-#         os.mkdir(OUTPUT_DIR_TRAIN)
-#         os.mkdir(OUTPUT_DIR_VAL)
-#         os.mkdir(OUTPUT_DIR_TEST)
-#     else:
-#         print("folders already created.")
-#         return
-#
-#     files_train, files_val, files_test = split_train_val_test(isImg)
-#
-#     # for rows_or_cols in ["rows", "cols"]:
-#     IM_DIR = "dataset_for_ood_pairs_isImg_{}/".format(isImg)
-#
-#     folder_counter = 0
-#     for label in [0,1]:
-#         label = str(label)
-#         if not os.path.exists(OUTPUT_DIR_TRAIN + label):
-#             os.mkdir(OUTPUT_DIR_TRAIN + label)
-#             os.mkdir(OUTPUT_DIR_VAL + label)
-#             os.mkdir(OUTPUT_DIR_TEST + label)
-#     for tiles_per_dim in [2,4,5]:
-#         print(tiles_per_dim)
-#         for dataset in ["train", "val", "test"]:
-#             if dataset == "train":
-#                 dataset_files = files_train
-#                 OUTPUT_DIR = OUTPUT_DIR_TRAIN
-#             elif dataset == "val":
-#                 dataset_files = files_val
-#                 OUTPUT_DIR = OUTPUT_DIR_VAL
-#             else:
-#                 dataset_files = files_test
-#                 OUTPUT_DIR = OUTPUT_DIR_TEST
-#
-#             files_for_t = glob.glob(IM_DIR + '*t_{}*'.format(tiles_per_dim))
-#             np.random.shuffle(files_for_t)
-#             files_for_t = files_for_t[:4000]
-#             files_for_t = [f.split('/')[-1] for f in files_for_t]
-#
-#             if isImg:
-#                 files_for_t = [f for f in files_for_t if f.split('.')[0] + '.JPEG' in dataset_files]
-#                 image_ids = set([f.split('_')[1] for f in files_for_t])
-#             else:
-#                 files_for_t = [f for f in files_for_t if f.split('_')[0]+"_"+f.split('_')[1] + '.jpg' in dataset_files]
-#                 image_ids = set([f.split('_')[0]+'_'+f.split('_')[1] for f in files_for_t])
-#
-#             for im_id in image_ids:
-#                 tiles_in_distribution = []
-#                 tiles_ood = []
-#                 # get files in distribution and out of distribution given an image id (in = all tiles belonging to img)
-#                 for f in files_for_t:
-#                     if isImg:
-#                         f_im_id = f.split('_')[1]
-#                     else:
-#                         f_im_id = f.split('_')[0]+'_'+f.split('_')[1]
-#                     if im_id == f_im_id:  # tiles are from same image
-#                         tiles_in_distribution.append(f)
-#                     else:
-#                         tiles_ood.append(f)
-#
-#                 # create pairs in distribution and ood with even number in each class
-#                 # 1. in distribution:
-#                 count_pairs_per_class = 0
-#                 label = str(0)
-#                 for i in range(len(tiles_in_distribution)):
-#                     for j in range(i+1,len(tiles_in_distribution)):
-#                         f1 = tiles_in_distribution[i]
-#                         f2 = tiles_in_distribution[j]
-#                         combined_images = []
-#                         # print(f1, f2)
-#                         # for f in [f1, f2]:
-#                         #     im = cv2.imread(IM_DIR+f)
-#                         #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-#                         #     im = cv2.resize(im, (c.max_size, c.max_size))
-#                             # combined_images.append(im)
-#                         # combined_images = np.concatenate(combined_images, axis=1)
-#                         # cv2.imwrite(OUTPUT_DIR + label + "/"+str(folder_counter)+'.jpg', combined_images)
-#                         os.makedirs(OUTPUT_DIR +label+ '/'+ str(folder_counter))
-#                         shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
-#                         shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/"+ str(folder_counter) +"/")
-#                         count_pairs_per_class += 1
-#                         folder_counter += 1
-#                 # 2. ood:
-#                 label = str(1)
-#                 for i in range(count_pairs_per_class):
-#                     f1 = random.choice(tiles_ood)
-#                     f2 = random.choice(tiles_in_distribution)
-#                     combined_images = []
-#                     # print("o", f1, f2)
-#                     # for f in [f1, f2]:
-#                     #     im = cv2.imread(IM_DIR+f)
-#                     #     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-#                     #     im = cv2.resize(im, (c.max_size, c.max_size))
-#                         # combined_images.append(im)
-#                     # combined_images = np.concatenate(combined_images, axis=1)
-#                     # cv2.imwrite(OUTPUT_DIR + label + "/" + str(folder_counter) + '.jpg', combined_images)
-#                     os.makedirs(OUTPUT_DIR + label + '/' + str(folder_counter))
-#                     shutil.copy(IM_DIR + f1, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
-#                     shutil.copy(IM_DIR + f2, OUTPUT_DIR + label + "/" + str(folder_counter) + "/")
-#                     folder_counter += 1
-
-# split_train_val_test(True)
-# shred_for_ood_pairs(True)
-# c = Conf()
-# c.is_images = True
-# c.tiles_per_dim = 2
-# create_ood_non_ood_pairs(c)

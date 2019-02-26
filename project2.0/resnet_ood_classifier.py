@@ -145,7 +145,9 @@ def run(c):
     is_image = c.is_images
     SHAPE = c.max_size
 
-    resnet_rows_cols = build_model(c)#build_resnet_ood(SHAPE)
+    # from resnet_ood_pairs import *
+    # resnet_ood = build_resnet(c.max_size, c.tiles_per_dim)
+    resnet_ood = build_model(c)#build_resnet_ood(SHAPE)
 
     batch_size = 128
     path = "ood_isImg_{}".format(c.is_images)
@@ -155,12 +157,12 @@ def run(c):
 
     reduce_lr = keras.callbacks.ReduceLROnPlateau(patience=50, min_lr=0.00001)
 
-    resnet_rows_cols.compile(
+    resnet_ood.compile(
         loss='categorical_crossentropy',
         optimizer='adam',
         metrics=['accuracy']
     )
-    resnet_rows_cols.summary()
+    resnet_ood.summary()
 
     datagen_ood_train = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
     datagen_ood_Val = ImageDataGenerator(preprocessing_function=lambda x: x / 255.)#preprocessing_function=to_grayscale)
@@ -179,12 +181,12 @@ def run(c):
     # datagen.fit(X_train)
     # if os.path.exists('model_ood_pairs_isImg_{}.h5'.format(is_image)):
     #     print("found weights, loading and continuing to train.")
-    #     resnet_rows_cols.load_weights('model_ood_pairs_isImg_{}.h5'.format(is_image))
+    #     resnet_ood.load_weights('model_ood_pairs_isImg_{}.h5'.format(is_image))
     ckpt = keras.callbacks.ModelCheckpoint('model_ood_pairs_isImg_{}.h5'.format(is_image), monitor='val_loss',
                                     verbose=0, save_best_only=True, save_weights_only=True, mode='auto', period=1)
     early_stop = keras.callbacks.EarlyStopping('val_loss',min_delta=0.2,patience=10)
 
-    resnet_rows_cols_hist = resnet_rows_cols.fit_generator(
+    resnet_rows_cols_hist = resnet_ood.fit_generator(
         datagen_ood_train.flow_from_directory(path,
                                                target_size=(c.max_size, c.max_size),
                                                color_mode='grayscale',
@@ -199,7 +201,7 @@ def run(c):
                                                color_mode='grayscale'),
         callbacks=[reduce_lr, ckpt])#, early_stop])
 
-    # resnet_rows_cols.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
+    # resnet_ood.save_weights('model_{}_{}.h5'.format(rows_or_cols, tiles_per_dim))
 
 
 if __name__ == '__main__':

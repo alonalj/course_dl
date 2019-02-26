@@ -136,6 +136,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
         path = path + '_test'
     folders_two_class = os.listdir(path)
     train_len = len(glob.glob(path+'/0'+'/*'))
+
     for i in range(train_len // batch_size):
         X_batch = []
         y_batch = []
@@ -143,7 +144,7 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             label = class_folder
             original_images = []
             folders_in_class = glob.glob(path+'/'+class_folder+'/*')
-            np.random.shuffle(folders_in_class)  # random shuffle files in folders too  #TODO: evaluate uses sorted files... is this necessary?
+            np.random.shuffle(folders_in_class)  # random shuffle files in folders too
             for folder in folders_in_class[:batch_size//2]: # because of random shuffle above, will be different between yields
                 combined_images = []
                 labels = []
@@ -154,10 +155,10 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
                     im = cv2.imread(f)
                     im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
                     im = resize_image(im, max_size=c.max_size, simple_reshape=True)
-                    combined_images.append(im / 255.)
+                    combined_images.append(im)
                 # combined_images = np.concatenate(combined_images, axis=1)
                 # combined_images.resize(c.max_size, c.max_size)
-                combined_images = [combined_images]
+                # combined_images = [combined_images]
                 X_batch.append(np.array(combined_images))  # a folder is one single sample
                 # print(labels_in_folder)
                 folder_labels = to_categorical(labels, num_classes=2)
@@ -186,17 +187,85 @@ def data_generator(data_type, tiles_per_dim, data_split_dict, batch_size, c):
             # print(labels)
             yield combined_images, labels
 
+def get_steps(path, data_type,c):
+    import glob
+    if data_type == "train":
+        return len(glob.glob("ood_isImg_{}".format(c.is_images) + "/1/*")) * 2
+    return len(glob.glob("ood_isImg_{}_{}".format(c.is_images,data_type)+"/1/*"))*2
+
+
+def data_generator_simple(data_type, tiles_per_dim, data_split_dict, batch_size, c):
+    import random
+    import glob
+
+    path = "ood_isImg_{}".format(c.is_images)
+    if data_type == "val":
+        path = path+'_val'
+    if data_type == "test":
+        path = path + '_test'
+    folders_two_class = os.listdir(path)
+
+    n_steps = get_steps(path,data_type,c)
+
+    while True:
+        for i in range(n_steps // batch_size):
+            X_batch = []
+            y_batch = []
+            for class_folder in folders_two_class:
+                label = class_folder
+                files_in_class = glob.glob(path+'/'+class_folder+'/*')
+                np.random.shuffle(files_in_class)
+                for f in files_in_class[:batch_size//2]:
+
+                    im = cv2.imread(f)
+                    im = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+                    im = resize_image(im, max_size=32, simple_reshape=True)
+                    im = np.expand_dims(im, -1)
+                    X_batch.append(np.array(im))
+                    folder_labels = to_categorical(label, num_classes=2)
+                    y_batch.append(folder_labels)
+
+            zipped = list(zip(X_batch, y_batch))
+            random.shuffle(zipped)
+            X_batch, y_batch = zip(*zipped)
+
+            yield np.array(X_batch), np.array(y_batch)
+
+
+def build_model_simple(c, weights=False):
+    from keras.applications.resnet50 import ResNet50
+    resnet_rows_cols = ResNet50(
+        include_top=False, weights=None, input_tensor=None, input_shape=(32, 32, 1),
+        pooling=None, classes=2)
+    # Add final layers
+    x = resnet_rows_cols.output
+    x = Flatten()(x)
+    predictions = Dense(2, activation='softmax', name='fc1000',kernel_regularizer=keras.regularizers.l2(0.0001))(x)
+
+    # This is the model we will train
+    model = Model(inputs=resnet_rows_cols.input, outputs=predictions)
+
+    # sgd = optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True, decay=0.00000001)
+    adam = optimizers.adam(lr=0.0001)
+    model.compile(
+        loss='categorical_crossentropy',
+        optimizer=adam,
+        metrics=['accuracy']
+    )
+    if weights:
+        model.load_weights(weights)
+    return model
 
 def run(c):
 
-    batch_size = 128
-    c.max_size = 64
-    # adam = optimizers.Adam()
-    if c.n_tiles_per_sample > 6:
-        batch_size = 50
-    if c.n_tiles_per_sample > 20:
-        batch_size = 32
-        # adam = optimizers.Adam(0.0001)
+    batch_size = 32
+    c.max_size = 32
+    # # adam = optimizers.Adam()
+    # if c.n_tiles_per_sample > 6:
+    #     batch_size = 50
+    # if c.n_tiles_per_sample > 20:
+    #     batch_size = 32
+    #     # adam = optimizers.Adam(0.0001)
 
     maxepoches = 800
     # learning_rate = 0.1
@@ -209,94 +278,128 @@ def run(c):
     # for i in range(2):
     #     print(dgen.__next__()[1])
 
-    resnet = build_resnet(c.max_size, c.n_tiles_per_sample, c.n_classes)
+    resnet = build_model_simple(c)
 
     # reduce_lr = keras.callbacks.LearningRateScheduler(lr_scheduler)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(verbose=True,patience=20)
+    ckpt = keras.callbacks.ModelCheckpoint('ood_weights','val_acc')
     # sgd = optimizers.SGD(lr=0.1, momentum=0.9, nesterov=True)
-    adam = keras.optimizers.adam(lr=0.0001)
-    resnet.compile(
-        loss='categorical_crossentropy',
-        optimizer=adam,  # switch to adam later
-        metrics=['accuracy']
-    )
+    # adam = keras.optimizers.adam(lr=0.0000001)
+    # resnet.compile(
+    #     loss='categorical_crossentropy',
+    #     optimizer=adam,
+    #     metrics=['accuracy']
+    # )
     resnet.summary()
     # save_model(resnet, "test_m.h5")
-
-    no_improvement_tolerance = 10000
-    no_improvement_counter = 0
-    val_steps_max = 0
-    best_avg_acc_val = 0
-    best_total_loss = np.inf
-
-    for e in range(maxepoches):
-        print("Epoch {}".format(e))
-        train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
-        step = 0
-        for X_batch, y_batch in train_generator:
-            # print(X_batch.shape)
-            # print(y_batch.shape)
-            hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
-            print("TRAIN STATS:", hist)
-            preds = resnet.predict_on_batch(X_batch)
-
-            if step % 5 == 0:
-                print("hist", hist)
-            if step % 100 == 0:
-                step += 1
-                preds = np.array(preds)
-                y = np.array(y_batch)
-                # print(preds)
-                # print(preds - y)
-                # assert preds.shape == y.shape
+    import glob
+    train_generator = data_generator_simple("train", c.tiles_per_dim, c.data_split_dict, batch_size,c)
+    val_generator = data_generator_simple("val", c.tiles_per_dim, c.data_split_dict, batch_size,c)
+    train_steps = len(glob.glob("ood_isImg_{}".format(c.is_images)+"/1/*"))*2 // batch_size
 
 
-                # Validating at end of epoch
-                print("VALIDATING")
-                val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
-                current_acc = []
-                for X_batch_val, y_batch_val in val_generator:
-                    hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
-                    current_acc.append(hist_val[-1])
-                current_avg_acc = np.mean(current_acc)
-                if current_avg_acc > best_avg_acc_val:
-                    resnet.save_weights(
-                        'ood_resnet_maxSize_isImg_{}_L_{}.h5'.format(c.max_size,   current_avg_acc))
+    # test_datagen = ImageDataGenerator(rescale=1. / 255)
 
+    # train_generator = train_datagen.flow_from_directory(
+    #     'ood_isImg_{}'.format(c.is_images),
+    #     target_size=(32, 32),
+    #     batch_size=32,
+    #     color_mode='grayscale')
 
-                    print("val hist", hist_val)
-                    best_avg_acc_val = current_avg_acc
-                    print("best avg acc val: {}".format(best_avg_acc_val))
-                    no_improvement_counter = 0  # reset
-                else:
-                    no_improvement_counter += 1
-                # # saving train ckpt
-                # resnet.save_weights(
-                #     'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
-                #                                                                                                c.tiles_per_dim,
-                #                                                                                                c.n_tiles_per_sample,
-                #                                                                                                c.is_images,
-                #                                                                                                c.mID,
-                #                                                                                                str(
-                #                                                                                                    hist[0])))
+    # val_generator = test_datagen.flow_from_directory(
+    #     'ood_isImg_{}_val'.format(c.is_images),
+    #     target_size=(32, 32),
+    #     batch_size=32,
+    #     color_mode='grayscale')
 
-                print("acc", current_avg_acc)
-                val_steps_max += 1
+    resnet.fit_generator(
+        train_generator,
+        steps_per_epoch=train_steps,
+        epochs=50,
+        validation_data=val_generator,
+        validation_steps=2,callbacks=[reduce_lr, ckpt])
 
-                if no_improvement_counter >= no_improvement_tolerance:
-                    print("No improvement for {} validation steps. Stopping.".format(no_improvement_tolerance))
-                    return
-
-                # if val_steps_max == 5:
-                #     print("Finished validating on {} batches".format(val_steps_max))
-                #     break
-                # callbacks=[reduce_lr])
-
-            # resnet_cifar_10_history = resnet.fit_generator(train_generator,
-            #                                                steps_per_epoch=n_samples_train // batch_size,
-            #                                                epochs=maxepoches,
-            #                                                validation_data=val_generator, validation_steps=1)#,
-            #                                                # callbacks=[reduce_lr])
-
+    # no_improvement_tolerance = 10000
+    # no_improvement_counter = 0
+    # val_steps_max = 0
+    # best_avg_acc_val = 0
+    # best_total_loss = np.inf
+    # val_steps = 2
+    # val_steps_counter = 0
+    #
+    # for e in range(maxepoches):
+    #     print("Epoch {}".format(e))
+    #     train_generator = data_generator("train", c.tiles_per_dim, c.data_split_dict, batch_size, c)
+    #     step = 0
+    #     for X_batch, y_batch in train_generator:
+    #         # print(X_batch.shape)
+    #         # print(y_batch.shape)
+    #         print(y_batch)
+    #         hist = resnet.train_on_batch(X_batch, y_batch)  # , batch_size, epochs=maxepoches)
+    #         print("TRAIN STATS:", hist)
+    #         preds = resnet.predict_on_batch(X_batch)
+    #
+    #         if step % 5 == 0:
+    #             print("hist", hist)
+    #         if step % 100 == 0:
+    #             step += 1
+    #             preds = np.array(preds)
+    #             y = np.array(y_batch)
+    #             print(preds)
+    #             # print(preds - y)
+    #             # assert preds.shape == y.shape
+    #
+    #
+    #     # Validating at end of epoch
+    #     print("VALIDATING")
+    #     val_generator = data_generator("val", c.tiles_per_dim, c.data_split_dict, batch_size, c)
+    #     current_acc = []
+    #     for X_batch_val, y_batch_val in val_generator:
+    #         hist_val = resnet.test_on_batch(X_batch_val, y_batch_val)
+    #         current_acc.append(hist_val[-1])
+    #         val_steps_counter += 1
+    #         if val_steps_counter == val_steps:
+    #             break
+    #     current_avg_acc = np.mean(current_acc)
+    #     if current_avg_acc > best_avg_acc_val:
+    #         resnet.save_weights(
+    #             'ood_resnet_maxSize_isImg_{}_L_{}.h5'.format(c.max_size,   current_avg_acc))
+    #
+    #
+    #         print("val hist", hist_val)
+    #         best_avg_acc_val = current_avg_acc
+    #         print("best avg acc val: {}".format(best_avg_acc_val))
+    #         no_improvement_counter = 0  # reset
+    #     else:
+    #         no_improvement_counter += 1
+    #     # # saving train ckpt
+    #     # resnet.save_weights(
+    #     #     'train_resnet_maxSize_{}_tilesPerDim_{}_nTilesPerSample_{}_isImg_{}_mID_{}_L_{}.h5'.format(c.max_size,
+    #     #                                                                                                c.tiles_per_dim,
+    #     #                                                                                                c.n_tiles_per_sample,
+    #     #                                                                                                c.is_images,
+    #     #                                                                                                c.mID,
+    #     #                                                                                                str(
+    #     #                                                                                                    hist[0])))
+    #
+    #     print("acc", current_avg_acc)
+    #     val_steps_max += 1
+    #
+    #     if no_improvement_counter >= no_improvement_tolerance:
+    #         print("No improvement for {} validation steps. Stopping.".format(no_improvement_tolerance))
+    #         return
+    #
+    #         # if val_steps_max == 5:
+    #         #     print("Finished validating on {} batches".format(val_steps_max))
+    #         #     break
+    #         # callbacks=[reduce_lr])
+    #
+    #     # resnet_cifar_10_history = resnet.fit_generator(train_generator,
+    #     #                                                steps_per_epoch=n_samples_train // batch_size,
+    #     #                                                epochs=maxepoches,
+    #     #                                                validation_data=val_generator, validation_steps=1)#,
+    #     #                                                # callbacks=[reduce_lr])
+    #
 
 if __name__ == '__main__':
     c = Conf()

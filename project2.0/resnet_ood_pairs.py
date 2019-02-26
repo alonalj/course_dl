@@ -180,4 +180,58 @@ def build_resnet(max_size, n_tiles_per_sample, n_classes):
     x = Dense(10, activation='relu')(x)
     x = Dense(2, activation='softmax')(x)
 
-    return Model(inputs=[x_in_1, x_in_2], outputs=x)
+    return Model(inputs=[x_in_1, x_in_2], outputs=[x])
+
+
+def single_resnet(c):
+    from keras.applications.resnet50 import ResNet50
+
+    resnet_rows_cols = ResNet50(
+        include_top=False, weights=None, input_tensor=None, input_shape=(c.max_size, c.max_size, 1),
+        pooling=None, classes=c.tiles_per_dim)
+    # Add final layers
+    x = resnet_rows_cols.output
+    x = Flatten()(x)
+
+    return Model(inputs=resnet_rows_cols.input, outputs=x)
+
+def build_resnet(c, weights=False):
+
+    # predictions = Dense(c.tiles_per_dim, activation='softmax', name='fc1000',kernel_regularizer=keras.regularizers.l2(0.0001))(x)
+
+    # This is the model we will train
+    # model = Model(inputs=resnet_rows_cols.input, outputs=x)
+    # model = single_resnet(c)
+    x_in_1 = keras.layers.Input(shape=(c.max_size, c.max_size, 1), name="in_1")
+    x_in_2 = keras.layers.Input(shape=(c.max_size, c.max_size, 1), name="in_2")
+
+    r = single_resnet(c)
+
+    x_out_1 = r(x_in_1)
+    x_out_2 = r(x_in_2)
+
+    concat = keras.layers.concatenate([x_out_1, x_out_2])
+    x = Dense(200, activation='relu')(concat)
+    x = Dense(100, activation='relu')(x)
+    x = Dense(100, activation='relu')(x)
+    x = Dense(100, activation='relu')(x)
+    x = Dense(10, activation='relu')(x)
+    x = Dense(2, activation='softmax')(x)
+
+    model = Model(inputs=[x_in_1, x_in_2], outputs=[x])
+
+    from keras import optimizers
+
+    sgd = optimizers.SGD(lr=0.0000001, momentum=0.9, nesterov=True, decay=0.0001)
+    # adam = optimizers.adam(lr=0.0001)
+    model.compile(
+        loss='categorical_crossentropy',
+        optimizer=sgd,
+        metrics=['accuracy']
+    )
+    # if weights:
+    #     d = load_obj(weights)
+    #     for l_ix in range(len(model.layers)):
+    #         model.layers[l_ix].set_weights(d[l_ix])
+    #     print("loaded weights")
+    return model
